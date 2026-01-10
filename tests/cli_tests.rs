@@ -78,36 +78,20 @@ fn test_build_project() {
 fn test_generate_project() {
     let temp_dir = tempfile::tempdir().unwrap();
     let project_name = "gen_project";
-
-    let mut cmd = Command::cargo_bin("comline").unwrap();
-    cmd.current_dir(&temp_dir)
-        .arg("new")
-        .arg(project_name)
-        .assert()
-        .success();
-
     let project_path = temp_dir.path().join(project_name);
-    let idp_path = project_path.join("config.idp");
 
-    // Append code generation config
-    use std::fs::OpenOptions;
-    use std::io::Write;
+    // Copy fixture instead of creating new
+    let fixture_path = std::env::current_dir()
+        .unwrap()
+        .join("tests/fixtures/simple_project");
 
-    let mut file = OpenOptions::new()
-        .write(true)
-        .append(true)
-        .open(&idp_path)
-        .unwrap();
-
-    writeln!(
-        file,
-        "\ncode_generation = {{
-    languages = {{
-        rust#1.70.0 = {{ package_versions=[all] }}
-    }}
-}}"
-    )
-    .unwrap();
+    // Simple recursive copy for Linux/Unix
+    std::process::Command::new("cp")
+        .arg("-r")
+        .arg(&fixture_path)
+        .arg(&project_path)
+        .status()
+        .expect("Failed to copy fixture");
 
     let mut cmd_gen = Command::cargo_bin("comline").unwrap();
     cmd_gen
