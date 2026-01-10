@@ -1,0 +1,21 @@
+[package]
+name = "comline"
+version = "0.1.0"
+edition = "2021"
+license-file = "LICENSE"
+repository = "https://github.com/ComlineProject/comline"
+description = "A project in the works, patiently"
+
+
+[dependencies]
+clap = { version = "4.5.4", features = ["derive", "cargo"] }
+miette = { version = "7.2.0", features = ["fancy"] }
+tokio = { version = "1.37.0", features = ["full"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "fmt"] }
+comline-core = { git = "https://github.com/ComlineProject/core" }
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"
+tempfile = "3.10"
