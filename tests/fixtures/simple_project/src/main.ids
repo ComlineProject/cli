@@ -5,4 +5,10 @@ enum TestEnum {
 
 struct TestStruct {
     a: TestEnum
+    b: string
+}
+
+enum AnotherEnum {
+    X
+    Y
 }

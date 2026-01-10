@@ -8,6 +8,84 @@ use std::fs;
 use tracing::{error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+/// Display schema changes in a user-friendly format
+fn display_schema_changes(changes: &comline_core::schema::ir::diff::SchemaChanges) {
+    use comline_core::schema::ir::diff::{BreakingChange, NewFeature, Modification};
+    
+    // Display breaking changes
+    if !changes.breaking_changes.is_empty() {
+        warn!("🔴 Breaking changes ({}):", changes.breaking_changes.len());
+        for change in &changes.breaking_changes {
+            match change {
+                BreakingChange::RemovedStruct { name } => {
+                    warn!("  ❌ Removed struct `{}`", name);
+                }
+                BreakingChange::RemovedEnum { name } => {
+                    warn!("  ❌ Removed enum `{}`", name);
+                }
+                BreakingChange::RemovedField { type_name, field_name } => {
+                    warn!("  ❌ Removed field `{}.{}`", type_name, field_name);
+                }
+                BreakingChange::ChangedFieldType { type_name, field_name, old_type, new_type } => {
+                    warn!("  🔄 Changed `{}.{}`: {} → {}", type_name, field_name, old_type, new_type);
+                }
+                BreakingChange::RemovedEnumVariant { enum_name, variant } => {
+                    warn!("  ❌ Removed `{}::{}`", enum_name, variant);
+                }
+                BreakingChange::RemovedFunction { protocol_name, function_name } => {
+                    warn!("  ❌ Removed function `{}.{}`", protocol_name, function_name);
+                }
+                BreakingChange::ChangedFunctionSignature { protocol_name, function_name, details } => {
+                    warn!("  🔄 Changed signature of `{}.{}`: {}", protocol_name, function_name, details);
+                }
+                BreakingChange::RemovedProtocol { name } => {
+                    warn!("  ❌ Removed protocol `{}`", name);
+                }
+            }
+        }
+    }
+    
+    // Display new features
+    if !changes.new_features.is_empty() {
+        info!("🟢 New features ({}):", changes.new_features.len());
+        for feature in &changes.new_features {
+            match feature {
+                NewFeature::AddedStruct { name, field_count } => {
+                    info!("  ➕ Added struct `{}` ({} fields)", name, field_count);
+                }
+                NewFeature::AddedEnum { name, variant_count } => {
+                    info!("  ➕ Added enum `{}` ({} variants)", name, variant_count);
+                }
+                NewFeature::AddedField { type_name, field_name, field_type, optional } => {
+                    let opt_marker = if *optional { " (optional)" } else { "" };
+                    info!("  ➕ Added field `{}.{}`: {}{}", type_name, field_name, field_type, opt_marker);
+                }
+                NewFeature::AddedEnumVariant { enum_name, variant } => {
+                    info!("  ➕ Added variant `{}::{}`", enum_name, variant);
+                }
+                NewFeature::AddedFunction { protocol_name, function_name, signature } => {
+                    info!("  ➕ Added function `{}.{}`: {}", protocol_name, function_name, signature);
+                }
+                NewFeature::AddedProtocol { name, function_count } => {
+                    info!("  ➕ Added protocol `{}` ({} functions)", name, function_count);
+                }
+            }
+        }
+    }
+    
+    // Display modifications
+    if !changes.modifications.is_empty() {
+        info!("🔵 Modifications ({}):", changes.modifications.len());
+        for modification in &changes.modifications {
+            match modification {
+                Modification::FieldMadeOptional { type_name, field_name } => {
+                    info!("  🔧 Made field `{}.{}` optional", type_name, field_name);
+                }
+            }
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::registry()
@@ -35,9 +113,38 @@ async fn main() -> Result<()> {
             }
 
             match comline_core::package::build::build(&work_dir) {
-                Ok(_) => {
-                    info!("Project built successfully!");
-                    // Code generation logic has been moved to `generate` command
+                Ok(build_result) => {
+                    info!("✅ Project built successfully!");
+                    
+                    // Display version information
+                    if build_result.is_initial_build() {
+                        info!("📦 Initial version: {}", build_result.current_version);
+                    } else if let Some(version_change) = build_result.version_change() {
+                        info!("📦 Version: {}", version_change);
+                    }
+                    
+                    // Display schema changes if any
+                    if let Some(changes) = &build_result.schema_changes {
+                        if !changes.is_empty() {
+                            display_schema_changes(changes);
+                            
+                            // Display version bump type
+                            match build_result.version_bump {
+                                comline_core::package::build::VersionBump::Major => {
+                                    warn!("⬆️  Major version bump applied (breaking changes)");
+                                },
+                                comline_core::package::build::VersionBump::Minor => {
+                                    info!("⬆️  Minor version bump applied (new features)");
+                                },
+                                comline_core::package::build::VersionBump::Patch => {
+                                    info!("⬆️  Patch version bump applied (modifications)");
+                                },
+                                comline_core::package::build::VersionBump::None => {
+                                    info!("No version bump (no changes)");
+                                }
+                            }
+                        }
+                    }
                 }
                 Err(e) => {
                     error!("Build failed: {:?}", e);
