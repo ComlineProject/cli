@@ -1,6 +1,7 @@
 enum TestEnum {
     A
     B
+    C
 }
 
 struct TestStruct {

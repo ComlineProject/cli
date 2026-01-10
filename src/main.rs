@@ -116,33 +116,43 @@ async fn main() -> Result<()> {
                 Ok(build_result) => {
                     info!("✅ Project built successfully!");
                     
-                    // Display version information
+                    // Display version information only if there are changes
                     if build_result.is_initial_build() {
                         info!("📦 Initial version: {}", build_result.current_version);
-                    } else if let Some(version_change) = build_result.version_change() {
-                        info!("📦 Version: {}", version_change);
-                    }
-                    
-                    // Display schema changes if any
-                    if let Some(changes) = &build_result.schema_changes {
-                        if !changes.is_empty() {
-                            display_schema_changes(changes);
+                    } else {
+                        // Check if there are actual schema changes
+                        let has_changes = build_result.schema_changes
+                            .as_ref()
+                            .map(|changes| !changes.is_empty())
+                            .unwrap_or(false);
+                        
+                        if has_changes {
+                            if let Some(version_change) = build_result.version_change() {
+                                info!("📦 Version: {}", version_change);
+                            }
                             
-                            // Display version bump type
-                            match build_result.version_bump {
-                                comline_core::package::build::VersionBump::Major => {
-                                    warn!("⬆️  Major version bump applied (breaking changes)");
-                                },
-                                comline_core::package::build::VersionBump::Minor => {
-                                    info!("⬆️  Minor version bump applied (new features)");
-                                },
-                                comline_core::package::build::VersionBump::Patch => {
-                                    info!("⬆️  Patch version bump applied (modifications)");
-                                },
-                                comline_core::package::build::VersionBump::None => {
-                                    info!("No version bump (no changes)");
+                            // Display schema changes
+                            if let Some(changes) = &build_result.schema_changes {
+                                display_schema_changes(changes);
+                                
+                                // Display version bump type
+                                match build_result.version_bump {
+                                    comline_core::package::build::VersionBump::Major => {
+                                        warn!("⬆️  Major version bump applied (breaking changes)");
+                                    },
+                                    comline_core::package::build::VersionBump::Minor => {
+                                        info!("⬆️  Minor version bump applied (new features)");
+                                    },
+                                    comline_core::package::build::VersionBump::Patch => {
+                                        info!("⬆️  Patch version bump applied (modifications)");
+                                    },
+                                    comline_core::package::build::VersionBump::None => {
+                                        info!("No version bump (no changes)");
+                                    }
                                 }
                             }
+                        } else {
+                            info!("📦 Version: {} (no changes)", build_result.current_version);
                         }
                     }
                 }
