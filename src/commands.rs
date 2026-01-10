@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
-#[command(name = "comline", version, about = "The Comline Programming Language CLI", long_about = None)]
+#[command(name = "comline", version, about = "Comline CLI", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,

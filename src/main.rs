@@ -6,7 +6,7 @@ use miette::{Context, IntoDiagnostic, Result};
 use std::env;
 use std::fs;
 use std::path::Path;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -32,9 +32,46 @@ async fn main() -> Result<()> {
             }
 
             match comline_core::package::build::build(&current_dir) {
-                Ok(_ctx) => {
+                Ok(ctx) => {
                     info!("Project built successfully!");
-                    // TODO: Implement code generation output if not handled by core
+                    
+                    if let Some(frozen_config) = &ctx.config_frozen {
+                        for unit in frozen_config {
+                            if let comline_core::package::config::ir::frozen::FrozenUnit::CodeGeneration(gen) = unit {
+                                let lang_name_ver = &gen.name;
+                                let parts: Vec<&str> = lang_name_ver.split('#').collect();
+                                if parts.len() != 2 {
+                                    warn!("Skipping invalid language specifier: {}", lang_name_ver);
+                                    continue;
+                                }
+                                let lang = parts[0];
+                                let version = parts[1];
+
+                                if let Some((generator, ext)) = comline_core::codelib_gen::find_generator(lang, version) {
+                                    info!("Generating {} code...", lang);
+                                    for schema_ctx in &ctx.schema_contexts {
+                                        let schema_ctx = schema_ctx.borrow();
+                                        // Clone the units to avoid borrowing issues with RefCell
+                                        let frozen_units_opt = schema_ctx.frozen_schema.borrow().clone();
+                                        
+                                        if let Some(frozen_units) = frozen_units_opt {
+                                            let output = generator(&frozen_units);
+                                            // Assuming simple file naming strategy for now
+                                            let file_name = format!("{}.{}", schema_ctx.namespace_joined(), ext);
+                                            let file_path = current_dir.join(&file_name);
+                                            if let Err(e) = fs::write(&file_path, output) {
+                                                    error!("Failed to write generated file {}: {:?}", file_name, e);
+                                            } else {
+                                                    info!("Generated {}", file_name);
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    warn!("No generator found for {} version {}", lang, version);
+                                }
+                            }
+                        }
+                    }
                 }
                 Err(e) => {
                     error!("Build failed: {:?}", e);
