@@ -1,8 +1,13 @@
 use clap::{Parser, Subcommand};
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(name = "comline", version, about = "Comline CLI", long_about = None)]
 pub struct Cli {
+    /// Optional working directory
+    #[arg(short, long, global = true)]
+    pub path: Option<PathBuf>,
+
     #[command(subcommand)]
     pub command: Commands,
 }

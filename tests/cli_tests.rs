@@ -115,3 +115,32 @@ fn test_check_fail_no_config() {
             "Comline project (missing config.idp)",
         ));
 }
+
+#[test]
+fn test_custom_path() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let project_name = "path_test_project";
+    let project_path = temp_dir.path().join(project_name);
+
+    // Copy fixture
+    let fixture_path = std::env::current_dir()
+        .unwrap()
+        .join("tests/fixtures/simple_project");
+
+    std::process::Command::new("cp")
+        .arg("-r")
+        .arg(&fixture_path)
+        .arg(&project_path)
+        .status()
+        .expect("Failed to copy fixture");
+
+    // Run check from a neutral directory (temp_dir root), pointing to the project
+    let mut cmd = Command::cargo_bin("comline").unwrap();
+    cmd.current_dir(&temp_dir)
+        .arg("--path")
+        .arg(&project_path)
+        .arg("check")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Check passed!"));
+}

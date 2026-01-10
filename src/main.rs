@@ -5,7 +5,6 @@ use commands::{Cli, Commands};
 use miette::{Context, IntoDiagnostic, Result};
 use std::env;
 use std::fs;
-use std::path::Path;
 use tracing::{error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -20,18 +19,22 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
+    let work_dir = match cli.path {
+        Some(p) => p,
+        None => env::current_dir()
+            .into_diagnostic()
+            .wrap_err("Failed to get current directory")?,
+    };
+
     match &cli.command {
         Commands::Build { release } => {
             info!("Building project... Release mode: {}", release);
-            let current_dir = env::current_dir()
-                .into_diagnostic()
-                .wrap_err("Failed to get current directory")?;
-
-            if !comline_core::package::config::is_package_path(&current_dir) {
+            
+            if !comline_core::package::config::is_package_path(&work_dir) {
                 miette::bail!("Current directory is not a Comline project (missing config.idp)");
             }
 
-            match comline_core::package::build::build(&current_dir) {
+            match comline_core::package::build::build(&work_dir) {
                 Ok(_) => {
                     info!("Project built successfully!");
                     // Code generation logic has been moved to `generate` command
@@ -44,17 +47,14 @@ async fn main() -> Result<()> {
         }
         Commands::Generate => {
              info!("Generating code...");
-             let current_dir = env::current_dir()
-                .into_diagnostic()
-                .wrap_err("Failed to get current directory")?;
 
-            if !comline_core::package::config::is_package_path(&current_dir) {
+            if !comline_core::package::config::is_package_path(&work_dir) {
                 miette::bail!("Current directory is not a Comline project (missing config.idp)");
             }
 
-            match comline_core::package::build::build(&current_dir) {
-                Ok(ctx) => {
-                     if let Some(frozen_config) = &ctx.config_frozen {
+            match comline_core::package::build::build(&work_dir) {
+                Ok(build_result) => {
+                     if let Some(frozen_config) = &build_result.context.config_frozen {
                         for unit in frozen_config {
                             if let comline_core::package::config::ir::frozen::FrozenUnit::CodeGeneration(gen) = unit {
                                 let lang_name_ver = &gen.name;
@@ -68,7 +68,7 @@ async fn main() -> Result<()> {
 
                                 if let Some((generator, ext)) = comline_core::codelib_gen::find_generator(lang, version) {
                                     info!("Generating {} code...", lang);
-                                    for schema_ctx in &ctx.schema_contexts {
+                                    for schema_ctx in &build_result.context.schema_contexts {
                                         let schema_ctx = schema_ctx.borrow();
                                         // Clone the units to avoid borrowing issues with RefCell
                                         let frozen_units_opt = schema_ctx.frozen_schema.borrow().clone();
@@ -77,7 +77,7 @@ async fn main() -> Result<()> {
                                             let output = generator(&frozen_units);
                                             // Assuming simple file naming strategy for now
                                             let file_name = format!("{}.{}", schema_ctx.namespace_joined(), ext);
-                                            let file_path = current_dir.join(&file_name);
+                                            let file_path = work_dir.join(&file_name);
                                             if let Err(e) = fs::write(&file_path, output) {
                                                     error!("Failed to write generated file {}: {:?}", file_name, e);
                                             } else {
@@ -101,16 +101,13 @@ async fn main() -> Result<()> {
         }
         Commands::Check => {
             info!("Checking project...");
-            let current_dir = env::current_dir()
-                .into_diagnostic()
-                .wrap_err("Failed to get current directory")?;
 
-            if !comline_core::package::config::is_package_path(&current_dir) {
+            if !comline_core::package::config::is_package_path(&work_dir) {
                 miette::bail!("Current directory is not a Comline project (missing config.idp)");
             }
 
             // Using build() for check as well for now as it performs full validation
-            match comline_core::package::build::build(&current_dir) {
+            match comline_core::package::build::build(&work_dir) {
                 Ok(_) => info!("Check passed!"),
                 Err(e) => {
                     error!("Check failed: {:?}", e);
@@ -120,11 +117,11 @@ async fn main() -> Result<()> {
         }
         Commands::New { name } => {
             info!("Creating new project: {}", name);
-            let path = Path::new(name);
+            let path = work_dir.join(name);
             if path.exists() {
                 miette::bail!("Directory '{}' already exists", name);
             }
-            fs::create_dir_all(path)
+            fs::create_dir_all(&path)
                 .into_diagnostic()
                 .wrap_err("Failed to create project directory")?;
 
