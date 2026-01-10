@@ -17,6 +17,8 @@ pub enum Commands {
     },
     /// Check the current project for errors
     Check,
+    /// Compiles the current project and generates code
+    Generate,
     /// Create a new Comline project
     New {
         /// The name of the project

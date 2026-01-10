@@ -75,6 +75,50 @@ fn test_build_project() {
 }
 
 #[test]
+fn test_generate_project() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let project_name = "gen_project";
+
+    let mut cmd = Command::cargo_bin("comline").unwrap();
+    cmd.current_dir(&temp_dir)
+        .arg("new")
+        .arg(project_name)
+        .assert()
+        .success();
+
+    let project_path = temp_dir.path().join(project_name);
+    let idp_path = project_path.join("config.idp");
+
+    // Append code generation config
+    use std::fs::OpenOptions;
+    use std::io::Write;
+
+    let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .open(&idp_path)
+        .unwrap();
+
+    writeln!(
+        file,
+        "\ncode_generation = {{
+    languages = {{
+        rust#1.70.0 = {{ package_versions=[all] }}
+    }}
+}}"
+    )
+    .unwrap();
+
+    let mut cmd_gen = Command::cargo_bin("comline").unwrap();
+    cmd_gen
+        .current_dir(&project_path)
+        .arg("generate")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Code generation complete!"));
+}
+
+#[test]
 fn test_check_fail_no_config() {
     let temp_dir = tempfile::tempdir().unwrap();
 

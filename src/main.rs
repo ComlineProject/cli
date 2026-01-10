@@ -32,10 +32,29 @@ async fn main() -> Result<()> {
             }
 
             match comline_core::package::build::build(&current_dir) {
-                Ok(ctx) => {
+                Ok(_) => {
                     info!("Project built successfully!");
-                    
-                    if let Some(frozen_config) = &ctx.config_frozen {
+                    // Code generation logic has been moved to `generate` command
+                }
+                Err(e) => {
+                    error!("Build failed: {:?}", e);
+                    return Err(miette::miette!("Build failed: {:?}", e));
+                }
+            }
+        }
+        Commands::Generate => {
+             info!("Generating code...");
+             let current_dir = env::current_dir()
+                .into_diagnostic()
+                .wrap_err("Failed to get current directory")?;
+
+            if !comline_core::package::config::is_package_path(&current_dir) {
+                miette::bail!("Current directory is not a Comline project (missing config.idp)");
+            }
+
+            match comline_core::package::build::build(&current_dir) {
+                Ok(ctx) => {
+                     if let Some(frozen_config) = &ctx.config_frozen {
                         for unit in frozen_config {
                             if let comline_core::package::config::ir::frozen::FrozenUnit::CodeGeneration(gen) = unit {
                                 let lang_name_ver = &gen.name;
@@ -72,10 +91,11 @@ async fn main() -> Result<()> {
                             }
                         }
                     }
+                    info!("Code generation complete!");
                 }
                 Err(e) => {
-                    error!("Build failed: {:?}", e);
-                    return Err(miette::miette!("Build failed: {:?}", e));
+                    error!("Code generation failed: {:?}", e);
+                    return Err(miette::miette!("Code generation failed: {:?}", e));
                 }
             }
         }
