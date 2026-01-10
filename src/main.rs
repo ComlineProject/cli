@@ -88,14 +88,21 @@ fn display_schema_changes(changes: &comline_core::schema::ir::diff::SchemaChange
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let cli = Cli::parse();
+    
+    // Set log level based on verbosity
+    let log_level = match cli.verbose {
+        0 => "info",           // Default: info + warn + error (shows our nice output)
+        1 => "debug",          // -v: debug + info + warn + error (shows core's debug output)
+        _ => "trace",          // -vv+: everything including trace
+    };
+    
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+            std::env::var("RUST_LOG").unwrap_or_else(|_| log_level.into()),
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
-
-    let cli = Cli::parse();
 
     let work_dir = match cli.path {
         Some(p) => p,

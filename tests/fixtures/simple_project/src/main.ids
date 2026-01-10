@@ -1,7 +1,6 @@
 enum TestEnum {
     A
     B
-    C
 }
 
 struct TestStruct {
@@ -12,4 +11,5 @@ struct TestStruct {
 enum AnotherEnum {
     X
     Y
+    Z
 }

@@ -8,6 +8,10 @@ pub struct Cli {
     #[arg(short, long, global = true)]
     pub path: Option<PathBuf>,
 
+    /// Enable verbose output (can be used multiple times: -v, -vv, -vvv)
+    #[arg(short, long, global = true, action = clap::ArgAction::Count)]
+    pub verbose: u8,
+
     #[command(subcommand)]
     pub command: Commands,
 }
