@@ -11,5 +11,4 @@ struct TestStruct {
 enum AnotherEnum {
     X
     Y
-    Z
 }
