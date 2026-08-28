@@ -1,7 +1,10 @@
-use assert_cmd::Command;
-use predicates::prelude::*;
+// Standard Uses
 use std::fs;
 use std::path::{Path, PathBuf};
+
+// External Uses
+use assert_cmd::Command;
+use predicates::prelude::*;
 
 /// Build a `Command` for the `comline` binary under test.
 ///
@@ -12,11 +15,18 @@ fn comline_cmd() -> Command {
     Command::new(env!("CARGO_BIN_EXE_comline"))
 }
 
-/// Copy `tests/fixtures/simple_project` (two schema files) into a temp dir.
+/// Copy `tests/fixtures/simple_project` into a fresh temp dir.
+///
+/// Only the project inputs are copied — `config.idp` and `src/`. Anything a
+/// previous `comline` run may have left in the fixture (`.comline/`, generated
+/// `*.rs`) is skipped, so the tests stay hermetic even if someone has run the
+/// CLI against the fixture locally.
 fn fixture_project(temp: &Path) -> PathBuf {
     let dest = temp.join("proj");
     let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/simple_project");
-    copy_dir(&src, &dest);
+    fs::create_dir_all(&dest).unwrap();
+    fs::copy(src.join("config.idp"), dest.join("config.idp")).unwrap();
+    copy_dir(&src.join("src"), &dest.join("src"));
     dest
 }
 
@@ -188,8 +198,8 @@ fn generate_writes_one_file_per_schema() {
         .success()
         .stderr(predicate::str::contains("Generated"));
 
-    assert!(project.join("main.rust").exists());
-    assert!(project.join("other.rust").exists());
+    assert!(project.join("main.rs").exists());
+    assert!(project.join("other.rs").exists());
 }
 
 #[test]

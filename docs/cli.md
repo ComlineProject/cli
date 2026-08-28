@@ -170,8 +170,8 @@ comline generate [--target <lang>] [--watch]
 ```
 
 Build the project, then run every code generator configured in `config.idp`,
-writing one file per schema namespace next to `config.idp` (e.g. `main.rust`,
-`other.rust`).
+writing one file per schema namespace next to `config.idp` (e.g. `main.rs`,
+`other.rs`).
 
 - `--target <lang>` — only run the generator for `<lang>` (case-insensitive).
   Errors if no configured target matches. Currently `rust` is the only generator
