@@ -185,15 +185,15 @@ comline -p ./schemas generate --target rust
 ```
 
 ```
-• Generating code in ./schemas
-  target: rust 1.70.0
-    wrote main.rs
-    wrote other.rs
+• Generating code (in schemas/)
+  ⚙️  language: rust, version: 1.70.0
+       main.ids → main.rs
+       other.ids → other.rs
 ✓ Generated 2 file(s)
 ```
 
-The working directory is named on the header; each `wrote` line is the file
-name relative to it.
+The working directory is named on the header; each line under a target maps a
+source schema to the file written for it (`--plain` uses `->`).
 
 ### `comline diff`
 
@@ -259,7 +259,7 @@ comline completions zsh  > ~/.zfunc/_comline
 
 | flag | effect |
 |---|---|
-| `-p`, `--path <DIR>` | Run against `<DIR>` instead of the current directory. Headers echo it back (`Building project in <DIR>`). |
+| `-p`, `--path <DIR>` | Run against `<DIR>` instead of the current directory. Headers echo it back (`Building project (in <DIR>/)`). |
 | `-v`, `-vv`, `-vvv` | Raise log verbosity. Default shows only warnings and errors from `comline-core`; `-v` adds info, `-vv` debug, `-vvv` trace. |
 | `-q`, `--quiet` | Silence all progress output; only errors are printed. Conflicts with `-v`. |
 | `--plain` | Plain output: no color, no leading symbols (`•` / `✓`), no emoji in the changelog, no spinner. For log files and CI. |

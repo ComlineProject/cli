@@ -59,7 +59,13 @@ fn generate_once(work_dir: &Path, target: Option<&str>) -> Result<()> {
             continue;
         };
 
-        ui::detail(format!("target: {lang} {version}"));
+        let label = format!("language: {lang}, version: {version}");
+        ui::detail(if ui::plain() {
+            label
+        } else {
+            format!("⚙️  {label}")
+        });
+
         for schema_ctx in &built.context.schema_contexts {
             let schema_ctx = schema_ctx.borrow();
             let Some(frozen_units) = schema_ctx.frozen_schema.borrow().clone() else {
@@ -67,10 +73,15 @@ fn generate_once(work_dir: &Path, target: Option<&str>) -> Result<()> {
             };
             let output = generator(&frozen_units);
             let file_name = format!("{}.{}", schema_ctx.namespace_joined(), ext);
+            let src_name = format!(
+                "{}.{}",
+                schema_ctx.namespace.join("/"),
+                comline_core::schema::idl::constants::SCHEMA_EXTENSION,
+            );
             std::fs::write(work_dir.join(&file_name), output)
                 .into_diagnostic()
                 .wrap_err_with(|| format!("failed to write `{file_name}`"))?;
-            ui::detail(format!("  wrote {file_name}"));
+            ui::detail(format!("     {src_name} {} {file_name}", ui::arrow()));
             written += 1;
         }
     }

@@ -196,11 +196,26 @@ fn generate_writes_one_file_per_schema() {
         .args(["generate", "--target", "rust"])
         .assert()
         .success()
-        .stderr(predicate::str::contains("wrote main.rs"))
+        .stderr(predicate::str::contains("language: rust, version:"))
+        .stderr(predicate::str::contains("main.ids → main.rs"))
         .stderr(predicate::str::contains("Generated"));
 
     assert!(project.join("main.rs").exists());
     assert!(project.join("other.rs").exists());
+}
+
+#[test]
+fn generate_plain_uses_ascii_arrow() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust", "--plain"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("main.ids -> main.rs"))
+        .stderr(predicate::str::contains('⚙').not());
 }
 
 #[test]
