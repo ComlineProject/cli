@@ -61,10 +61,11 @@ const CYAN: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Cyan)));
 const DIM: Style = Style::new().dimmed();
 const BOLD: Style = Style::new().bold();
 
-/// `" in <path>"` for a header line, or `""` when `p` is the current directory.
+/// `" (in <path>/)"` for a header line, or `""` when `p` is the current directory.
 ///
 /// The path is shown relative to the invocation CWD when it lives under it,
-/// otherwise as given (a path passed via `--path` is left as typed).
+/// otherwise as given (a path passed via `--path` is left as typed). A trailing
+/// slash marks it as a directory.
 pub fn at_path(p: &Path) -> String {
     let shown = match std::env::current_dir() {
         Ok(cwd) => p
@@ -73,11 +74,22 @@ pub fn at_path(p: &Path) -> String {
             .unwrap_or_else(|_| p.to_path_buf()),
         Err(_) => p.to_path_buf(),
     };
-    let shown = shown.display().to_string();
+    let mut shown = shown.display().to_string();
     if shown.is_empty() || shown == "." {
-        String::new()
+        return String::new();
+    }
+    if !shown.ends_with('/') {
+        shown.push('/');
+    }
+    format!(" (in {shown})")
+}
+
+/// `"→"` normally, `"->"` under `--plain`. Used for schema/version mappings.
+pub fn arrow() -> &'static str {
+    if plain() {
+        "->"
     } else {
-        format!(" in {shown}")
+        "→"
     }
 }
 

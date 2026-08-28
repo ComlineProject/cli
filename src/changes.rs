@@ -50,14 +50,6 @@ fn mark(emoji: &str, ascii: &str, body: String) -> String {
     format!("{m} {body}")
 }
 
-fn arrow() -> &'static str {
-    if ui::plain() {
-        "->"
-    } else {
-        "→"
-    }
-}
-
 fn count(n: usize, singular: &str) -> String {
     if n == 1 {
         format!("{n} {singular}")
@@ -90,7 +82,7 @@ fn breaking_line(change: &BreakingChange) -> String {
             "~",
             format!(
                 "Changed `{type_name}.{field_name}`: {old_type} {} {new_type}",
-                arrow()
+                ui::arrow()
             ),
         ),
         BreakingChange::AddedRequiredField {
