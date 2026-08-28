@@ -3,5 +3,4 @@
 
 # Generated code (this fixture has only .ids sources)
 *.rs
-*.rust
 
