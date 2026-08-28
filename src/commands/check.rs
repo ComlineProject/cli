@@ -10,7 +10,7 @@ use crate::ui;
 pub fn run(work_dir: &Path) -> Result<()> {
     ensure_project(work_dir)?;
 
-    ui::step("Validating project");
+    ui::step(format!("Validating project{}", ui::at_path(work_dir)));
     let spinner = ui::spinner("compiling schemas");
     let outcome = comline_core::package::build::compile_package(work_dir);
     ui::finish_spinner(spinner);

@@ -22,6 +22,7 @@ fn main() -> ExitCode {
     init_tracing(&cli);
     ui::set_quiet(cli.quiet);
     ui::set_verbose(cli.verbose > 0);
+    ui::set_plain(cli.plain);
 
     match run(cli) {
         Ok(()) => ExitCode::SUCCESS,

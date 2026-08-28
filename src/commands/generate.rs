@@ -21,7 +21,7 @@ pub fn run(work_dir: &Path, target: Option<&str>, watching: bool) -> Result<()> 
 }
 
 fn generate_once(work_dir: &Path, target: Option<&str>) -> Result<()> {
-    ui::step("Generating code");
+    ui::step(format!("Generating code{}", ui::at_path(work_dir)));
     let spinner = ui::spinner("compiling schemas");
     let built = build::build(work_dir);
     ui::finish_spinner(spinner);
@@ -59,7 +59,7 @@ fn generate_once(work_dir: &Path, target: Option<&str>) -> Result<()> {
             continue;
         };
 
-        ui::detail(format!("target {lang} (v{version})"));
+        ui::detail(format!("target: {lang} {version}"));
         for schema_ctx in &built.context.schema_contexts {
             let schema_ctx = schema_ctx.borrow();
             let Some(frozen_units) = schema_ctx.frozen_schema.borrow().clone() else {

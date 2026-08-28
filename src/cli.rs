@@ -35,6 +35,10 @@ pub struct Cli {
     #[arg(short, long, global = true)]
     pub quiet: bool,
 
+    /// Plain output: no color, no symbols, no progress animation (for logs / CI)
+    #[arg(long, global = true)]
+    pub plain: bool,
+
     #[command(subcommand)]
     pub command: Commands,
 }
