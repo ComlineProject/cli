@@ -21,9 +21,7 @@ indicatif = "0.17"
 notify-debouncer-mini = "0.4"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "fmt"] }
-# NOTE: consumed via git until `comline-core` is published to crates.io.
-# Publishing `comline` to crates.io is blocked on that release.
-comline-core = { git = "https://github.com/ComlineProject/core", rev = "488dc12a85b42996bb2625c9a982f381ca7a806f" }
+comline-core = "0.1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
