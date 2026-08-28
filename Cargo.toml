@@ -3,17 +3,35 @@ name = "comline"
 version = "0.1.0"
 edition = "2021"
 license-file = "LICENSE"
-repository = "https://github.com/ComlineProject/comline"
-description = "A project in the works, patiently"
+repository = "https://github.com/ComlineProject/cli"
+description = "Command-line interface for Comline: build, validate, diff and generate code from Comline schemas"
+readme = "README.md"
+keywords = ["comline", "schema", "codegen", "idl", "cli"]
+categories = ["command-line-utilities", "development-tools"]
 
 
 [dependencies]
 clap = { version = "4.5.4", features = ["derive", "cargo"] }
+clap_complete = "4.5"
 miette = { version = "7.2.0", features = ["fancy"] }
-tokio = { version = "1.37.0", features = ["full"] }
+thiserror = "1.0"
+anstream = "0.6"
+anstyle = "1.0"
+indicatif = "0.17"
+notify-debouncer-mini = "0.4"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "fmt"] }
-comline-core = { git = "https://github.com/ComlineProject/core" }
+# NOTE: consumed via git until `comline-core` is published to crates.io.
+# Publishing `comline` to crates.io is blocked on that release.
+comline-core = { git = "https://github.com/ComlineProject/core", rev = "3455622e111c68a2ac0efeec9abfe7092a479fd4" }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[build-dependencies]
+clap = { version = "4.5.4", features = ["derive"] }
+clap_mangen = "0.2"
+clap_complete = "4.5"
 
 [dev-dependencies]
 assert_cmd = "2.0"

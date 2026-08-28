@@ -1,146 +1,366 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
 use std::fs;
+use std::path::{Path, PathBuf};
+
+/// Build a `Command` for the `comline` binary under test.
+///
+/// Uses the `CARGO_BIN_EXE_comline` path Cargo exports for integration tests,
+/// which works regardless of a custom `CARGO_TARGET_DIR` (unlike the deprecated
+/// `Command::cargo_bin`).
+fn comline_cmd() -> Command {
+    Command::new(env!("CARGO_BIN_EXE_comline"))
+}
+
+/// Copy `tests/fixtures/simple_project` (two schema files) into a temp dir.
+fn fixture_project(temp: &Path) -> PathBuf {
+    let dest = temp.join("proj");
+    let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/simple_project");
+    copy_dir(&src, &dest);
+    dest
+}
+
+fn copy_dir(from: &Path, to: &Path) {
+    fs::create_dir_all(to).unwrap();
+    for entry in fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let target = to.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_dir(&entry.path(), &target);
+        } else {
+            fs::copy(entry.path(), &target).unwrap();
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// new
+// ---------------------------------------------------------------------------
 
 #[test]
-fn test_new_project_creation() {
-    let temp_dir = tempfile::tempdir().unwrap();
-    let project_name = "my_test_project";
+fn new_scaffolds_a_buildable_project() {
+    let temp = tempfile::tempdir().unwrap();
 
-    let mut cmd = Command::cargo_bin("comline").unwrap();
-    cmd.current_dir(&temp_dir)
-        .arg("new")
-        .arg(project_name)
+    comline_cmd()
+        .current_dir(&temp)
+        .args(["new", "my_api"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("Created"));
+
+    let root = temp.path().join("my_api");
+    assert!(root.join("config.idp").exists());
+    assert!(root.join("src/main.ids").exists());
+    assert!(root.join(".gitignore").exists());
+
+    let config = fs::read_to_string(root.join("config.idp")).unwrap();
+    assert!(config.contains("congregation my_api"));
+    assert!(config.contains("code_generation"));
+
+    // the scaffold must actually build
+    comline_cmd()
+        .current_dir(&root)
+        .arg("build")
         .assert()
         .success();
-
-    let project_path = temp_dir.path().join(project_name);
-    assert!(project_path.exists());
-    assert!(project_path.join("config.idp").exists());
-
-    let config_content = fs::read_to_string(project_path.join("config.idp")).unwrap();
-    assert!(config_content.contains(&format!("congregation {}", project_name)));
-    assert!(config_content.contains("specification_version = 1"));
 }
 
 #[test]
-fn test_check_valid_project() {
-    let temp_dir = tempfile::tempdir().unwrap();
-    let project_name = "valid_project";
+fn new_refuses_an_existing_directory() {
+    let temp = tempfile::tempdir().unwrap();
+    fs::create_dir(temp.path().join("taken")).unwrap();
 
-    // Create a valid project first
-    let mut cmd = Command::cargo_bin("comline").unwrap();
-    cmd.current_dir(&temp_dir)
-        .arg("new")
-        .arg(project_name)
+    comline_cmd()
+        .current_dir(&temp)
+        .args(["new", "taken"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("already exists"));
+}
+
+#[test]
+fn new_sanitizes_a_hyphenated_name_into_a_valid_package() {
+    let temp = tempfile::tempdir().unwrap();
+
+    comline_cmd()
+        .current_dir(&temp)
+        .args(["new", "my-api"])
         .assert()
         .success();
 
-    let project_path = temp_dir.path().join(project_name);
+    let root = temp.path().join("my-api");
+    assert!(root.is_dir(), "directory keeps the original name");
 
-    // Run check
-    let mut cmd_check = Command::cargo_bin("comline").unwrap();
-    cmd_check
-        .current_dir(&project_path)
+    let config = fs::read_to_string(root.join("config.idp")).unwrap();
+    assert!(config.contains("congregation my_api"));
+
+    // the sanitized scaffold must still build
+    comline_cmd()
+        .current_dir(&root)
+        .arg("build")
+        .assert()
+        .success();
+}
+
+// ---------------------------------------------------------------------------
+// check
+// ---------------------------------------------------------------------------
+
+#[test]
+fn check_passes_on_a_valid_project_without_writing_cas() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
         .arg("check")
         .assert()
         .success()
-        .stdout(predicate::str::contains("Check passed!"));
+        .stderr(predicate::str::contains("Check passed"));
+
+    assert!(
+        !project.join(".comline").exists(),
+        "check must not create the CAS store"
+    );
 }
 
 #[test]
-fn test_build_project() {
-    let temp_dir = tempfile::tempdir().unwrap();
-    let project_name = "buildable_project";
+fn check_without_config_fails_with_precondition_code() {
+    let temp = tempfile::tempdir().unwrap();
 
-    // Create a valid project first
-    let mut cmd = Command::cargo_bin("comline").unwrap();
-    cmd.current_dir(&temp_dir)
-        .arg("new")
-        .arg(project_name)
-        .assert()
-        .success();
-
-    let project_path = temp_dir.path().join(project_name);
-
-    // Run build
-    let mut cmd_build = Command::cargo_bin("comline").unwrap();
-    cmd_build
-        .current_dir(&project_path)
-        .arg("build")
-        .arg("--release")
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("Project built successfully!"));
-}
-
-#[test]
-fn test_generate_project() {
-    let temp_dir = tempfile::tempdir().unwrap();
-    let project_name = "gen_project";
-    let project_path = temp_dir.path().join(project_name);
-
-    // Copy fixture instead of creating new
-    let fixture_path = std::env::current_dir()
-        .unwrap()
-        .join("tests/fixtures/simple_project");
-
-    // Simple recursive copy for Linux/Unix
-    std::process::Command::new("cp")
-        .arg("-r")
-        .arg(&fixture_path)
-        .arg(&project_path)
-        .status()
-        .expect("Failed to copy fixture");
-
-    let mut cmd_gen = Command::cargo_bin("comline").unwrap();
-    cmd_gen
-        .current_dir(&project_path)
-        .arg("generate")
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("Code generation complete!"));
-}
-
-#[test]
-fn test_check_fail_no_config() {
-    let temp_dir = tempfile::tempdir().unwrap();
-
-    let mut cmd = Command::cargo_bin("comline").unwrap();
-    cmd.current_dir(&temp_dir)
+    comline_cmd()
+        .current_dir(&temp)
         .arg("check")
         .assert()
         .failure()
-        .stderr(predicate::str::contains(
-            "Comline project (missing config.idp)",
-        ));
+        .code(2)
+        .stderr(predicate::str::contains("is not a Comline project"));
 }
 
 #[test]
-fn test_custom_path() {
-    let temp_dir = tempfile::tempdir().unwrap();
-    let project_name = "path_test_project";
-    let project_path = temp_dir.path().join(project_name);
+fn check_reports_a_broken_schema() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    fs::write(project.join("src/main.ids"), "struct Broken {").unwrap();
 
-    // Copy fixture
-    let fixture_path = std::env::current_dir()
-        .unwrap()
-        .join("tests/fixtures/simple_project");
+    comline_cmd()
+        .current_dir(&project)
+        .arg("check")
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicate::str::contains("validation failed"));
+}
 
-    std::process::Command::new("cp")
-        .arg("-r")
-        .arg(&fixture_path)
-        .arg(&project_path)
-        .status()
-        .expect("Failed to copy fixture");
+// ---------------------------------------------------------------------------
+// build
+// ---------------------------------------------------------------------------
 
-    // Run check from a neutral directory (temp_dir root), pointing to the project
-    let mut cmd = Command::cargo_bin("comline").unwrap();
-    cmd.current_dir(&temp_dir)
+#[test]
+fn build_freezes_an_initial_version() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["build", "--release"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("Project built"))
+        .stderr(predicate::str::contains("initial version 0.0.1"));
+
+    assert!(project.join(".comline").is_dir());
+}
+
+// ---------------------------------------------------------------------------
+// generate
+// ---------------------------------------------------------------------------
+
+#[test]
+fn generate_writes_one_file_per_schema() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("Generated"));
+
+    assert!(project.join("main.rust").exists());
+    assert!(project.join("other.rust").exists());
+}
+
+#[test]
+fn generate_rejects_an_unconfigured_target() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "python"])
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicate::str::contains(
+            "no configured `code_generation` target",
+        ));
+}
+
+// ---------------------------------------------------------------------------
+// diff
+// ---------------------------------------------------------------------------
+
+#[test]
+fn diff_reports_changes_between_two_versions() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .arg("build")
+        .assert()
+        .success();
+
+    // add a struct, then rebuild to bump the version
+    let schema = project.join("src/main.ids");
+    let mut text = fs::read_to_string(&schema).unwrap();
+    text.push_str("\nstruct Added {\n    x: string\n}\n");
+    fs::write(&schema, text).unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .arg("build")
+        .assert()
+        .success();
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["diff", "0.0.1", "HEAD"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("New features"))
+        .stderr(predicate::str::contains("Added"));
+}
+
+#[test]
+fn diff_without_a_build_fails_with_precondition_code() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["diff", "0.0.1", "HEAD"])
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains("no builds found"));
+}
+
+#[test]
+fn diff_rejects_an_unknown_ref() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    comline_cmd()
+        .current_dir(&project)
+        .arg("build")
+        .assert()
+        .success();
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["diff", "9.9.9"])
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicate::str::contains("no built version matches"));
+}
+
+// ---------------------------------------------------------------------------
+// clean
+// ---------------------------------------------------------------------------
+
+#[test]
+fn clean_removes_the_cas_store() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    comline_cmd()
+        .current_dir(&project)
+        .arg("build")
+        .assert()
+        .success();
+    assert!(project.join(".comline").exists());
+
+    comline_cmd()
+        .current_dir(&project)
+        .arg("clean")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("Clean complete"));
+
+    assert!(!project.join(".comline").exists());
+}
+
+#[test]
+fn clean_dry_run_keeps_everything() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    comline_cmd()
+        .current_dir(&project)
+        .arg("build")
+        .assert()
+        .success();
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["clean", "--dry-run"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("would remove"));
+
+    assert!(project.join(".comline").exists());
+}
+
+// ---------------------------------------------------------------------------
+// completions / global flags
+// ---------------------------------------------------------------------------
+
+#[test]
+fn completions_are_written_to_stdout() {
+    comline_cmd()
+        .args(["completions", "bash"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("comline"))
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn quiet_build_is_silent_on_success() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["--quiet", "build"])
+        .assert()
+        .success()
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn path_flag_runs_outside_the_cwd() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&temp)
         .arg("--path")
-        .arg(&project_path)
+        .arg(&project)
         .arg("check")
         .assert()
         .success()
-        .stdout(predicate::str::contains("Check passed!"));
+        .stderr(predicate::str::contains("Check passed"));
 }

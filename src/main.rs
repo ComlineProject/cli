@@ -1,263 +1,98 @@
+mod changes;
+mod cli;
 mod commands;
+mod error;
+mod ui;
+mod watch;
+
+use std::env;
+use std::process::ExitCode;
 
 use clap::Parser;
-use commands::{Cli, Commands};
-use miette::{Context, IntoDiagnostic, Result};
-use std::env;
-use std::fs;
-use tracing::{error, info, warn};
+use miette::Result;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-/// Display schema changes in a user-friendly format
-fn display_schema_changes(changes: &comline_core::schema::ir::diff::SchemaChanges) {
-    use comline_core::schema::ir::diff::{BreakingChange, NewFeature, Modification};
-    
-    // Display breaking changes
-    if !changes.breaking_changes.is_empty() {
-        warn!("🔴 Breaking changes ({}):", changes.breaking_changes.len());
-        for change in &changes.breaking_changes {
-            match change {
-                BreakingChange::RemovedStruct { name } => {
-                    warn!("  ❌ Removed struct `{}`", name);
-                }
-                BreakingChange::RemovedEnum { name } => {
-                    warn!("  ❌ Removed enum `{}`", name);
-                }
-                BreakingChange::RemovedField { type_name, field_name } => {
-                    warn!("  ❌ Removed field `{}.{}`", type_name, field_name);
-                }
-                BreakingChange::ChangedFieldType { type_name, field_name, old_type, new_type } => {
-                    warn!("  🔄 Changed `{}.{}`: {} → {}", type_name, field_name, old_type, new_type);
-                }
-                BreakingChange::RemovedEnumVariant { enum_name, variant } => {
-                    warn!("  ❌ Removed `{}::{}`", enum_name, variant);
-                }
-                BreakingChange::RemovedFunction { protocol_name, function_name } => {
-                    warn!("  ❌ Removed function `{}.{}`", protocol_name, function_name);
-                }
-                BreakingChange::ChangedFunctionSignature { protocol_name, function_name, details } => {
-                    warn!("  🔄 Changed signature of `{}.{}`: {}", protocol_name, function_name, details);
-                }
-                BreakingChange::RemovedProtocol { name } => {
-                    warn!("  ❌ Removed protocol `{}`", name);
-                }
+use cli::{Cli, Commands};
+
+fn main() -> ExitCode {
+    reset_sigpipe();
+
+    let cli = Cli::parse();
+
+    init_tracing(&cli);
+    ui::set_quiet(cli.quiet);
+    ui::set_verbose(cli.verbose > 0);
+
+    match run(cli) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(report) => {
+            let code = error::exit_code_for(&report);
+            ui::error(format!("{report}"));
+            for cause in report.chain().skip(1) {
+                ui::error(format!("  caused by: {cause}"));
             }
-        }
-    }
-    
-    // Display new features
-    if !changes.new_features.is_empty() {
-        info!("🟢 New features ({}):", changes.new_features.len());
-        for feature in &changes.new_features {
-            match feature {
-                NewFeature::AddedStruct { name, field_count } => {
-                    info!("  ➕ Added struct `{}` ({} fields)", name, field_count);
-                }
-                NewFeature::AddedEnum { name, variant_count } => {
-                    info!("  ➕ Added enum `{}` ({} variants)", name, variant_count);
-                }
-                NewFeature::AddedField { type_name, field_name, field_type, optional } => {
-                    let opt_marker = if *optional { " (optional)" } else { "" };
-                    info!("  ➕ Added field `{}.{}`: {}{}", type_name, field_name, field_type, opt_marker);
-                }
-                NewFeature::AddedEnumVariant { enum_name, variant } => {
-                    info!("  ➕ Added variant `{}::{}`", enum_name, variant);
-                }
-                NewFeature::AddedFunction { protocol_name, function_name, signature } => {
-                    info!("  ➕ Added function `{}.{}`: {}", protocol_name, function_name, signature);
-                }
-                NewFeature::AddedProtocol { name, function_count } => {
-                    info!("  ➕ Added protocol `{}` ({} functions)", name, function_count);
-                }
-            }
-        }
-    }
-    
-    // Display modifications
-    if !changes.modifications.is_empty() {
-        info!("🔵 Modifications ({}):", changes.modifications.len());
-        for modification in &changes.modifications {
-            match modification {
-                Modification::FieldMadeOptional { type_name, field_name } => {
-                    info!("  🔧 Made field `{}.{}` optional", type_name, field_name);
-                }
-            }
+            ExitCode::from(code as u8)
         }
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    let cli = Cli::parse();
-    
-    // Set log level based on verbosity
-    let log_level = match cli.verbose {
-        0 => "info",           // Default: info + warn + error (shows our nice output)
-        1 => "debug",          // -v: debug + info + warn + error (shows core's debug output)
-        _ => "trace",          // -vv+: everything including trace
+/// `tracing` carries `comline-core` diagnostics only; the CLI's own output goes
+/// through [`ui`]. Everything is written to stderr so stdout stays a clean
+/// channel for payloads (`comline completions`). Verbosity is shifted down a
+/// notch from the usual so the default run is quiet: `-v` shows info, `-vv`
+/// debug, `-vvv` trace. `RUST_LOG` still overrides.
+fn init_tracing(cli: &Cli) {
+    let level = if cli.quiet {
+        "error"
+    } else {
+        match cli.verbose {
+            0 => "warn",
+            1 => "info",
+            2 => "debug",
+            _ => "trace",
+        }
     };
-    
+
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| log_level.into()),
+            env::var("RUST_LOG")
+                .unwrap_or_else(|_| format!("comline={level},comline_core={level}")),
         ))
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
         .init();
+}
 
+/// Rust ignores `SIGPIPE`, so writing to a closed pipe (`comline completions
+/// fish | head`) surfaces as an `EPIPE` write error that downstream libraries
+/// `.expect()` into a panic. Restore the default disposition so the process just
+/// exits quietly instead, like every other Unix CLI.
+#[cfg(unix)]
+fn reset_sigpipe() {
+    // SAFETY: called once at startup, before any other threads exist.
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+}
+
+#[cfg(not(unix))]
+fn reset_sigpipe() {}
+
+fn run(cli: Cli) -> Result<()> {
     let work_dir = match cli.path {
-        Some(p) => p,
+        Some(path) => path,
         None => env::current_dir()
-            .into_diagnostic()
-            .wrap_err("Failed to get current directory")?,
+            .map_err(|e| miette::miette!("failed to determine the current directory: {e}"))?,
     };
 
-    match &cli.command {
-        Commands::Build { release } => {
-            info!("Building project... Release mode: {}", release);
-            
-            if !comline_core::package::config::is_package_path(&work_dir) {
-                miette::bail!("Current directory is not a Comline project (missing config.idp)");
-            }
-
-            match comline_core::package::build::build(&work_dir) {
-                Ok(build_result) => {
-                    info!("✅ Project built successfully!");
-                    
-                    // Display version information only if there are changes
-                    if build_result.is_initial_build() {
-                        info!("📦 Initial version: {}", build_result.current_version);
-                    } else {
-                        // Check if there are actual schema changes
-                        let has_changes = build_result.schema_changes
-                            .as_ref()
-                            .map(|changes| !changes.is_empty())
-                            .unwrap_or(false);
-                        
-                        if has_changes {
-                            if let Some(version_change) = build_result.version_change() {
-                                info!("📦 Version: {}", version_change);
-                            }
-                            
-                            // Display schema changes
-                            if let Some(changes) = &build_result.schema_changes {
-                                display_schema_changes(changes);
-                                
-                                // Display version bump type
-                                match build_result.version_bump {
-                                    comline_core::package::build::VersionBump::Major => {
-                                        warn!("⬆️  Major version bump applied (breaking changes)");
-                                    },
-                                    comline_core::package::build::VersionBump::Minor => {
-                                        info!("⬆️  Minor version bump applied (new features)");
-                                    },
-                                    comline_core::package::build::VersionBump::Patch => {
-                                        info!("⬆️  Patch version bump applied (modifications)");
-                                    },
-                                    comline_core::package::build::VersionBump::None => {
-                                        info!("No version bump (no changes)");
-                                    }
-                                }
-                            }
-                        } else {
-                            info!("📦 Version: {} (no changes)", build_result.current_version);
-                        }
-                    }
-                }
-                Err(e) => {
-                    error!("Build failed: {:?}", e);
-                    return Err(miette::miette!("Build failed: {:?}", e));
-                }
-            }
+    match cli.command {
+        Commands::Build { release, watch } => commands::build::run(&work_dir, release, watch),
+        Commands::Check => commands::check::run(&work_dir),
+        Commands::Generate { target, watch } => {
+            commands::generate::run(&work_dir, target.as_deref(), watch)
         }
-        Commands::Generate => {
-             info!("Generating code...");
-
-            if !comline_core::package::config::is_package_path(&work_dir) {
-                miette::bail!("Current directory is not a Comline project (missing config.idp)");
-            }
-
-            match comline_core::package::build::build(&work_dir) {
-                Ok(build_result) => {
-                     if let Some(frozen_config) = &build_result.context.config_frozen {
-                        for unit in frozen_config {
-                            if let comline_core::package::config::ir::frozen::FrozenUnit::CodeGeneration(gen) = unit {
-                                let lang_name_ver = &gen.name;
-                                let parts: Vec<&str> = lang_name_ver.split('#').collect();
-                                if parts.len() != 2 {
-                                    warn!("Skipping invalid language specifier: {}", lang_name_ver);
-                                    continue;
-                                }
-                                let lang = parts[0];
-                                let version = parts[1];
-
-                                if let Some((generator, ext)) = comline_core::codelib_gen::find_generator(lang, version) {
-                                    info!("Generating {} code...", lang);
-                                    for schema_ctx in &build_result.context.schema_contexts {
-                                        let schema_ctx = schema_ctx.borrow();
-                                        // Clone the units to avoid borrowing issues with RefCell
-                                        let frozen_units_opt = schema_ctx.frozen_schema.borrow().clone();
-                                        
-                                        if let Some(frozen_units) = frozen_units_opt {
-                                            let output = generator(&frozen_units);
-                                            // Assuming simple file naming strategy for now
-                                            let file_name = format!("{}.{}", schema_ctx.namespace_joined(), ext);
-                                            let file_path = work_dir.join(&file_name);
-                                            if let Err(e) = fs::write(&file_path, output) {
-                                                    error!("Failed to write generated file {}: {:?}", file_name, e);
-                                            } else {
-                                                    info!("Generated {}", file_name);
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    warn!("No generator found for {} version {}", lang, version);
-                                }
-                            }
-                        }
-                    }
-                    info!("Code generation complete!");
-                }
-                Err(e) => {
-                    error!("Code generation failed: {:?}", e);
-                    return Err(miette::miette!("Code generation failed: {:?}", e));
-                }
-            }
-        }
-        Commands::Check => {
-            info!("Checking project...");
-
-            if !comline_core::package::config::is_package_path(&work_dir) {
-                miette::bail!("Current directory is not a Comline project (missing config.idp)");
-            }
-
-            // Using build() for check as well for now as it performs full validation
-            match comline_core::package::build::build(&work_dir) {
-                Ok(_) => info!("Check passed!"),
-                Err(e) => {
-                    error!("Check failed: {:?}", e);
-                    return Err(miette::miette!("Check failed: {:?}", e));
-                }
-            }
-        }
-        Commands::New { name } => {
-            info!("Creating new project: {}", name);
-            let path = work_dir.join(name);
-            if path.exists() {
-                miette::bail!("Directory '{}' already exists", name);
-            }
-            fs::create_dir_all(&path)
-                .into_diagnostic()
-                .wrap_err("Failed to create project directory")?;
-
-            let config_path = path.join("config.idp");
-            let config_content = format!("congregation {}\nspecification_version = 1\n", name);
-            fs::write(&config_path, config_content)
-                .into_diagnostic()
-                .wrap_err("Failed to write config.idp")?;
-
-            info!("Created new project at {}", path.display());
-        }
+        Commands::Diff { old, new } => commands::diff::run(&work_dir, &old, &new),
+        Commands::Clean { dry_run } => commands::clean::run(&work_dir, dry_run),
+        Commands::New { name, git } => commands::new::run(&work_dir, &name, git),
+        Commands::Completions { shell } => commands::completions::run(shell),
     }
-
-    Ok(())
 }
