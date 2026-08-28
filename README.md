@@ -8,12 +8,12 @@ build, validate, diff and generate code from Comline schemas.
 
 ## Install
 
-`comline` is not on crates.io yet (it depends on `comline-core` via git until
-that crate is published). Build it from this repository:
+`comline` is not published to crates.io yet. Build it from this repository:
 
 ```bash
 git clone https://github.com/ComlineProject/cli
-cargo install --path cli
+cd cli
+cargo install --path .
 ```
 
 ## Quick start
@@ -74,3 +74,20 @@ cargo clippy --all-targets -- -D warnings
 
 Man pages and completion scripts for all shells are generated into `OUT_DIR`
 (`target/.../build/comline-*/out/{man,completions}/`) on every build.
+
+## License
+
+Licensed under either of
+
+ * Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
+   http://www.apache.org/licenses/LICENSE-2.0)
+ * MIT license ([LICENSE-MIT](LICENSE-MIT) or
+   http://opensource.org/licenses/MIT)
+
+at your option.
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
+dual licensed as above, without any additional terms or conditions.

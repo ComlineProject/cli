@@ -39,12 +39,12 @@ a new version. `generate` additionally runs the configured code generators.
 
 ## Installation
 
-`comline` is not on crates.io yet — it depends on `comline-core` via a git URL
-until that crate is published. Build it from source:
+`comline` is not published to crates.io yet. Build it from source:
 
 ```bash
 git clone https://github.com/ComlineProject/cli
-cargo install --path cli
+cd cli
+cargo install --path .
 ```
 
 This installs the `comline` binary into `~/.cargo/bin`. Man pages and shell
