@@ -78,6 +78,30 @@ fn new_refuses_an_existing_directory() {
         .stderr(predicate::str::contains("already exists"));
 }
 
+#[test]
+fn new_sanitizes_a_hyphenated_name_into_a_valid_package() {
+    let temp = tempfile::tempdir().unwrap();
+
+    comline_cmd()
+        .current_dir(&temp)
+        .args(["new", "my-api"])
+        .assert()
+        .success();
+
+    let root = temp.path().join("my-api");
+    assert!(root.is_dir(), "directory keeps the original name");
+
+    let config = fs::read_to_string(root.join("config.idp")).unwrap();
+    assert!(config.contains("congregation my_api"));
+
+    // the sanitized scaffold must still build
+    comline_cmd()
+        .current_dir(&root)
+        .arg("build")
+        .assert()
+        .success();
+}
+
 // ---------------------------------------------------------------------------
 // check
 // ---------------------------------------------------------------------------

@@ -21,7 +21,7 @@ pub struct Cli {
     #[arg(short, long, global = true, value_name = "DIR")]
     pub path: Option<PathBuf>,
 
-    /// Increase log verbosity (-v: debug, -vv: trace); surfaces comline-core diagnostics
+    /// Increase log verbosity (-v info, -vv debug, -vvv trace); surfaces comline-core diagnostics
     #[arg(
         short,
         long,

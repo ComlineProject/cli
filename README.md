@@ -40,6 +40,9 @@ comline generate            # write generated code for each configured target
 Global flags: `--path <dir>` to run outside the current directory, `-v`/`-vv` for
 more log detail, `-q`/`--quiet` to silence everything but errors.
 
+See [`docs/cli.md`](docs/cli.md) for the full guide — every command and flag, the
+versioning model, output and exit codes, watch mode, and packaging.
+
 ## Versioning model
 
 Comline stores every build as an immutable commit in an append-only chain under

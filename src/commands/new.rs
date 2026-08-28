@@ -32,13 +32,21 @@ pub fn run(work_dir: &Path, name: &str, git: bool) -> Result<()> {
         return Err(miette::miette!("`{}` already exists", root.display()));
     }
 
+    let package = package_ident(name);
+
     ui::step(format!("Creating project {name}"));
+    if package != name {
+        ui::note(format!(
+            "package name is `{package}` (the directory is `{name}`; \
+             Comline names must be letters, digits and `_`)"
+        ));
+    }
 
     std::fs::create_dir_all(root.join("src"))
         .into_diagnostic()
         .wrap_err("failed to create project directories")?;
 
-    write(&root.join("config.idp"), &config_idp(name))?;
+    write(&root.join("config.idp"), &config_idp(&package))?;
     write(&root.join("src/main.ids"), MAIN_IDS)?;
     write(&root.join(".gitignore"), GITIGNORE)?;
 
@@ -49,6 +57,25 @@ pub fn run(work_dir: &Path, name: &str, git: bool) -> Result<()> {
     ui::success(format!("Created {}", root.display()));
     ui::detail(format!("next: cd {name} && comline build"));
     Ok(())
+}
+
+/// Turn a project name into a valid Comline identifier (`[A-Za-z_][A-Za-z0-9_]*`)
+/// for use as the `congregation` name — the directory keeps the original name.
+fn package_ident(name: &str) -> String {
+    let mut ident: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if ident.is_empty() || ident.starts_with(|c: char| c.is_ascii_digit()) {
+        ident.insert(0, '_');
+    }
+    ident
 }
 
 fn config_idp(name: &str) -> String {
