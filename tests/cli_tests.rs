@@ -196,10 +196,34 @@ fn generate_writes_one_file_per_schema() {
         .args(["generate", "--target", "rust"])
         .assert()
         .success()
+        .stderr(predicate::str::contains("wrote main.rs"))
         .stderr(predicate::str::contains("Generated"));
 
     assert!(project.join("main.rs").exists());
     assert!(project.join("other.rs").exists());
+}
+
+#[test]
+fn plain_output_has_no_color_or_symbols() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    let out = comline_cmd()
+        .current_dir(&project)
+        .args(["build", "--plain"])
+        .assert()
+        .success();
+    let stderr = String::from_utf8_lossy(&out.get_output().stderr).into_owned();
+
+    assert!(!stderr.contains('\u{1b}'), "no ANSI escapes: {stderr:?}");
+    for glyph in ["•", "✓", "📦", "⬆", "🟢", "🔴"] {
+        assert!(
+            !stderr.contains(glyph),
+            "no `{glyph}` in plain output: {stderr:?}"
+        );
+    }
+    assert!(stderr.contains("Building project"));
+    assert!(stderr.contains("Project built"));
 }
 
 #[test]

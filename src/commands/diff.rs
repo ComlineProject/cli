@@ -33,8 +33,9 @@ pub fn run(work_dir: &Path, old: &str, new: &str) -> Result<()> {
     let old_commit = resolve(&history, old)?;
     let new_commit = resolve(&history, new)?;
 
+    let sep = if ui::plain() { "->" } else { "→" };
     ui::step(format!(
-        "Diff {} → {}",
+        "Diff {} {sep} {}",
         label(old, old_commit),
         label(new, new_commit)
     ));

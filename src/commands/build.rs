@@ -25,7 +25,7 @@ fn build_once(work_dir: &Path, release: bool) -> Result<()> {
         ui::note("--release is reserved and currently has no effect");
     }
 
-    ui::step("Building project");
+    ui::step(format!("Building project{}", ui::at_path(work_dir)));
     let spinner = ui::spinner("compiling schemas");
     let result = build::build(work_dir);
     ui::finish_spinner(spinner);
@@ -35,7 +35,7 @@ fn build_once(work_dir: &Path, release: bool) -> Result<()> {
     ui::success("Project built");
 
     if result.is_initial_build() {
-        ui::detail(format!("📦 initial version {}", result.current_version));
+        ui::detail(pkg(format!("initial version {}", result.current_version)));
         return Ok(());
     }
 
@@ -46,15 +46,15 @@ fn build_once(work_dir: &Path, release: bool) -> Result<()> {
         .unwrap_or(false);
 
     if !has_changes {
-        ui::detail(format!(
-            "📦 version {} (no changes)",
+        ui::detail(pkg(format!(
+            "version {} (no changes)",
             result.current_version
-        ));
+        )));
         return Ok(());
     }
 
     if let Some(version_change) = result.version_change() {
-        ui::detail(format!("📦 version {version_change}"));
+        ui::detail(pkg(version_change));
     }
     if let Some(changes) = &result.schema_changes {
         changes::render(changes);
@@ -64,11 +64,25 @@ fn build_once(work_dir: &Path, release: bool) -> Result<()> {
     Ok(())
 }
 
-fn bump_line(bump: VersionBump) -> &'static str {
-    match bump {
-        VersionBump::Major => "⬆️  major version bump (breaking changes)",
-        VersionBump::Minor => "⬆️  minor version bump (new features)",
-        VersionBump::Patch => "⬆️  patch version bump (modifications)",
+/// A `📦`-prefixed package line, or plain text (with an ASCII arrow) under `--plain`.
+fn pkg(body: String) -> String {
+    if ui::plain() {
+        body.replace(" → ", " -> ")
+    } else {
+        format!("📦 {body}")
+    }
+}
+
+fn bump_line(bump: VersionBump) -> String {
+    let text = match bump {
+        VersionBump::Major => "major version bump (breaking changes)",
+        VersionBump::Minor => "minor version bump (new features)",
+        VersionBump::Patch => "patch version bump (modifications)",
         VersionBump::None => "no version bump",
+    };
+    if ui::plain() {
+        text.to_string()
+    } else {
+        format!("⬆️  {text}")
     }
 }

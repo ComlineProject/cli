@@ -7,9 +7,10 @@ use crate::ui;
 /// Print a grouped breaking / feature / modification changelog.
 pub fn render(changes: &SchemaChanges) {
     if !changes.breaking_changes.is_empty() {
-        ui::group(format!(
-            "🔴 Breaking changes ({})",
-            changes.breaking_changes.len()
+        ui::group(heading(
+            "🔴",
+            "Breaking changes",
+            changes.breaking_changes.len(),
         ));
         for change in &changes.breaking_changes {
             ui::detail(breaking_line(change));
@@ -17,17 +18,14 @@ pub fn render(changes: &SchemaChanges) {
     }
 
     if !changes.new_features.is_empty() {
-        ui::group(format!("🟢 New features ({})", changes.new_features.len()));
+        ui::group(heading("🟢", "New features", changes.new_features.len()));
         for feature in &changes.new_features {
             ui::detail(feature_line(feature));
         }
     }
 
     if !changes.modifications.is_empty() {
-        ui::group(format!(
-            "🔵 Modifications ({})",
-            changes.modifications.len()
-        ));
+        ui::group(heading("🔵", "Modifications", changes.modifications.len()));
         for modification in &changes.modifications {
             ui::detail(modification_line(modification));
         }
@@ -35,6 +33,28 @@ pub fn render(changes: &SchemaChanges) {
 
     if changes.is_empty() {
         ui::detail("no schema changes");
+    }
+}
+
+fn heading(emoji: &str, text: &str, n: usize) -> String {
+    if ui::plain() {
+        format!("{text} ({n}):")
+    } else {
+        format!("{emoji} {text} ({n})")
+    }
+}
+
+/// Prefix `body` with a marker: an emoji, or its ASCII stand-in under `--plain`.
+fn mark(emoji: &str, ascii: &str, body: String) -> String {
+    let m = if ui::plain() { ascii } else { emoji };
+    format!("{m} {body}")
+}
+
+fn arrow() -> &'static str {
+    if ui::plain() {
+        "->"
+    } else {
+        "→"
     }
 }
 
@@ -48,54 +68,81 @@ fn count(n: usize, singular: &str) -> String {
 
 fn breaking_line(change: &BreakingChange) -> String {
     match change {
-        BreakingChange::RemovedStruct { name } => format!("❌ Removed struct `{name}`"),
-        BreakingChange::RemovedEnum { name } => format!("❌ Removed enum `{name}`"),
+        BreakingChange::RemovedStruct { name } => {
+            mark("❌", "-", format!("Removed struct `{name}`"))
+        }
+        BreakingChange::RemovedEnum { name } => mark("❌", "-", format!("Removed enum `{name}`")),
         BreakingChange::RemovedField {
             type_name,
             field_name,
-        } => format!("❌ Removed field `{type_name}.{field_name}`"),
+        } => mark(
+            "❌",
+            "-",
+            format!("Removed field `{type_name}.{field_name}`"),
+        ),
         BreakingChange::ChangedFieldType {
             type_name,
             field_name,
             old_type,
             new_type,
-        } => format!("🔄 Changed `{type_name}.{field_name}`: {old_type} → {new_type}"),
+        } => mark(
+            "🔄",
+            "~",
+            format!(
+                "Changed `{type_name}.{field_name}`: {old_type} {} {new_type}",
+                arrow()
+            ),
+        ),
         BreakingChange::AddedRequiredField {
             type_name,
             field_name,
             field_type,
-        } => format!("⚠️  Added required field `{type_name}.{field_name}`: {field_type}"),
+        } => mark(
+            "⚠️",
+            "!",
+            format!("Added required field `{type_name}.{field_name}`: {field_type}"),
+        ),
         BreakingChange::RemovedEnumVariant { enum_name, variant } => {
-            format!("❌ Removed `{enum_name}::{variant}`")
+            mark("❌", "-", format!("Removed `{enum_name}::{variant}`"))
         }
         BreakingChange::RemovedFunction {
             protocol_name,
             function_name,
-        } => format!("❌ Removed function `{protocol_name}.{function_name}`"),
+        } => mark(
+            "❌",
+            "-",
+            format!("Removed function `{protocol_name}.{function_name}`"),
+        ),
         BreakingChange::ChangedFunctionSignature {
             protocol_name,
             function_name,
             details,
-        } => format!("🔄 Changed signature of `{protocol_name}.{function_name}`: {details}"),
-        BreakingChange::RemovedProtocol { name } => format!("❌ Removed protocol `{name}`"),
-        BreakingChange::RemovedError { name } => format!("❌ Removed error `{name}`"),
+        } => mark(
+            "🔄",
+            "~",
+            format!("Changed signature of `{protocol_name}.{function_name}`: {details}"),
+        ),
+        BreakingChange::RemovedProtocol { name } => {
+            mark("❌", "-", format!("Removed protocol `{name}`"))
+        }
+        BreakingChange::RemovedError { name } => mark("❌", "-", format!("Removed error `{name}`")),
     }
 }
 
 fn feature_line(feature: &NewFeature) -> String {
     match feature {
-        NewFeature::AddedStruct { name, field_count } => {
-            format!(
-                "➕ Added struct `{name}` ({})",
-                count(*field_count, "field")
-            )
-        }
+        NewFeature::AddedStruct { name, field_count } => mark(
+            "➕",
+            "+",
+            format!("Added struct `{name}` ({})", count(*field_count, "field")),
+        ),
         NewFeature::AddedEnum {
             name,
             variant_count,
-        } => format!(
-            "➕ Added enum `{name}` ({})",
-            count(*variant_count, "variant")
+        } => mark(
+            "➕",
+            "+",
+            format!("Added enum `{name}` ({})", count(*variant_count, "variant")),
         ),
         NewFeature::AddedField {
             type_name,
@@ -104,26 +151,40 @@ fn feature_line(feature: &NewFeature) -> String {
             optional,
         } => {
             let opt = if *optional { " (optional)" } else { "" };
-            format!("➕ Added field `{type_name}.{field_name}`: {field_type}{opt}")
+            mark(
+                "➕",
+                "+",
+                format!("Added field `{type_name}.{field_name}`: {field_type}{opt}"),
+            )
         }
         NewFeature::AddedEnumVariant { enum_name, variant } => {
-            format!("➕ Added variant `{enum_name}::{variant}`")
+            mark("➕", "+", format!("Added variant `{enum_name}::{variant}`"))
         }
         NewFeature::AddedFunction {
             protocol_name,
             function_name,
             signature,
-        } => format!("➕ Added function `{protocol_name}.{function_name}`: {signature}"),
+        } => mark(
+            "➕",
+            "+",
+            format!("Added function `{protocol_name}.{function_name}`: {signature}"),
+        ),
         NewFeature::AddedProtocol {
             name,
             function_count,
-        } => format!(
-            "➕ Added protocol `{name}` ({})",
-            count(*function_count, "function")
+        } => mark(
+            "➕",
+            "+",
+            format!(
+                "Added protocol `{name}` ({})",
+                count(*function_count, "function")
+            ),
         ),
-        NewFeature::AddedError { name, field_count } => {
-            format!("➕ Added error `{name}` ({})", count(*field_count, "field"))
-        }
+        NewFeature::AddedError { name, field_count } => mark(
+            "➕",
+            "+",
+            format!("Added error `{name}` ({})", count(*field_count, "field")),
+        ),
     }
 }
 
@@ -132,7 +193,13 @@ fn modification_line(modification: &Modification) -> String {
         Modification::FieldMadeOptional {
             type_name,
             field_name,
-        } => format!("🔧 Made field `{type_name}.{field_name}` optional"),
-        Modification::DocstringChanged { name } => format!("📝 Docstring changed on `{name}`"),
+        } => mark(
+            "🔧",
+            "~",
+            format!("Made field `{type_name}.{field_name}` optional"),
+        ),
+        Modification::DocstringChanged { name } => {
+            mark("📝", "~", format!("Docstring changed on `{name}`"))
+        }
     }
 }

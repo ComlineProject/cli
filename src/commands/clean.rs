@@ -12,6 +12,8 @@ use crate::ui;
 pub fn run(work_dir: &Path, dry_run: bool) -> Result<()> {
     ensure_project(work_dir)?;
 
+    ui::step(format!("Cleaning{}", ui::at_path(work_dir)));
+
     let mut targets: Vec<PathBuf> = Vec::new();
 
     let cas = work_dir.join(".comline");

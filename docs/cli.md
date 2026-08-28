@@ -181,7 +181,19 @@ writing one file per schema namespace next to `config.idp` (e.g. `main.rs`,
 ```bash
 comline generate
 comline generate --target rust
+comline -p ./schemas generate --target rust
 ```
+
+```
+• Generating code in ./schemas
+  target: rust 1.70.0
+    wrote main.rs
+    wrote other.rs
+✓ Generated 2 file(s)
+```
+
+The working directory is named on the header; each `wrote` line is the file
+name relative to it.
 
 ### `comline diff`
 
@@ -247,9 +259,10 @@ comline completions zsh  > ~/.zfunc/_comline
 
 | flag | effect |
 |---|---|
-| `-p`, `--path <DIR>` | Run against `<DIR>` instead of the current directory. |
+| `-p`, `--path <DIR>` | Run against `<DIR>` instead of the current directory. Headers echo it back (`Building project in <DIR>`). |
 | `-v`, `-vv`, `-vvv` | Raise log verbosity. Default shows only warnings and errors from `comline-core`; `-v` adds info, `-vv` debug, `-vvv` trace. |
 | `-q`, `--quiet` | Silence all progress output; only errors are printed. Conflicts with `-v`. |
+| `--plain` | Plain output: no color, no leading symbols (`•` / `✓`), no emoji in the changelog, no spinner. For log files and CI. |
 
 `RUST_LOG` overrides the verbosity flags entirely if set (standard
 `tracing_subscriber` syntax, e.g. `RUST_LOG=comline_core=debug`).
@@ -262,9 +275,11 @@ comline completions zsh  > ~/.zfunc/_comline
   `comline completions` writes there, so `comline completions fish | source`
   and similar pipelines are clean.
 - Color is applied through `anstream`: it is stripped automatically when stderr
-  is not a terminal or when `NO_COLOR` is set.
+  is not a terminal or when `NO_COLOR` is set. `--plain` also drops the leading
+  symbols and changelog emoji, not just color.
 - The progress spinner is shown only on an interactive terminal, and is
-  suppressed under `-v` (so it doesn't fight the log output) and `--quiet`.
+  suppressed under `-v` (so it doesn't fight the log output), `--quiet` and
+  `--plain`.
 
 Exit codes are stable for scripting and CI:
 
