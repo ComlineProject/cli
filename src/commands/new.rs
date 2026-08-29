@@ -26,6 +26,25 @@ const GITIGNORE: &str = "\
 .comline/
 ";
 
+/// Consumer-owned code-generation config. Committed. All-commented by default —
+/// `comline generate` falls back to the languages declared in `config.idp` and
+/// writes to `generated/{{language}}/{{namespace}}.{{ext}}`.
+const COMLINE_TOML: &str = "\
+# comline.toml — where `comline generate` writes code, and how.
+#
+# With everything below commented out, targets come from `config.idp`'s
+# `code_generation.languages` and land in `generated/`. Uncomment to change it.
+#
+# [generate]
+# out = \"generated\"                                # output root
+# layout = \"{{language}}/{{namespace}}.{{ext}}\"    # path under the root
+# mode = \"code\"                                    # code | lib | dylib (only `code` today)
+#
+# [[generate.target]]
+# language = \"rust\"
+# out = \"src/generated\"
+";
+
 pub fn run(work_dir: &Path, name: &str, git: bool) -> Result<()> {
     let root = work_dir.join(name);
     if root.exists() {
@@ -47,6 +66,7 @@ pub fn run(work_dir: &Path, name: &str, git: bool) -> Result<()> {
         .wrap_err("failed to create project directories")?;
 
     write(&root.join("config.idp"), &config_idp(&package))?;
+    write(&root.join("comline.toml"), COMLINE_TOML)?;
     write(&root.join("src/main.ids"), MAIN_IDS)?;
     write(&root.join(".gitignore"), GITIGNORE)?;
 

@@ -1,0 +1,245 @@
+//! `comline.toml` — the consumer-owned code-generation config.
+//!
+//! `config.idp` (the congregation) declares *what* a package can be generated as
+//! (`code_generation.languages`); it is frozen into the package and must not
+//! carry output paths. `comline.toml` is the other half: it belongs to whoever
+//! *consumes* the package and says where generated code lands, in what layout,
+//! and in what form. It is plain committed source — never frozen, never in CAS.
+//!
+//! Field precedence, lowest to highest: built-in defaults → `[generate]` →
+//! `[[generate.target]]` → CLI flags.
+
+use std::path::{Path, PathBuf};
+
+use comline_core::utils::templating::recurse_render;
+use miette::{miette, IntoDiagnostic, Result, WrapErr};
+use serde::{Deserialize, Serialize};
+
+/// File looked for in the project directory.
+pub const FILE_NAME: &str = "comline.toml";
+
+/// Default output root, relative to `comline.toml`.
+pub const DEFAULT_OUT: &str = "generated";
+/// Default on-disk layout under a target's root.
+pub const DEFAULT_LAYOUT: &str = "{{language}}/{{namespace}}.{{ext}}";
+/// Default emit form. Only `"code"` is implemented today.
+pub const DEFAULT_MODE: &str = "code";
+
+/// Parsed `comline.toml`. An absent file parses as [`Self::default`].
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ComlineToml {
+    #[serde(default)]
+    pub generate: Generate,
+}
+
+/// The `[generate]` table.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Generate {
+    /// Output root shared by every target unless overridden.
+    pub out: Option<String>,
+    /// Layout template shared by every target unless overridden.
+    pub layout: Option<String>,
+    /// Emit form shared by every target unless overridden.
+    pub mode: Option<String>,
+    /// `[[generate.target]]` blocks.
+    #[serde(rename = "target")]
+    pub targets: Vec<Target>,
+}
+
+/// One `[[generate.target]]` block.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Target {
+    /// Must match a language the congregation declared under
+    /// `code_generation.languages`.
+    pub language: String,
+    /// Language/toolchain version selecting the generator (e.g. `1.70.0`).
+    /// Falls back to the version the congregation declared for this language.
+    pub lang_version: Option<String>,
+    pub out: Option<String>,
+    pub layout: Option<String>,
+    pub mode: Option<String>,
+}
+
+impl ComlineToml {
+    /// Load `<work_dir>/comline.toml`; a missing file yields defaults.
+    pub fn load(work_dir: &Path) -> Result<Self> {
+        let path = work_dir.join(FILE_NAME);
+        match std::fs::read_to_string(&path) {
+            Ok(text) => toml::from_str(&text)
+                .into_diagnostic()
+                .wrap_err_with(|| format!("failed to parse `{}`", path.display())),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
+            Err(e) => Err(e)
+                .into_diagnostic()
+                .wrap_err_with(|| format!("failed to read `{}`", path.display())),
+        }
+    }
+}
+
+/// A language the congregation declared, `name#version` already split.
+#[derive(Debug, Clone)]
+pub struct DeclaredLang {
+    pub language: String,
+    pub lang_version: String,
+}
+
+/// CLI flag overrides for `comline generate`.
+#[derive(Debug, Default)]
+pub struct Overrides<'a> {
+    pub target: Option<&'a str>,
+    pub out: Option<&'a str>,
+    pub layout: Option<&'a str>,
+    pub mode: Option<&'a str>,
+}
+
+/// A fully-resolved target: every field decided, `out` made absolute.
+#[derive(Debug)]
+pub struct ResolvedTarget {
+    pub language: String,
+    pub lang_version: String,
+    pub out: PathBuf,
+    pub layout: String,
+    pub mode: String,
+}
+
+/// Variables a `layout` template can reference.
+#[derive(Serialize)]
+struct LayoutVars<'a> {
+    language: &'a str,
+    namespace: &'a str,
+    ext: &'a str,
+    lang_version: &'a str,
+    spec_version: &'a str,
+}
+
+impl ResolvedTarget {
+    /// Render `layout` for one schema namespace into an absolute path under
+    /// `self.out`. `ext` is the generator's file extension (e.g. `rs`).
+    pub fn dest_for(&self, namespace: &str, ext: &str, spec_version: &str) -> Result<PathBuf> {
+        if self.layout.contains("{{package_version}}") {
+            return Err(miette!(
+                "`{{{{package_version}}}}` in a layout is not available yet \
+                 (needs multi-version generation)"
+            ));
+        }
+        let vars = LayoutVars {
+            language: &self.language,
+            namespace,
+            ext,
+            lang_version: &self.lang_version,
+            spec_version,
+        };
+        let rel = recurse_render(&self.layout, &vars)
+            .map_err(|e| miette!("bad `layout` template `{}`: {e}", self.layout))?;
+        Ok(self.out.join(rel))
+    }
+}
+
+/// Merge `comline.toml`, the congregation's declared languages and CLI flags
+/// into the concrete set of targets `generate` should emit.
+///
+/// The base list is `[[generate.target]]` if present, otherwise one target per
+/// declared language. `--target` filters it (case-insensitive). Field overrides
+/// (`--out` / `--layout` / `--mode`) apply to the single remaining target, or to
+/// the `--target`-named one; using them with several targets and no `--target`
+/// is an error.
+pub fn resolve(
+    cfg: &ComlineToml,
+    declared: &[DeclaredLang],
+    work_dir: &Path,
+    ov: &Overrides,
+) -> Result<Vec<ResolvedTarget>> {
+    let base: Vec<Target> = if cfg.generate.targets.is_empty() {
+        declared
+            .iter()
+            .map(|d| Target {
+                language: d.language.clone(),
+                lang_version: Some(d.lang_version.clone()),
+                out: None,
+                layout: None,
+                mode: None,
+            })
+            .collect()
+    } else {
+        cfg.generate.targets.clone()
+    };
+
+    let selected: Vec<&Target> = base
+        .iter()
+        .filter(|t| match ov.target {
+            Some(want) => want.eq_ignore_ascii_case(&t.language),
+            None => true,
+        })
+        .collect();
+
+    if selected.is_empty() {
+        return match ov.target {
+            Some(want) => Err(miette!("no code-generation target matches `{want}`")),
+            None => Err(miette!(
+                "nothing to generate: add `[[generate.target]]` to {} \
+                 or `code_generation.languages` to config.idp",
+                FILE_NAME
+            )),
+        };
+    }
+
+    let field_override = ov.out.is_some() || ov.layout.is_some() || ov.mode.is_some();
+    if field_override && selected.len() > 1 && ov.target.is_none() {
+        return Err(miette!(
+            "`--out` / `--layout` / `--mode` need `--target <lang>` when more \
+             than one target is configured ({} here)",
+            selected.len()
+        ));
+    }
+    // Overrides bind to a target when it was explicitly named, or when it is the
+    // only one left.
+    let apply_override = ov.target.is_some() || selected.len() == 1;
+
+    let mut resolved = Vec::with_capacity(selected.len());
+    for t in selected {
+        let pick = |flag: Option<&str>,
+                    target: &Option<String>,
+                    section: &Option<String>,
+                    default: &str| {
+            flag.filter(|_| apply_override)
+                .map(str::to_owned)
+                .or_else(|| target.clone())
+                .or_else(|| section.clone())
+                .unwrap_or_else(|| default.to_owned())
+        };
+
+        let out = pick(ov.out, &t.out, &cfg.generate.out, DEFAULT_OUT);
+        let layout = pick(ov.layout, &t.layout, &cfg.generate.layout, DEFAULT_LAYOUT);
+        let mode = pick(ov.mode, &t.mode, &cfg.generate.mode, DEFAULT_MODE);
+
+        let lang_version = t
+            .lang_version
+            .clone()
+            .or_else(|| {
+                declared
+                    .iter()
+                    .find(|d| d.language.eq_ignore_ascii_case(&t.language))
+                    .map(|d| d.lang_version.clone())
+            })
+            .ok_or_else(|| {
+                miette!(
+                    "target `{}` sets no `lang_version` and config.idp does not \
+                     declare that language under `code_generation.languages`",
+                    t.language
+                )
+            })?;
+
+        resolved.push(ResolvedTarget {
+            language: t.language.clone(),
+            lang_version,
+            out: work_dir.join(out),
+            layout,
+            mode,
+        });
+    }
+
+    Ok(resolved)
+}

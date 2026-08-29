@@ -7,6 +7,7 @@ use comline_core::package::config::ir::frozen::FrozenUnit as ConfigUnit;
 use miette::{IntoDiagnostic, Result, WrapErr};
 
 use crate::commands::ensure_project;
+use crate::gen_config::{self, ComlineToml, DeclaredLang, Overrides};
 use crate::ui;
 
 pub fn run(work_dir: &Path, dry_run: bool) -> Result<()> {
@@ -47,10 +48,19 @@ pub fn run(work_dir: &Path, dry_run: bool) -> Result<()> {
     Ok(())
 }
 
-/// Best-effort list of files `generate` would have written: `<namespace>.<ext>`
-/// next to `config.idp`, for every configured target. Returns an empty list if
-/// the project does not currently compile.
+/// Best-effort list of what `generate` would have written, resolved the same way
+/// `generate` resolves it (`comline.toml` `[generate]`, else the congregation's
+/// declared languages). For each target this is the whole output root when it is
+/// a real sub-directory, otherwise the individual rendered files. Empty if the
+/// project does not currently compile or `comline.toml` does not parse.
 fn generated_files(work_dir: &Path) -> Vec<PathBuf> {
+    let cfg = match ComlineToml::load(work_dir) {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            ui::note(format!("skipping generated-file cleanup: {e}"));
+            return Vec::new();
+        }
+    };
     let Ok(context) = build::compile_package(work_dir) else {
         ui::note("skipping generated-file cleanup: project does not compile");
         return Vec::new();
@@ -59,20 +69,49 @@ fn generated_files(work_dir: &Path) -> Vec<PathBuf> {
         return Vec::new();
     };
 
+    let declared: Vec<DeclaredLang> = config_units
+        .iter()
+        .filter_map(|u| match u {
+            ConfigUnit::CodeGeneration(g) => {
+                g.name.split_once('#').map(|(lang, ver)| DeclaredLang {
+                    language: lang.to_owned(),
+                    lang_version: ver.to_owned(),
+                })
+            }
+            _ => None,
+        })
+        .collect();
+    let spec_version = config_units
+        .iter()
+        .find_map(|u| match u {
+            ConfigUnit::SpecificationVersion(v) => Some(v.to_string()),
+            _ => None,
+        })
+        .unwrap_or_default();
+
+    let Ok(targets) = gen_config::resolve(&cfg, &declared, work_dir, &Overrides::default()) else {
+        return Vec::new();
+    };
+
     let mut files = Vec::new();
-    for unit in config_units {
-        let ConfigUnit::CodeGeneration(generation) = unit else {
+    for t in &targets {
+        // A dedicated output directory: remove it wholesale (stale files too).
+        if t.out != work_dir && t.out.is_dir() {
+            files.push(t.out.clone());
             continue;
-        };
-        let Some((lang, version)) = generation.name.split_once('#') else {
-            continue;
-        };
-        let Some((_, ext)) = comline_core::codelib_gen::find_generator(lang, version) else {
+        }
+        // Output lands among the sources — only touch the exact files.
+        let Some((_, ext)) =
+            comline_core::codelib_gen::find_generator(&t.language, &t.lang_version)
+        else {
             continue;
         };
         for schema_ctx in &context.schema_contexts {
             let schema_ctx = schema_ctx.borrow();
-            let candidate = work_dir.join(format!("{}.{}", schema_ctx.namespace_joined(), ext));
+            let namespace = schema_ctx.namespace.join("/");
+            let Ok(candidate) = t.dest_for(&namespace, ext, &spec_version) else {
+                continue;
+            };
             if candidate.is_file() {
                 files.push(candidate);
             }

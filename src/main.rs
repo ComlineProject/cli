@@ -2,6 +2,7 @@ mod changes;
 mod cli;
 mod commands;
 mod error;
+mod gen_config;
 mod ui;
 mod watch;
 
@@ -88,8 +89,20 @@ fn run(cli: Cli) -> Result<()> {
     match cli.command {
         Commands::Build { release, watch } => commands::build::run(&work_dir, release, watch),
         Commands::Check => commands::check::run(&work_dir),
-        Commands::Generate { target, watch } => {
-            commands::generate::run(&work_dir, target.as_deref(), watch)
+        Commands::Generate {
+            target,
+            out,
+            layout,
+            mode,
+            watch,
+        } => {
+            let overrides = gen_config::Overrides {
+                target: target.as_deref(),
+                out: out.as_deref().map(|p| p.to_str().unwrap_or_default()),
+                layout: layout.as_deref(),
+                mode: mode.as_deref(),
+            };
+            commands::generate::run(&work_dir, &overrides, watch)
         }
         Commands::Diff { old, new } => commands::diff::run(&work_dir, &old, &new),
         Commands::Clean { dry_run } => commands::clean::run(&work_dir, dry_run),
