@@ -3,6 +3,7 @@ mod cli;
 mod commands;
 mod error;
 mod gen_config;
+mod history;
 mod ui;
 mod watch;
 
