@@ -69,6 +69,62 @@ fn reads_out_from_comline_toml() {
 }
 
 #[test]
+fn env_out_overrides_the_file() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    fs::write(project.join("comline.toml"), "[generate]\nout = \"gen\"\n").unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .env("COMLINE_GENERATE_OUT", "envgen")
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success();
+
+    assert!(project.join("envgen/rust/main.rs").exists());
+    assert!(!project.join("gen").exists());
+}
+
+#[test]
+fn out_flag_beats_env_out() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .env("COMLINE_GENERATE_OUT", "envgen")
+        .args(["generate", "--target", "rust", "--out", "flaggen"])
+        .assert()
+        .success();
+
+    assert!(project.join("flaggen/rust/main.rs").exists());
+    assert!(!project.join("envgen").exists());
+}
+
+#[test]
+fn env_out_applies_in_a_multi_target_config() {
+    // `--out` alone would error here (see out_flag_needs_target_when_several…);
+    // the env var does not — it applies to every target.
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    fs::write(
+        project.join("comline.toml"),
+        "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\n\
+         [[generate.target]]\nlanguage = \"python\"\nlang_version = \"3.11.0\"\n",
+    )
+    .unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .env("COMLINE_GENERATE_OUT", "envgen")
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success();
+
+    assert!(project.join("envgen/rust/main.rs").exists());
+}
+
+#[test]
 fn plain_uses_ascii_arrow() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());

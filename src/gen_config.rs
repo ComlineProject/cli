@@ -7,7 +7,7 @@
 //! and in what form. It is plain committed source — never frozen, never in CAS.
 //!
 //! Field precedence, lowest to highest: built-in defaults → `[generate]` →
-//! `[[generate.target]]` → CLI flags.
+//! `[[generate.target]]` → `COMLINE_GENERATE_*` env → CLI flags.
 
 use std::path::{Path, PathBuf};
 
@@ -61,6 +61,11 @@ pub struct Target {
     pub out: Option<String>,
     pub layout: Option<String>,
     pub mode: Option<String>,
+}
+
+/// A non-empty `COMLINE_GENERATE_*` env var, if set.
+fn env_var(name: &str) -> Option<String> {
+    std::env::var(name).ok().filter(|s| !s.is_empty())
 }
 
 impl ComlineToml {
@@ -142,10 +147,11 @@ impl ResolvedTarget {
 /// into the concrete set of targets `generate` should emit.
 ///
 /// The base list is `[[generate.target]]` if present, otherwise one target per
-/// declared language. `--target` filters it (case-insensitive). Field overrides
-/// (`--out` / `--layout` / `--mode`) apply to the single remaining target, or to
-/// the `--target`-named one; using them with several targets and no `--target`
-/// is an error.
+/// declared language. `--target` filters it (case-insensitive). The `--out` /
+/// `--layout` / `--mode` flags apply to the single remaining target, or to the
+/// `--target`-named one; using them with several targets and no `--target` is an
+/// error. `COMLINE_GENERATE_{OUT,LAYOUT,MODE}` sit just below the flags but apply
+/// to every target regardless (a deliberate global for CI).
 pub fn resolve(
     cfg: &ComlineToml,
     declared: &[DeclaredLang],
@@ -194,26 +200,45 @@ pub fn resolve(
             selected.len()
         ));
     }
-    // Overrides bind to a target when it was explicitly named, or when it is the
-    // only one left.
-    let apply_override = ov.target.is_some() || selected.len() == 1;
+    // A flag binds to a target when it was explicitly named, or when it is the
+    // only one left. `COMLINE_*` env vars are a deliberate global — they apply to
+    // every target regardless.
+    let apply_flag = ov.target.is_some() || selected.len() == 1;
+    let env_out = env_var("COMLINE_GENERATE_OUT");
+    let env_layout = env_var("COMLINE_GENERATE_LAYOUT");
+    let env_mode = env_var("COMLINE_GENERATE_MODE");
 
     let mut resolved = Vec::with_capacity(selected.len());
     for t in selected {
+        // Precedence, highest first: flag → env → [[target]] → [generate] → default.
         let pick = |flag: Option<&str>,
+                    env: &Option<String>,
                     target: &Option<String>,
                     section: &Option<String>,
                     default: &str| {
-            flag.filter(|_| apply_override)
+            flag.filter(|_| apply_flag)
                 .map(str::to_owned)
+                .or_else(|| env.clone())
                 .or_else(|| target.clone())
                 .or_else(|| section.clone())
                 .unwrap_or_else(|| default.to_owned())
         };
 
-        let out = pick(ov.out, &t.out, &cfg.generate.out, DEFAULT_OUT);
-        let layout = pick(ov.layout, &t.layout, &cfg.generate.layout, DEFAULT_LAYOUT);
-        let mode = pick(ov.mode, &t.mode, &cfg.generate.mode, DEFAULT_MODE);
+        let out = pick(ov.out, &env_out, &t.out, &cfg.generate.out, DEFAULT_OUT);
+        let layout = pick(
+            ov.layout,
+            &env_layout,
+            &t.layout,
+            &cfg.generate.layout,
+            DEFAULT_LAYOUT,
+        );
+        let mode = pick(
+            ov.mode,
+            &env_mode,
+            &t.mode,
+            &cfg.generate.mode,
+            DEFAULT_MODE,
+        );
 
         let lang_version = t
             .lang_version
