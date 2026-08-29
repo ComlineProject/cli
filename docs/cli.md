@@ -203,6 +203,9 @@ variables: `{{language}}`, `{{namespace}}` (`/`-joined), `{{ext}}`,
 - `--out <dir>` / `--layout <template>` / `--mode <mode>` — override one target's
   `[generate]` values. When more than one target is configured they require
   `--target` (otherwise it is ambiguous which they apply to).
+- `COMLINE_GENERATE_OUT` / `COMLINE_GENERATE_LAYOUT` / `COMLINE_GENERATE_MODE` —
+  the same overrides from the environment, sitting just below the flags but
+  applied to **every** target (handy in CI). A flag still wins for its target.
 - `--watch` — regenerate on change; see [Watch mode](#watch-mode).
 
 Currently `rust` is the only generator and `code` the only mode; other languages
