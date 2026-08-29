@@ -183,9 +183,10 @@ none, from `code_generation.languages` in `config.idp`.
 
 ```toml
 [generate]
-out    = "generated"                            # output root, relative to comline.toml
-layout = "{{language}}/{{namespace}}.{{ext}}"   # path of each file under the root
-mode   = "code"                                 # code | lib | dylib (only `code` today)
+out              = "generated"                            # output root, relative to comline.toml
+layout           = "{{language}}/{{namespace}}.{{ext}}"   # path of each file under the root
+mode             = "code"                                 # code | lib | dylib (only `code` today)
+package_versions = "latest"                               # latest | all | ["0.3.0", "0.4.0"]
 
 # optional, one per target you want to pin or override:
 [[generate.target]]
@@ -196,7 +197,15 @@ out      = "src/generated"
 `comline.toml` is committed, consumer-owned, and never frozen. With no
 `comline.toml` (or an all-commented one), the defaults above apply. Layout
 variables: `{{language}}`, `{{namespace}}` (`/`-joined), `{{ext}}`,
-`{{lang_version}}`, `{{spec_version}}`.
+`{{lang_version}}`, `{{spec_version}}`, `{{package_version}}`.
+
+**Which versions.** `package_versions = "latest"` (the default) generates the
+working tree — no `.comline/` read. `"all"` generates every committed version in
+the CAS chain; `["0.3.0", "0.4.0"]` (versions or commit hashes) generates just
+those. Anything but `latest` requires the project to have been built at least
+once, and — because more than one version would otherwise write to the same
+paths — the `layout` must contain `{{package_version}}`. For `latest`,
+`{{package_version}}` is the last committed version (empty if never built).
 
 - `--target <lang>` — only this language (case-insensitive). Errors if nothing
   matches.

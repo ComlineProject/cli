@@ -39,6 +39,7 @@ const COMLINE_TOML: &str = "\
 # out = \"generated\"                                # output root
 # layout = \"{{language}}/{{namespace}}.{{ext}}\"    # path under the root
 # mode = \"code\"                                    # code | lib | dylib (only `code` today)
+# package_versions = \"latest\"                      # latest | all | [\"0.3.0\", \"0.4.0\"]
 #
 # [[generate.target]]
 # language = \"rust\"

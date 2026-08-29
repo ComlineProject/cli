@@ -100,7 +100,9 @@ fn generated_files(work_dir: &Path) -> Vec<PathBuf> {
             files.push(t.out.clone());
             continue;
         }
-        // Output lands among the sources — only touch the exact files.
+        // Output lands among the sources — only touch the exact files. This
+        // covers the single-version (`latest`) case; a multi-version tree lives
+        // under a dedicated `out` dir and is removed by the branch above.
         let Some((_, ext)) =
             comline_core::codelib_gen::find_generator(&t.language, &t.lang_version)
         else {
@@ -109,7 +111,7 @@ fn generated_files(work_dir: &Path) -> Vec<PathBuf> {
         for schema_ctx in &context.schema_contexts {
             let schema_ctx = schema_ctx.borrow();
             let namespace = schema_ctx.namespace.join("/");
-            let Ok(candidate) = t.dest_for(&namespace, ext, &spec_version) else {
+            let Ok(candidate) = t.dest_for(&namespace, ext, &spec_version, "") else {
                 continue;
             };
             if candidate.is_file() {
