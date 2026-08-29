@@ -25,6 +25,39 @@ pub const DEFAULT_LAYOUT: &str = "{{language}}/{{namespace}}.{{ext}}";
 /// Default emit form. Only `"code"` is implemented today.
 pub const DEFAULT_MODE: &str = "code";
 
+/// Which package versions to generate bindings for.
+///
+/// TOML: `package_versions = "latest"` (default) | `"all"` | `"0.3.0"` |
+/// `["0.3.0", "0.4.0"]`. `latest` is the working tree; anything else reads
+/// committed versions from the CAS chain.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum VersionSpec {
+    /// The working tree (no CAS read).
+    #[default]
+    Latest,
+    /// Every committed version in the chain.
+    All,
+    /// Specific committed versions (each a version string or commit hash).
+    List(Vec<String>),
+}
+
+impl<'de> Deserialize<'de> for VersionSpec {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Raw {
+            One(String),
+            Many(Vec<String>),
+        }
+        Ok(match Raw::deserialize(d)? {
+            Raw::One(s) if s.eq_ignore_ascii_case("latest") => VersionSpec::Latest,
+            Raw::One(s) if s.eq_ignore_ascii_case("all") => VersionSpec::All,
+            Raw::One(s) => VersionSpec::List(vec![s]),
+            Raw::Many(v) => VersionSpec::List(v),
+        })
+    }
+}
+
 /// Parsed `comline.toml`. An absent file parses as [`Self::default`].
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -43,6 +76,8 @@ pub struct Generate {
     pub layout: Option<String>,
     /// Emit form shared by every target unless overridden.
     pub mode: Option<String>,
+    /// Version selection shared by every target unless overridden.
+    pub package_versions: Option<VersionSpec>,
     /// `[[generate.target]]` blocks.
     #[serde(rename = "target")]
     pub targets: Vec<Target>,
@@ -61,6 +96,7 @@ pub struct Target {
     pub out: Option<String>,
     pub layout: Option<String>,
     pub mode: Option<String>,
+    pub package_versions: Option<VersionSpec>,
 }
 
 /// A non-empty `COMLINE_GENERATE_*` env var, if set.
@@ -108,6 +144,7 @@ pub struct ResolvedTarget {
     pub out: PathBuf,
     pub layout: String,
     pub mode: String,
+    pub versions: VersionSpec,
 }
 
 /// Variables a `layout` template can reference.
@@ -118,24 +155,28 @@ struct LayoutVars<'a> {
     ext: &'a str,
     lang_version: &'a str,
     spec_version: &'a str,
+    package_version: &'a str,
 }
 
 impl ResolvedTarget {
     /// Render `layout` for one schema namespace into an absolute path under
-    /// `self.out`. `ext` is the generator's file extension (e.g. `rs`).
-    pub fn dest_for(&self, namespace: &str, ext: &str, spec_version: &str) -> Result<PathBuf> {
-        if self.layout.contains("{{package_version}}") {
-            return Err(miette!(
-                "`{{{{package_version}}}}` in a layout is not available yet \
-                 (needs multi-version generation)"
-            ));
-        }
+    /// `self.out`. `ext` is the generator's file extension (e.g. `rs`);
+    /// `package_version` is the version being generated (empty for an unbuilt
+    /// working tree).
+    pub fn dest_for(
+        &self,
+        namespace: &str,
+        ext: &str,
+        spec_version: &str,
+        package_version: &str,
+    ) -> Result<PathBuf> {
         let vars = LayoutVars {
             language: &self.language,
             namespace,
             ext,
             lang_version: &self.lang_version,
             spec_version,
+            package_version,
         };
         let rel = recurse_render(&self.layout, &vars)
             .map_err(|e| miette!("bad `layout` template `{}`: {e}", self.layout))?;
@@ -167,6 +208,7 @@ pub fn resolve(
                 out: None,
                 layout: None,
                 mode: None,
+                package_versions: None,
             })
             .collect()
     } else {
@@ -257,14 +299,71 @@ pub fn resolve(
                 )
             })?;
 
+        let versions = t
+            .package_versions
+            .clone()
+            .or_else(|| cfg.generate.package_versions.clone())
+            .unwrap_or_default();
+
         resolved.push(ResolvedTarget {
             language: t.language.clone(),
             lang_version,
             out: work_dir.join(out),
             layout,
             mode,
+            versions,
         });
     }
 
     Ok(resolved)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(toml_src: &str) -> ComlineToml {
+        toml::from_str(toml_src).unwrap()
+    }
+
+    #[test]
+    fn version_spec_forms() {
+        assert_eq!(
+            parse("[generate]\npackage_versions = \"latest\"")
+                .generate
+                .package_versions,
+            Some(VersionSpec::Latest)
+        );
+        assert_eq!(
+            parse("[generate]\npackage_versions = \"ALL\"")
+                .generate
+                .package_versions,
+            Some(VersionSpec::All)
+        );
+        assert_eq!(
+            parse("[generate]\npackage_versions = \"0.3.0\"")
+                .generate
+                .package_versions,
+            Some(VersionSpec::List(vec!["0.3.0".into()]))
+        );
+        assert_eq!(
+            parse("[generate]\npackage_versions = [\"0.3.0\", \"0.4.0\"]")
+                .generate
+                .package_versions,
+            Some(VersionSpec::List(vec!["0.3.0".into(), "0.4.0".into()]))
+        );
+        assert_eq!(parse("[generate]").generate.package_versions, None);
+    }
+
+    #[test]
+    fn target_package_versions_wins_over_section() {
+        let cfg = parse(
+            "[generate]\npackage_versions = \"all\"\n\n\
+             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
+             package_versions = \"latest\"\n",
+        );
+        let declared = [];
+        let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
+        assert_eq!(resolved[0].versions, VersionSpec::Latest);
+    }
 }
