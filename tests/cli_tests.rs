@@ -60,6 +60,7 @@ fn new_scaffolds_a_buildable_project() {
 
     let root = temp.path().join("my_api");
     assert!(root.join("config.idp").exists());
+    assert!(root.join("comline.toml").exists());
     assert!(root.join("src/main.ids").exists());
     assert!(root.join(".gitignore").exists());
 
@@ -187,7 +188,7 @@ fn build_freezes_an_initial_version() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn generate_writes_one_file_per_schema() {
+fn generate_writes_one_file_per_schema_under_the_default_layout() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
 
@@ -197,11 +198,55 @@ fn generate_writes_one_file_per_schema() {
         .assert()
         .success()
         .stderr(predicate::str::contains("language: rust, version:"))
-        .stderr(predicate::str::contains("main.ids → main.rs"))
+        .stderr(predicate::str::contains(
+            "main.ids → generated/rust/main.rs",
+        ))
         .stderr(predicate::str::contains("Generated"));
 
-    assert!(project.join("main.rs").exists());
-    assert!(project.join("other.rs").exists());
+    // default layout: generated/{language}/{namespace}.{ext}
+    assert!(project.join("generated/rust/main.rs").exists());
+    assert!(project.join("generated/rust/other.rs").exists());
+    // and it does NOT freeze a version
+    assert!(!project.join(".comline").exists());
+}
+
+#[test]
+fn generate_honours_out_flag_and_a_flat_layout() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args([
+            "generate",
+            "--target",
+            "rust",
+            "--out",
+            "bindings",
+            "--layout",
+            "{{namespace}}.{{ext}}",
+        ])
+        .assert()
+        .success();
+
+    assert!(project.join("bindings/main.rs").exists());
+    assert!(project.join("bindings/other.rs").exists());
+    assert!(!project.join("generated").exists());
+}
+
+#[test]
+fn generate_reads_out_from_comline_toml() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    fs::write(project.join("comline.toml"), "[generate]\nout = \"gen\"\n").unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success();
+
+    assert!(project.join("gen/rust/main.rs").exists());
 }
 
 #[test]
@@ -214,8 +259,30 @@ fn generate_plain_uses_ascii_arrow() {
         .args(["generate", "--target", "rust", "--plain"])
         .assert()
         .success()
-        .stderr(predicate::str::contains("main.ids -> main.rs"))
+        .stderr(predicate::str::contains(
+            "main.ids -> generated/rust/main.rs",
+        ))
         .stderr(predicate::str::contains('⚙').not());
+}
+
+#[test]
+fn generate_out_flag_needs_target_when_several_are_configured() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    fs::write(
+        project.join("comline.toml"),
+        "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\n\
+         [[generate.target]]\nlanguage = \"python\"\nlang_version = \"3.11.0\"\n",
+    )
+    .unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--out", "x"])
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicate::str::contains("need `--target"));
 }
 
 #[test]
@@ -253,7 +320,7 @@ fn generate_rejects_an_unconfigured_target() {
         .failure()
         .code(1)
         .stderr(predicate::str::contains(
-            "no configured `code_generation` target",
+            "no code-generation target matches `python`",
         ));
 }
 

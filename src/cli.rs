@@ -72,19 +72,38 @@ first error found. Unlike `build`, this never writes to `.comline/` and never \
 bumps the version, so it is safe to run in editors and pre-commit hooks.")]
     Check,
 
-    /// Compile the project and write generated code for each configured target
+    /// Validate the project and write generated code for each configured target
     #[command(long_about = "\
-Build the project, then run every code generator configured in `config.idp`, \
-writing one file per schema namespace.
+Validate the project (no version bump, no `.comline/` write), then write \
+generated code for each target.
+
+Targets come from `[[generate.target]]` in `comline.toml`, or — if that file \
+lists none — from `code_generation.languages` in `config.idp`. Output location \
+and layout live in `comline.toml`'s `[generate]` table. `--out` / `--layout` / \
+`--mode` override one target and need `--target` when several are configured. \
+Defaults: out `generated`, layout `{{language}}/{{namespace}}.{{ext}}`, mode \
+`code` (the only one implemented).
 
 Examples:
   comline generate
-  comline generate --target rust
+  comline generate --target rust --out ./bindings
   comline generate --watch")]
     Generate {
         /// Only generate for this language (e.g. `rust`); default: every configured target
         #[arg(short, long, value_name = "LANG")]
         target: Option<String>,
+
+        /// Output root for the selected target (overrides `comline.toml`)
+        #[arg(short, long, value_name = "DIR")]
+        out: Option<PathBuf>,
+
+        /// Layout template for the selected target, e.g. `{{language}}/{{namespace}}.{{ext}}`
+        #[arg(short, long, value_name = "TEMPLATE")]
+        layout: Option<String>,
+
+        /// Emit form for the selected target: `code` (only one supported today), `lib`, `dylib`
+        #[arg(short, long, value_name = "MODE")]
+        mode: Option<String>,
 
         /// Regenerate automatically when a schema or `config.idp` changes
         #[arg(short, long)]

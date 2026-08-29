@@ -21,6 +21,8 @@ indicatif = "0.17"
 notify-debouncer-mini = "0.4"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "fmt"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
 comline-core = "0.1"
 
 [target.'cfg(unix)'.dependencies]

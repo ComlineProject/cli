@@ -11,7 +11,7 @@ use notify_debouncer_mini::{new_debouncer, DebounceEventResult};
 use crate::ui;
 
 /// Run `action` once, then again on every debounced change under `<dir>/src` or
-/// to `<dir>/config.idp`, until the process is interrupted (Ctrl-C).
+/// to `<dir>/config.idp` / `<dir>/comline.toml`, until interrupted (Ctrl-C).
 ///
 /// A failing run is reported but does not stop the loop — the point of `--watch`
 /// is to keep going while you fix the error.
@@ -31,13 +31,15 @@ pub fn run(work_dir: &Path, label: &str, mut action: impl FnMut() -> Result<()>)
             .into_diagnostic()
             .wrap_err_with(|| format!("failed to watch `{}`", src.display()))?;
     }
-    let config = work_dir.join("config.idp");
-    if config.is_file() {
-        debouncer
-            .watcher()
-            .watch(&config, RecursiveMode::NonRecursive)
-            .into_diagnostic()
-            .wrap_err_with(|| format!("failed to watch `{}`", config.display()))?;
+    for name in ["config.idp", "comline.toml"] {
+        let file = work_dir.join(name);
+        if file.is_file() {
+            debouncer
+                .watcher()
+                .watch(&file, RecursiveMode::NonRecursive)
+                .into_diagnostic()
+                .wrap_err_with(|| format!("failed to watch `{}`", file.display()))?;
+        }
     }
 
     ui::note(format!(

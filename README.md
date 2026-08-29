@@ -29,12 +29,12 @@ comline generate            # write generated code for each configured target
 
 | Command | What it does |
 |---|---|
-| `comline new <name> [--git]` | Scaffold `<name>/` with `config.idp`, `src/main.ids` and a `.gitignore`. `--git` also runs `git init`. |
+| `comline new <name> [--git]` | Scaffold `<name>/` with `config.idp`, `comline.toml`, `src/main.ids` and a `.gitignore`. `--git` also runs `git init`. |
 | `comline check` | Parse, resolve and validate every schema. No `.comline/` writes, no version bump — safe for editors, hooks and CI. |
 | `comline build [--release] [--watch]` | Compile, validate, and freeze a new immutable version into `.comline/`. Prints the changelog and the version bump. |
-| `comline generate [--target <lang>] [--watch]` | Build, then run each configured code generator (or just `<lang>`). |
+| `comline generate [--target <lang>] [--out <dir>] [--layout <tpl>] [--mode <m>] [--watch]` | Validate (no freeze), then write generated code. Output location/layout come from `comline.toml` `[generate]`; targets from there or `config.idp`. |
 | `comline diff <old> <new>` | Show the schema changes between two built versions. Each argument is a version (`0.2.0`), a commit hash, or `HEAD` (the default for `<new>`). |
-| `comline clean [--dry-run]` | Remove `.comline/` and generated files. |
+| `comline clean [--dry-run]` | Remove `.comline/` and the `generate` output (the output root, or the individual files). |
 | `comline completions <shell>` | Print a shell completion script to stdout. |
 
 Global flags: `--path <dir>` to run outside the current directory, `-v`/`-vv` for

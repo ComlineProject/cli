@@ -28,14 +28,16 @@ This is the long-form reference. For a two-minute tour see the
 
 ## Overview
 
-A Comline project is a directory with a package config (`config.idp`) and one or
-more schema files (`src/**/*.ids`). Running a command takes those inputs through:
+A Comline project is a directory with a package manifest (`config.idp`) and one
+or more schema files (`src/**/*.ids`), optionally a `comline.toml` for
+code-generation output. Running a command takes those inputs through:
 
-**parse → resolve imports → validate → freeze into `.comline/` → generate code**
+**parse → resolve imports → validate → (freeze into `.comline/`) → (generate code)**
 
-`check` stops after validation. `build` goes through the freeze step and records
-a new version. `generate` additionally runs the configured code generators.
-`diff` reads two already-frozen versions and reports what changed between them.
+`check` stops after validation. `build` adds the freeze step and records a new
+version. `generate` stops after validation too — it does **not** freeze — and
+writes generated code per `comline.toml`. `diff` reads two already-frozen
+versions and reports what changed between them.
 
 ## Installation
 
@@ -57,7 +59,8 @@ completions are generated during the build — see
 
 ```
 my-api/
-├── config.idp        # package config: name, spec version, code_generation targets
+├── config.idp        # package manifest: name, spec version, code_generation targets
+├── comline.toml      # where `generate` writes code and how (all-commented by default)
 ├── src/
 │   └── main.ids      # a sample enum + struct to build on
 └── .gitignore        # ignores .comline/
@@ -166,29 +169,56 @@ comline build --watch
 ### `comline generate`
 
 ```
-comline generate [--target <lang>] [--watch]
+comline generate [--target <lang>] [--out <dir>] [--layout <template>] [--mode <mode>] [--watch]
 ```
 
-Build the project, then run every code generator configured in `config.idp`,
-writing one file per schema namespace next to `config.idp` (e.g. `main.rs`,
-`other.rs`).
+Validate the project, then write generated code for each target. Unlike `build`,
+this **does not** freeze a version or write to `.comline/` — it stops after
+validation.
 
-- `--target <lang>` — only run the generator for `<lang>` (case-insensitive).
-  Errors if no configured target matches. Currently `rust` is the only generator
-  available.
+**Targets** come from `[[generate.target]]` in `comline.toml`; if that file lists
+none, from `code_generation.languages` in `config.idp`.
+
+**Where the code goes** is set in `comline.toml`'s `[generate]` table:
+
+```toml
+[generate]
+out    = "generated"                            # output root, relative to comline.toml
+layout = "{{language}}/{{namespace}}.{{ext}}"   # path of each file under the root
+mode   = "code"                                 # code | lib | dylib (only `code` today)
+
+# optional, one per target you want to pin or override:
+[[generate.target]]
+language = "rust"
+out      = "src/generated"
+```
+
+`comline.toml` is committed, consumer-owned, and never frozen. With no
+`comline.toml` (or an all-commented one), the defaults above apply. Layout
+variables: `{{language}}`, `{{namespace}}` (`/`-joined), `{{ext}}`,
+`{{lang_version}}`, `{{spec_version}}`.
+
+- `--target <lang>` — only this language (case-insensitive). Errors if nothing
+  matches.
+- `--out <dir>` / `--layout <template>` / `--mode <mode>` — override one target's
+  `[generate]` values. When more than one target is configured they require
+  `--target` (otherwise it is ambiguous which they apply to).
 - `--watch` — regenerate on change; see [Watch mode](#watch-mode).
+
+Currently `rust` is the only generator and `code` the only mode; other languages
+or modes fail with a clear message.
 
 ```bash
 comline generate
-comline generate --target rust
+comline generate --target rust --out ./bindings
 comline -p ./schemas generate --target rust
 ```
 
 ```
 • Generating code (in schemas/)
   ⚙️  language: rust, version: 1.70.0
-       main.ids → main.rs
-       other.ids → other.rs
+       main.ids → generated/rust/main.rs
+       other.ids → generated/rust/other.rs
 ✓ Generated 2 file(s)
 ```
 
@@ -226,9 +256,10 @@ argument matches no stored version (the error lists the versions that exist).
 comline clean [--dry-run]
 ```
 
-Remove build artifacts: the `.comline/` store, and the generated files `generate`
-would have produced for the configured targets. The next `build` starts a fresh
-version history at `0.0.1`.
+Remove build artifacts: the `.comline/` store, and what `generate` would have
+written — the whole output root when it is a dedicated directory (e.g.
+`generated/`), otherwise just the individual generated files. The next `build`
+starts a fresh version history at `0.0.1`.
 
 - `--dry-run` — list what would be removed without deleting anything.
 
@@ -299,7 +330,8 @@ fi
 ## Watch mode
 
 `comline build --watch` and `comline generate --watch` run the action once, then
-re-run it whenever a file under `src/` changes or `config.idp` is modified
+re-run it whenever a file under `src/` changes or `config.idp` / `comline.toml`
+is modified
 (300 ms debounce). A failing run is reported but does **not** stop the loop —
 fix the error and save again. Press Ctrl-C to exit.
 
