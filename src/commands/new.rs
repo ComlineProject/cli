@@ -107,7 +107,7 @@ specification_version = 1
 
 code_generation = {{
     languages = {{
-        rust#1.70.0 = {{ package_versions=[all] }}
+        rust#1.70.0 = {{}}
     }}
 }}
 "
