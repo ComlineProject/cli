@@ -74,10 +74,14 @@ specification_version = 1
 
 code_generation = {
     languages = {
-        rust#1.70.0 = { package_versions=[all] }
+        rust#1.70.0 = {}
     }
 }
 ```
+
+The declared languages are a capability list only — a bare
+`language#lang_version`. Which of them to generate, where, and for which package
+versions is set in `comline.toml` (below).
 
 The directory keeps the name you gave; the `congregation` name is that name
 reduced to a valid Comline identifier (letters, digits and `_`), so
