@@ -1,4 +1,7 @@
-//! `comline clean` — remove build artifacts.
+//! `comline clean` — remove generated code.
+//!
+//! Only the output of `comline generate`. The `.comline/` store (the version
+//! history) is left alone — [`super::reset`] is the command that discards that.
 
 use std::path::{Path, PathBuf};
 
@@ -15,13 +18,7 @@ pub fn run(work_dir: &Path, dry_run: bool) -> Result<()> {
 
     ui::step(format!("Cleaning{}", ui::at_path(work_dir)));
 
-    let mut targets: Vec<PathBuf> = Vec::new();
-
-    let cas = work_dir.join(".comline");
-    if cas.exists() {
-        targets.push(cas);
-    }
-    targets.extend(generated_files(work_dir));
+    let mut targets: Vec<PathBuf> = generated_files(work_dir);
     targets.sort();
     targets.dedup();
 
@@ -53,7 +50,9 @@ pub fn run(work_dir: &Path, dry_run: bool) -> Result<()> {
 /// declared languages). For each target this is the whole output root when it is
 /// a real sub-directory, otherwise the individual rendered files. Empty if the
 /// project does not currently compile or `comline.toml` does not parse.
-fn generated_files(work_dir: &Path) -> Vec<PathBuf> {
+///
+/// Shared with [`super::reset`], which removes these too.
+pub(crate) fn generated_files(work_dir: &Path) -> Vec<PathBuf> {
     let cfg = match ComlineToml::load(work_dir) {
         Ok(cfg) => cfg,
         Err(e) => {

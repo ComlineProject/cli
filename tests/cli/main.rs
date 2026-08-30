@@ -13,3 +13,4 @@ mod diff;
 mod generate;
 mod global;
 mod new;
+mod reset;

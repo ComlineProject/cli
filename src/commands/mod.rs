@@ -8,6 +8,7 @@ pub mod completions;
 pub mod diff;
 pub mod generate;
 pub mod new;
+pub mod reset;
 
 use std::path::Path;
 

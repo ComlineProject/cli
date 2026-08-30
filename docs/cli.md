@@ -19,6 +19,7 @@ This is the long-form reference. For a two-minute tour see the
   - [`generate`](#comline-generate)
   - [`diff`](#comline-diff)
   - [`clean`](#comline-clean)
+  - [`reset`](#comline-reset)
   - [`completions`](#comline-completions)
 - [Global flags](#global-flags)
 - [Output and exit codes](#output-and-exit-codes)
@@ -110,6 +111,11 @@ package version automatically, by the largest change it finds:
 The first build is version `0.0.1`. A build with no schema changes keeps the
 current version and does not add a commit. `comline diff` runs this same
 comparison between any two stored versions on demand.
+
+The chain in `.comline/` is the only copy of this history — there is no publish
+step yet. [`comline clean`](#comline-clean) does **not** touch it; only
+[`comline reset`](#comline-reset) discards it, after which the next build starts
+over at `0.0.1`.
 
 ## Commands
 
@@ -272,19 +278,47 @@ argument matches no stored version (the error lists the versions that exist).
 comline clean [--dry-run]
 ```
 
-Remove build artifacts: the `.comline/` store, and what `generate` would have
-written — the whole output root when it is a dedicated directory (e.g.
-`generated/`), otherwise just the individual generated files. The next `build`
-starts a fresh version history at `0.0.1`.
+Remove what `generate` wrote — the whole output root when it is a dedicated
+directory (e.g. `generated/`), otherwise just the individual generated files.
+Resolved the same way `generate` resolves output (`comline.toml` `[generate]`,
+else `config.idp`'s declared languages).
+
+Does **not** touch `.comline/`. Generated code is regenerable; the version
+history is not — [`comline reset`](#comline-reset) is the command for that.
 
 - `--dry-run` — list what would be removed without deleting anything.
 
-Generated-file cleanup needs the project to compile; if it doesn't, `.comline/`
-is still removed and a note is printed.
+Needs the project to compile to know what `generate` would have written; if it
+does not, there is nothing to clean.
 
 ```bash
 comline clean --dry-run
 comline clean
+```
+
+### `comline reset`
+
+```
+comline reset [--force] [--dry-run]
+```
+
+Delete `.comline/` — every frozen version and the commit chain — **and**
+generated code. This cannot be undone, and since nothing else holds the history,
+the next `build` starts over at `0.0.1`.
+
+Guarded:
+
+- on a terminal, you are shown how many versions will be lost and must type
+  `reset` to proceed;
+- without a terminal (CI, scripts) it refuses with exit `2` unless `--force` is
+  given.
+- `--dry-run` — list what would be removed, and the history that would be lost,
+  without deleting anything. No confirmation needed.
+
+```bash
+comline reset --dry-run
+comline reset            # asks for confirmation
+comline reset --force    # scripted
 ```
 
 ### `comline completions`
@@ -334,7 +368,7 @@ Exit codes are stable for scripting and CI:
 |---|---|
 | `0` | success |
 | `1` | the command ran but failed — invalid schema, unresolved `diff` argument, a generator or filesystem error |
-| `2` | a precondition was not met — the directory is not a Comline project, or nothing has been built yet. `clap` also exits `2` for usage errors. |
+| `2` | a precondition was not met — the directory is not a Comline project, nothing has been built yet, or a destructive command (`reset`) was not confirmed. `clap` also exits `2` for usage errors. |
 
 ```bash
 if ! comline check --quiet; then

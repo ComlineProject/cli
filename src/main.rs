@@ -107,6 +107,7 @@ fn run(cli: Cli) -> Result<()> {
         }
         Commands::Diff { old, new } => commands::diff::run(&work_dir, &old, &new),
         Commands::Clean { dry_run } => commands::clean::run(&work_dir, dry_run),
+        Commands::Reset { force, dry_run } => commands::reset::run(&work_dir, force, dry_run),
         Commands::New { name, git } => commands::new::run(&work_dir, &name, git),
         Commands::Completions { shell } => commands::completions::run(shell),
     }
