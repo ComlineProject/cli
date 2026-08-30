@@ -369,6 +369,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "clap_mangen",
+ "comline-codelib-gen",
  "comline-core",
  "indicatif",
  "libc",
@@ -384,10 +385,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "comline-codelib-gen"
+version = "0.1.0"
+source = "git+https://github.com/ComlineProject/generation?rev=f17c2109934a94c595925a45db4938c0720d41ed#f17c2109934a94c595925a45db4938c0720d41ed"
+dependencies = [
+ "comline-core",
+ "eyre",
+ "once_cell",
+]
+
+[[package]]
 name = "comline-core"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60374964b3a1d27961d461cd0cc6ef14ccc5604ecad9bd77c550bac5073edf8a"
+source = "git+https://github.com/ComlineProject/core?rev=d8bc708bf23e4accd06a13da1d317b10596888c7#d8bc708bf23e4accd06a13da1d317b10596888c7"
 dependencies = [
  "ariadne",
  "bincode",
