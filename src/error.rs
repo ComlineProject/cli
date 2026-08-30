@@ -31,6 +31,10 @@ pub enum CliError {
 
     #[error("no builds found in `{}` — run `comline build` first", .0.display())]
     NothingBuilt(PathBuf),
+
+    #[error("refusing to delete the version history without confirmation")]
+    #[diagnostic(help("re-run in a terminal to confirm, or pass `--force`"))]
+    ConfirmationRequired,
 }
 
 /// Map a finished-command error to its process exit code.
@@ -38,6 +42,7 @@ pub fn exit_code_for(report: &miette::Report) -> i32 {
     match report.downcast_ref::<CliError>() {
         Some(CliError::NotAProject(_)) => EXIT_PRECONDITION,
         Some(CliError::NothingBuilt(_)) => EXIT_PRECONDITION,
+        Some(CliError::ConfirmationRequired) => EXIT_PRECONDITION,
         None => EXIT_FAILURE,
     }
 }

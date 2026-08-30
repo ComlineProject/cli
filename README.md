@@ -34,7 +34,8 @@ comline generate            # write generated code for each configured target
 | `comline build [--release] [--watch]` | Compile, validate, and freeze a new immutable version into `.comline/`. Prints the changelog and the version bump. |
 | `comline generate [--target <lang>] [--out <dir>] [--layout <tpl>] [--mode <m>] [--watch]` | Validate (no freeze), then write generated code. Output location/layout come from `comline.toml` `[generate]`; targets from there or `config.idp`. |
 | `comline diff <old> <new>` | Show the schema changes between two built versions. Each argument is a version (`0.2.0`), a commit hash, or `HEAD` (the default for `<new>`). |
-| `comline clean [--dry-run]` | Remove `.comline/` and the `generate` output (the output root, or the individual files). |
+| `comline clean [--dry-run]` | Remove the `generate` output (the output root, or the individual files). Leaves `.comline/` alone. |
+| `comline reset [--force] [--dry-run]` | Discard the version history: delete `.comline/` and generated code. Asks for confirmation on a terminal; needs `--force` otherwise. No undo — the next build restarts at `0.0.1`. |
 | `comline completions <shell>` | Print a shell completion script to stdout. |
 
 Global flags: `--path <dir>` to run outside the current directory, `-v`/`-vv` for
@@ -62,7 +63,7 @@ demand.
 |---|---|
 | `0` | success |
 | `1` | the command ran but failed |
-| `2` | a precondition was not met (not a Comline project, nothing built yet) or a usage error |
+| `2` | a precondition was not met (not a Comline project, nothing built yet, `reset` not confirmed) or a usage error |
 
 ## Development
 

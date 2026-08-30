@@ -1,11 +1,11 @@
-//! `comline clean` — removes generated code only, never `.comline/`.
+//! `comline reset` — discards the version history (`.comline/`) behind a guard.
 
 use predicates::prelude::*;
 
 use crate::util::*;
 
 #[test]
-fn removes_generated_code_but_keeps_the_store() {
+fn force_removes_the_store_and_generated_code() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
 
@@ -19,46 +19,47 @@ fn removes_generated_code_but_keeps_the_store() {
         .args(["generate", "--target", "rust"])
         .assert()
         .success();
-    assert!(project.join("generated/rust/main.rs").exists());
     assert!(project.join(".comline").is_dir());
+    assert!(project.join("generated/rust/main.rs").exists());
 
     comline_cmd()
         .current_dir(&project)
-        .arg("clean")
+        .args(["reset", "--force"])
         .assert()
         .success()
-        .stderr(predicate::str::contains("removed generated"));
+        .stderr(predicate::str::contains("Reset complete"));
 
+    assert!(!project.join(".comline").exists());
     assert!(!project.join("generated").exists());
+}
+
+#[test]
+fn without_force_and_no_tty_it_refuses() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .arg("build")
+        .assert()
+        .success();
+
+    comline_cmd()
+        .current_dir(&project)
+        .arg("reset")
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains("without confirmation"));
+
     assert!(
         project.join(".comline").is_dir(),
-        "clean must not touch .comline/"
+        "a refused reset must leave .comline/ intact"
     );
 }
 
 #[test]
-fn dry_run_lists_without_deleting() {
-    let temp = tempfile::tempdir().unwrap();
-    let project = fixture_project(temp.path());
-
-    comline_cmd()
-        .current_dir(&project)
-        .args(["generate", "--target", "rust"])
-        .assert()
-        .success();
-
-    comline_cmd()
-        .current_dir(&project)
-        .args(["clean", "--dry-run"])
-        .assert()
-        .success()
-        .stderr(predicate::str::contains("would remove"));
-
-    assert!(project.join("generated/rust/main.rs").exists());
-}
-
-#[test]
-fn nothing_to_clean_when_no_generated_code() {
+fn dry_run_keeps_everything() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
 
@@ -70,10 +71,11 @@ fn nothing_to_clean_when_no_generated_code() {
 
     comline_cmd()
         .current_dir(&project)
-        .arg("clean")
+        .args(["reset", "--dry-run"])
         .assert()
         .success()
-        .stderr(predicate::str::contains("Nothing to clean"));
+        .stderr(predicate::str::contains("would remove .comline"))
+        .stderr(predicate::str::contains("currently 0.0.1"));
 
     assert!(project.join(".comline").is_dir());
 }

@@ -131,11 +131,32 @@ Examples:
         new: String,
     },
 
-    /// Remove build artifacts: the `.comline/` store and generated files
+    /// Remove generated code
     #[command(long_about = "\
-Delete the project's `.comline/` content-addressable store and any files left \
-by `generate`. The next `build` starts a fresh version history at 0.0.1.")]
+Remove the files `comline generate` writes — the whole output root when it is a \
+dedicated directory (e.g. `generated/`), otherwise the individual generated \
+files. Does not touch `.comline/`; use `comline reset` to discard the version \
+history.")]
     Clean {
+        /// List what would be removed without deleting anything
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Discard the version history (delete `.comline/`)
+    #[command(long_about = "\
+Delete the project's `.comline/` content-addressable store — every frozen \
+version and the commit chain. Generated code is removed too. This cannot be \
+undone and nothing else holds the history, so the next `build` starts over at \
+0.0.1.
+
+Requires confirmation: on a terminal you are asked to type `reset`; otherwise \
+pass `--force`.")]
+    Reset {
+        /// Skip the confirmation prompt
+        #[arg(long)]
+        force: bool,
+
         /// List what would be removed without deleting anything
         #[arg(long)]
         dry_run: bool,
