@@ -98,7 +98,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
         }
 
         let Some((generator, ext)) =
-            comline_core::codelib_gen::find_generator(&t.language, &t.lang_version)
+            comline_codelib_gen::code_gen::find_generator(&t.language, &t.lang_version)
         else {
             return Err(miette!(
                 "no generator for `{}` (version `{}`)",

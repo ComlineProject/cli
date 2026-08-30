@@ -103,7 +103,7 @@ pub(crate) fn generated_files(work_dir: &Path) -> Vec<PathBuf> {
         // covers the single-version (`latest`) case; a multi-version tree lives
         // under a dedicated `out` dir and is removed by the branch above.
         let Some((_, ext)) =
-            comline_core::codelib_gen::find_generator(&t.language, &t.lang_version)
+            comline_codelib_gen::code_gen::find_generator(&t.language, &t.lang_version)
         else {
             continue;
         };
