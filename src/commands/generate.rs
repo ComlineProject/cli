@@ -153,7 +153,8 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
                     },
                 },
             };
-            let files = generator(&request).map_err(|e| miette!("`{}` generator: {e}", t.language))?;
+            let files =
+                generator(&request).map_err(|e| miette!("`{}` generator: {e}", t.language))?;
 
             match mode {
                 // One file per schema, placed by `layout`.
@@ -169,9 +170,13 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
                         .collect();
                     for (namespace, _) in &gv.schemas {
                         let contents = by_namespace.get(namespace.as_str()).ok_or_else(|| {
-                            miette!("`{}` generator produced no file for `{namespace}`", t.language)
+                            miette!(
+                                "`{}` generator produced no file for `{namespace}`",
+                                t.language
+                            )
                         })?;
-                        let dest = t.dest_for(namespace, ext, &spec_version, &gv.package_version)?;
+                        let dest =
+                            t.dest_for(namespace, ext, &spec_version, &gv.package_version)?;
                         write_file(&dest, contents)?;
 
                         let src_name = format!("{namespace}.{SCHEMA_EXTENSION}");
