@@ -25,8 +25,8 @@ serde = { version = "1", features = ["derive"] }
 toml = "0.8"
 # git rev (not crates.io 0.1.0) so this and `comline-codelib-gen` share one
 # `comline-core` in the tree. Local dev: see .cargo/config.
-comline-core = { git = "https://github.com/ComlineProject/core", rev = "d8bc708bf23e4accd06a13da1d317b10596888c7" }
-comline-codelib-gen = { git = "https://github.com/ComlineProject/generation", rev = "db4f16615de00033e860632489a63f746144ddd5" }
+comline-core = { git = "https://github.com/ComlineProject/core", rev = "aa84d970d3295df59cc3e620bdb71bf96382f97b" }
+comline-codelib-gen = { git = "https://github.com/ComlineProject/generation", rev = "c1f86392f50f60b5df3d648b158426628d8ed802" }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
