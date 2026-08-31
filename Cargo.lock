@@ -387,7 +387,7 @@ dependencies = [
 [[package]]
 name = "comline-codelib-gen"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=f17c2109934a94c595925a45db4938c0720d41ed#f17c2109934a94c595925a45db4938c0720d41ed"
+source = "git+https://github.com/ComlineProject/generation?rev=db4f16615de00033e860632489a63f746144ddd5#db4f16615de00033e860632489a63f746144ddd5"
 dependencies = [
  "comline-core",
  "eyre",

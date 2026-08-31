@@ -176,6 +176,48 @@ fn rejects_an_unconfigured_target() {
         ));
 }
 
+// -------- lib mode --------
+
+#[test]
+fn lib_mode_emits_a_crate() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust", "--mode", "lib"])
+        .assert()
+        .success();
+
+    let crate_dir = project.join("generated/rust");
+    let cargo = fs::read_to_string(crate_dir.join("Cargo.toml")).unwrap();
+    assert!(cargo.contains("name = \"simple_project\""));
+    assert!(cargo.contains("edition = \"2021\""));
+    assert!(cargo.contains("serde = { version = \"1\""));
+
+    let lib = fs::read_to_string(crate_dir.join("src/lib.rs")).unwrap();
+    assert!(lib.contains("pub mod main;"));
+    assert!(lib.contains("pub mod other;"));
+
+    assert!(crate_dir.join("src/main.rs").exists());
+    assert!(crate_dir.join("src/other.rs").exists());
+    // no bare files at the target root
+    assert!(!crate_dir.join("main.rs").exists());
+}
+
+#[test]
+fn dylib_mode_is_rejected() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust", "--mode", "dylib"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("mode `dylib` is not supported"));
+}
+
 // -------- multi-version (package_versions) --------
 
 /// Build twice with a schema change, so the CAS chain has 0.0.1 and 0.1.0.
