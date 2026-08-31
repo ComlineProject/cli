@@ -387,7 +387,7 @@ dependencies = [
 [[package]]
 name = "comline-codelib-gen"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=db4f16615de00033e860632489a63f746144ddd5#db4f16615de00033e860632489a63f746144ddd5"
+source = "git+https://github.com/ComlineProject/generation?rev=c1f86392f50f60b5df3d648b158426628d8ed802#c1f86392f50f60b5df3d648b158426628d8ed802"
 dependencies = [
  "comline-core",
  "eyre",
@@ -397,7 +397,7 @@ dependencies = [
 [[package]]
 name = "comline-core"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/core?rev=d8bc708bf23e4accd06a13da1d317b10596888c7#d8bc708bf23e4accd06a13da1d317b10596888c7"
+source = "git+https://github.com/ComlineProject/core?rev=aa84d970d3295df59cc3e620bdb71bf96382f97b#aa84d970d3295df59cc3e620bdb71bf96382f97b"
 dependencies = [
  "ariadne",
  "bincode",
