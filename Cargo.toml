@@ -26,7 +26,7 @@ toml = "0.8"
 # git rev (not crates.io 0.1.0) so this and `comline-codelib-gen` share one
 # `comline-core` in the tree. Local dev: see .cargo/config.
 comline-core = { git = "https://github.com/ComlineProject/core", rev = "d8bc708bf23e4accd06a13da1d317b10596888c7" }
-comline-codelib-gen = { git = "https://github.com/ComlineProject/generation", rev = "f17c2109934a94c595925a45db4938c0720d41ed" }
+comline-codelib-gen = { git = "https://github.com/ComlineProject/generation", rev = "db4f16615de00033e860632489a63f746144ddd5" }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

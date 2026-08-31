@@ -9,8 +9,10 @@
 //! `compile_package` — no `.comline/` write, no version bump. `"all"` or an
 //! explicit list reads committed versions from the CAS chain instead.
 
+use std::collections::HashMap;
 use std::path::Path;
 
+use comline_codelib_gen::code_gen::{self, GenRequest, Mode, PackageMeta};
 use comline_core::package::build::{self, cas::ObjectStore};
 use comline_core::package::config::ir::frozen::FrozenUnit as ConfigUnit;
 use comline_core::schema::idl::constants::SCHEMA_EXTENSION;
@@ -74,6 +76,10 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
         })
         .unwrap_or_default();
 
+    // Crate / package name for a `lib`-mode manifest — the congregation name,
+    // `::` flattened to `-` so it is a valid crate name.
+    let package_name = context.config.name.value.replace("::", "-");
+
     // The working-tree schemas, used for `package_versions = "latest"`.
     let live_schemas: Vec<(String, Vec<FrozenUnit>)> = context
         .schema_contexts
@@ -89,17 +95,18 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
 
     let mut written = 0usize;
     for t in &targets {
-        if t.mode != "code" {
-            return Err(miette!(
-                "target `{}`: mode `{}` is not supported yet (only `code`)",
-                t.language,
-                t.mode
-            ));
-        }
+        let mode = match t.mode.as_str() {
+            "code" => Mode::Code,
+            "lib" => Mode::Lib,
+            other => {
+                return Err(miette!(
+                    "target `{}`: mode `{other}` is not supported yet (`code`, `lib`)",
+                    t.language
+                ))
+            }
+        };
 
-        let Some((generator, ext)) =
-            comline_codelib_gen::code_gen::find_generator(&t.language, &t.lang_version)
-        else {
+        let Some((generator, ext)) = code_gen::find_generator(&t.language, &t.lang_version) else {
             return Err(miette!(
                 "no generator for `{}` (version `{}`)",
                 t.language,
@@ -108,7 +115,13 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
         };
 
         let versions = expand_versions(&t.versions, work_dir, &live_schemas)?;
-        if versions.len() > 1 && !t.layout.contains("{{package_version}}") {
+        if mode == Mode::Lib && versions.len() > 1 {
+            return Err(miette!(
+                "target `{}`: `lib` mode does not support multiple package versions yet",
+                t.language
+            ));
+        }
+        if mode == Mode::Code && versions.len() > 1 && !t.layout.contains("{{package_version}}") {
             return Err(miette!(
                 "target `{}` selects {} versions but its `layout` has no \
                  `{{{{package_version}}}}` — every version would write to the same paths",
@@ -126,33 +139,85 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
         });
 
         for gv in &versions {
-            for (namespace, units) in &gv.schemas {
-                let dest = t.dest_for(namespace, ext, &spec_version, &gv.package_version)?;
+            let request = GenRequest {
+                mode,
+                schemas: &gv.schemas,
+                package: PackageMeta {
+                    name: package_name.clone(),
+                    // An unbuilt working tree has no version yet; `0.0.0` keeps
+                    // the generated manifest valid.
+                    version: if gv.package_version.is_empty() {
+                        "0.0.0".to_string()
+                    } else {
+                        gv.package_version.clone()
+                    },
+                },
+            };
+            let files =
+                generator(&request).map_err(|e| miette!("`{}` generator: {e}", t.language))?;
 
-                if let Some(parent) = dest.parent() {
-                    std::fs::create_dir_all(parent)
-                        .into_diagnostic()
-                        .wrap_err_with(|| format!("failed to create `{}`", parent.display()))?;
+            match mode {
+                // One file per schema, placed by `layout`.
+                Mode::Code => {
+                    let by_namespace: HashMap<String, &str> = files
+                        .iter()
+                        .map(|f| {
+                            (
+                                f.path.with_extension("").to_string_lossy().into_owned(),
+                                f.contents.as_str(),
+                            )
+                        })
+                        .collect();
+                    for (namespace, _) in &gv.schemas {
+                        let contents = by_namespace.get(namespace.as_str()).ok_or_else(|| {
+                            miette!(
+                                "`{}` generator produced no file for `{namespace}`",
+                                t.language
+                            )
+                        })?;
+                        let dest =
+                            t.dest_for(namespace, ext, &spec_version, &gv.package_version)?;
+                        write_file(&dest, contents)?;
+
+                        let src_name = format!("{namespace}.{SCHEMA_EXTENSION}");
+                        let shown = dest.strip_prefix(work_dir).unwrap_or(&dest).display();
+                        let tag = if multi {
+                            format!("[{}] ", gv.package_version)
+                        } else {
+                            String::new()
+                        };
+                        ui::detail(format!("     {tag}{src_name} {} {shown}", ui::arrow()));
+                        written += 1;
+                    }
                 }
-                std::fs::write(&dest, generator(units))
-                    .into_diagnostic()
-                    .wrap_err_with(|| format!("failed to write `{}`", dest.display()))?;
-
-                let src_name = format!("{namespace}.{SCHEMA_EXTENSION}");
-                let shown = dest.strip_prefix(work_dir).unwrap_or(&dest).display();
-                let tag = if multi {
-                    format!("[{}] ", gv.package_version)
-                } else {
-                    String::new()
-                };
-                ui::detail(format!("     {tag}{src_name} {} {shown}", ui::arrow()));
-                written += 1;
+                // A crate at `<out>/<language>/`; the generator owns the layout inside it.
+                Mode::Lib => {
+                    let root = t.out.join(&t.language);
+                    for f in &files {
+                        let dest = root.join(&f.path);
+                        write_file(&dest, &f.contents)?;
+                        let shown = dest.strip_prefix(work_dir).unwrap_or(&dest).display();
+                        ui::detail(format!("     {} {} {shown}", f.path.display(), ui::arrow()));
+                        written += 1;
+                    }
+                }
             }
         }
     }
 
     ui::success(format!("Generated {written} file(s)"));
     Ok(())
+}
+
+fn write_file(dest: &Path, contents: &str) -> Result<()> {
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)
+            .into_diagnostic()
+            .wrap_err_with(|| format!("failed to create `{}`", parent.display()))?;
+    }
+    std::fs::write(dest, contents)
+        .into_diagnostic()
+        .wrap_err_with(|| format!("failed to write `{}`", dest.display()))
 }
 
 /// Turn a [`VersionSpec`] into the concrete list of versions to emit.
