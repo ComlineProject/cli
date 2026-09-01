@@ -369,7 +369,9 @@ dependencies = [
  "clap",
  "clap_complete",
  "clap_mangen",
- "comline-codelib-gen",
+ "comline-codegen",
+ "comline-codegen-rust",
+ "comline-codegen-typescript",
  "comline-core",
  "indicatif",
  "libc",
@@ -385,13 +387,32 @@ dependencies = [
 ]
 
 [[package]]
-name = "comline-codelib-gen"
+name = "comline-codegen"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=c1f86392f50f60b5df3d648b158426628d8ed802#c1f86392f50f60b5df3d648b158426628d8ed802"
+source = "git+https://github.com/ComlineProject/generation?rev=8ff03d7a8ca5f5e65befcb52728863b254eb4128#8ff03d7a8ca5f5e65befcb52728863b254eb4128"
 dependencies = [
  "comline-core",
  "eyre",
- "once_cell",
+]
+
+[[package]]
+name = "comline-codegen-rust"
+version = "0.1.0"
+source = "git+https://github.com/ComlineProject/generation?rev=8ff03d7a8ca5f5e65befcb52728863b254eb4128#8ff03d7a8ca5f5e65befcb52728863b254eb4128"
+dependencies = [
+ "comline-codegen",
+ "comline-core",
+ "eyre",
+]
+
+[[package]]
+name = "comline-codegen-typescript"
+version = "0.1.0"
+source = "git+https://github.com/ComlineProject/generation?rev=8ff03d7a8ca5f5e65befcb52728863b254eb4128#8ff03d7a8ca5f5e65befcb52728863b254eb4128"
+dependencies = [
+ "comline-codegen",
+ "comline-core",
+ "eyre",
 ]
 
 [[package]]

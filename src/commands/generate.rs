@@ -12,7 +12,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use comline_codelib_gen::code_gen::{self, GenRequest, Mode, PackageMeta};
+use comline_codegen::{GenRequest, Mode, PackageMeta, Registry};
 use comline_core::package::build::{self, cas::ObjectStore};
 use comline_core::package::config::ir::frozen::FrozenUnit as ConfigUnit;
 use comline_core::schema::idl::constants::SCHEMA_EXTENSION;
@@ -22,6 +22,15 @@ use miette::{miette, IntoDiagnostic, Result, WrapErr};
 use crate::commands::{core_err, ensure_project};
 use crate::gen_config::{self, ComlineToml, DeclaredLang, Overrides, VersionSpec};
 use crate::{history, ui, watch};
+
+/// The generator registry, composed from the per-language `comline-codegen-*`
+/// crates this CLI was built with. (Feature-gating the set is rollout step 6.)
+pub(crate) fn generator_registry() -> Registry {
+    let mut registry = Registry::new();
+    comline_codegen_rust::register(&mut registry);
+    comline_codegen_typescript::register(&mut registry);
+    registry
+}
 
 pub fn run(work_dir: &Path, overrides: &Overrides, watching: bool) -> Result<()> {
     ensure_project(work_dir)?;
@@ -93,6 +102,8 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
 
     let targets = gen_config::resolve(&cfg, &declared, work_dir, overrides)?;
 
+    let registry = generator_registry();
+
     let mut written = 0usize;
     for t in &targets {
         let mode = match t.mode.as_str() {
@@ -106,7 +117,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
             }
         };
 
-        let Some((generator, ext)) = code_gen::find_generator(&t.language, &t.lang_version) else {
+        let Some((generator, ext)) = registry.find(&t.language, &t.lang_version) else {
             return Err(miette!(
                 "no generator for `{}` (version `{}`)",
                 t.language,
