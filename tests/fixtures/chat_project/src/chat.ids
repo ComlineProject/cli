@@ -1,0 +1,16 @@
+struct Message {
+    body: str
+    seq: u64
+}
+
+error Rejected {
+    message = "rejected: {self.reason}"
+    reason: str
+}
+
+protocol Chat {
+    /// Request/response with a struct return and a raised error.
+    function send(text: str) -> Message ! Rejected;
+    /// Fire-and-forget.
+    function note(text: str);
+}

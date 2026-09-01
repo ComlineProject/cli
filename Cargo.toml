@@ -31,8 +31,8 @@ comline-core = { git = "https://github.com/ComlineProject/core", rev = "47ac5f10
 # `generation` tip (only `conformance/`, which this crate never touches,
 # differs), so matching it here keeps one `comline-codegen` in the tree.
 comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "1f8c5e290eba72a578860ebb6dc33453a2f0726b" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "a70cafcdd2015686ff1dbfba59b2b56ff70b730d", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "7f2ddd3ed97c412389e0a0bf06420774b1a659d3", optional = true }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "1191e76068eca75ea7c4148d58ab127bb005e81a", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "86fc4eb586529ef92041f8dd3c46ff9340103411", optional = true }
 
 [features]
 # Which language generators are compiled in. Drop one to shed its whole

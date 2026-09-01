@@ -10,6 +10,7 @@ mod build;
 mod check;
 mod clean;
 mod diff;
+mod end_to_end;
 mod generate;
 mod global;
 mod new;

@@ -21,8 +21,15 @@ pub fn comline_cmd() -> Command {
 /// files) is skipped, so the tests stay hermetic even if someone has run the
 /// CLI against the fixture locally.
 pub fn fixture_project(temp: &Path) -> PathBuf {
+    copy_fixture("simple_project", temp)
+}
+
+/// Like [`fixture_project`] for an arbitrary fixture under `tests/fixtures/`.
+pub fn copy_fixture(name: &str, temp: &Path) -> PathBuf {
     let dest = temp.join("proj");
-    let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/simple_project");
+    let src = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures")
+        .join(name);
     fs::create_dir_all(&dest).unwrap();
     fs::copy(src.join("config.idp"), dest.join("config.idp")).unwrap();
     copy_dir(&src.join("src"), &dest.join("src"));
