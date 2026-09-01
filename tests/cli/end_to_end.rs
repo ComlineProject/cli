@@ -18,10 +18,8 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use chat_e2e::chat::{Chat, ChatClient, ChatDispatcher, ChatSendError, Message, Rejected};
-use comline_runtime::client::Client;
 use comline_runtime::contract::CallError;
 use comline_runtime::format::MsgPack;
-use comline_runtime::serve::Server;
 use comline_runtime::transport::duplex;
 
 struct Svc {
@@ -46,14 +44,17 @@ fn client_and_provider_over_duplex() {
     let notes = Arc::new(Mutex::new(Vec::new()));
     let notes_for_svc = notes.clone();
 
+    // Provider: the generated `serve` helper runs the connection handshake
+    // (IR_HASH + format name) before serving.
     let provider = thread::spawn(move || {
         let mut provider_side = provider_side;
-        Server::new(ChatDispatcher(Svc { notes: notes_for_svc }), MsgPack)
-            .serve(&mut provider_side)
+        ChatDispatcher(Svc { notes: notes_for_svc })
+            .serve(&mut provider_side, MsgPack)
             .unwrap();
     });
 
-    let mut client = ChatClient::new(Client::new(client_side, MsgPack));
+    // Client: the generated `connect` helper does the matching handshake.
+    let mut client = ChatClient::connect(client_side, MsgPack).expect("handshake");
 
     assert_eq!(client.send("hi").unwrap().body, "echo: hi");
 
