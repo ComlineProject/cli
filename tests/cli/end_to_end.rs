@@ -78,7 +78,9 @@ fn a_generated_protocol_crate_runs_a_real_round_trip() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust", "--mode", "lib", "--out", "gen"])
+        .args([
+            "generate", "--target", "rust", "--mode", "lib", "--out", "gen",
+        ])
         .assert()
         .success();
 
