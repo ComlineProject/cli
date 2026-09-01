@@ -92,6 +92,7 @@ pub(crate) fn generated_files(work_dir: &Path) -> Vec<PathBuf> {
         return Vec::new();
     };
 
+    let registry = super::generate::generator_registry();
     let mut files = Vec::new();
     for t in &targets {
         // A dedicated output directory: remove it wholesale (stale files too).
@@ -102,9 +103,7 @@ pub(crate) fn generated_files(work_dir: &Path) -> Vec<PathBuf> {
         // Output lands among the sources — only touch the exact files. This
         // covers the single-version (`latest`) case; a multi-version tree lives
         // under a dedicated `out` dir and is removed by the branch above.
-        let Some((_, ext)) =
-            comline_codelib_gen::code_gen::find_generator(&t.language, &t.lang_version)
-        else {
+        let Some((_, ext)) = registry.find(&t.language, &t.lang_version) else {
             continue;
         };
         for schema_ctx in &context.schema_contexts {
