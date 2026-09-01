@@ -24,10 +24,15 @@ use crate::gen_config::{self, ComlineToml, DeclaredLang, Overrides, VersionSpec}
 use crate::{history, ui, watch};
 
 /// The generator registry, composed from the per-language `comline-codegen-*`
-/// crates this CLI was built with. (Feature-gating the set is rollout step 6.)
+/// crates this CLI was built with — one `register()` per crate, each behind its
+/// `gen-<lang>` cargo feature (both on by default). A build without a feature
+/// never compiles that generator crate or its dependency tree.
 pub(crate) fn generator_registry() -> Registry {
+    #[allow(unused_mut)]
     let mut registry = Registry::new();
+    #[cfg(feature = "gen-rust")]
     comline_codegen_rust::register(&mut registry);
+    #[cfg(feature = "gen-typescript")]
     comline_codegen_typescript::register(&mut registry);
     registry
 }
