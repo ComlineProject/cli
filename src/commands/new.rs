@@ -40,6 +40,7 @@ const COMLINE_TOML: &str = "\
 # layout = \"{{language}}/{{namespace}}.{{ext}}\"    # path under the root
 # mode = \"code\"                                    # code | lib | dylib (only `code` today)
 # package_versions = \"latest\"                      # latest | all | [\"0.3.0\", \"0.4.0\"]
+# default_framing = \"jsonrpc\"                      # wire framing for protocols with no `@framing` (else datagram)
 #
 # [[generate.target]]
 # language = \"rust\"

@@ -78,6 +78,11 @@ pub struct Generate {
     pub mode: Option<String>,
     /// Version selection shared by every target unless overridden.
     pub package_versions: Option<VersionSpec>,
+    /// Fallback wire framing for protocols that do not pick one with `@framing`,
+    /// shared by every target unless overridden. A generator-recognised name
+    /// (`"jsonrpc"`, `"datagram"`, …); an unknown one leaves the generator's
+    /// built-in default in place.
+    pub default_framing: Option<String>,
     /// `[[generate.target]]` blocks.
     #[serde(rename = "target")]
     pub targets: Vec<Target>,
@@ -97,6 +102,7 @@ pub struct Target {
     pub layout: Option<String>,
     pub mode: Option<String>,
     pub package_versions: Option<VersionSpec>,
+    pub default_framing: Option<String>,
 }
 
 /// A non-empty `COMLINE_GENERATE_*` env var, if set.
@@ -145,6 +151,8 @@ pub struct ResolvedTarget {
     pub layout: String,
     pub mode: String,
     pub versions: VersionSpec,
+    /// Fallback framing handed to the generator; `None` ⇒ its built-in default.
+    pub default_framing: Option<String>,
 }
 
 /// Variables a `layout` template can reference.
@@ -209,6 +217,7 @@ pub fn resolve(
                 layout: None,
                 mode: None,
                 package_versions: None,
+                default_framing: None,
             })
             .collect()
     } else {
@@ -305,6 +314,14 @@ pub fn resolve(
             .or_else(|| cfg.generate.package_versions.clone())
             .unwrap_or_default();
 
+        // `[[target]]` wins over `[generate]`; `None` at both ⇒ the generator's
+        // built-in default. No flag / env override — schema-shaping config, not
+        // a per-run knob.
+        let default_framing = t
+            .default_framing
+            .clone()
+            .or_else(|| cfg.generate.default_framing.clone());
+
         resolved.push(ResolvedTarget {
             language: t.language.clone(),
             lang_version,
@@ -312,6 +329,7 @@ pub fn resolve(
             layout,
             mode,
             versions,
+            default_framing,
         });
     }
 
@@ -365,5 +383,39 @@ mod tests {
         let declared = [];
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
         assert_eq!(resolved[0].versions, VersionSpec::Latest);
+    }
+
+    #[test]
+    fn default_framing_section_reaches_a_declared_target() {
+        let cfg = parse("[generate]\ndefault_framing = \"jsonrpc\"\n");
+        let declared = [DeclaredLang {
+            language: "rust".into(),
+            lang_version: "1.75".into(),
+        }];
+        let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
+        assert_eq!(resolved[0].default_framing.as_deref(), Some("jsonrpc"));
+    }
+
+    #[test]
+    fn target_default_framing_wins_over_section() {
+        let cfg = parse(
+            "[generate]\ndefault_framing = \"jsonrpc\"\n\n\
+             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
+             default_framing = \"datagram\"\n",
+        );
+        let declared = [];
+        let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
+        assert_eq!(resolved[0].default_framing.as_deref(), Some("datagram"));
+    }
+
+    #[test]
+    fn default_framing_absent_is_none() {
+        let cfg = parse("[generate]\n");
+        let declared = [DeclaredLang {
+            language: "rust".into(),
+            lang_version: "1.75".into(),
+        }];
+        let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
+        assert_eq!(resolved[0].default_framing, None);
     }
 }

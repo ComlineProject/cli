@@ -179,6 +179,46 @@ fn rejects_an_unconfigured_target() {
 // -------- lib mode --------
 
 #[test]
+fn comline_toml_default_framing_reaches_the_rust_generator() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = copy_fixture("chat_project", temp.path());
+    fs::write(
+        project.join("comline.toml"),
+        "[generate]\ndefault_framing = \"jsonrpc\"\n",
+    )
+    .unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success();
+
+    // `protocol Chat` has no `@framing` of its own, so it picks up the
+    // package default: the JSON-RPC stack, not the datagram one.
+    let chat = fs::read_to_string(project.join("generated/rust/chat.rs")).unwrap();
+    assert!(chat.contains("comline_runtime::framing::JsonRpcFraming"));
+    assert!(chat.contains("Client::connect_with_framing"));
+    assert!(!chat.contains("FRAMING_DATAGRAM"));
+}
+
+#[test]
+fn without_comline_toml_a_protocol_stays_on_datagram_framing() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = copy_fixture("chat_project", temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success();
+
+    let chat = fs::read_to_string(project.join("generated/rust/chat.rs")).unwrap();
+    assert!(chat.contains("FRAMING_DATAGRAM"));
+    assert!(!chat.contains("JsonRpcFraming"));
+}
+
+#[test]
 fn lib_mode_emits_a_crate() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());

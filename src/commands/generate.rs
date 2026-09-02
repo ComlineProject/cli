@@ -168,6 +168,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
                         gv.package_version.clone()
                     },
                 },
+                default_framing: t.default_framing.clone(),
             };
             let files =
                 generator(&request).map_err(|e| miette!("`{}` generator: {e}", t.language))?;
