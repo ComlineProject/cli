@@ -25,14 +25,14 @@ serde = { version = "1", features = ["derive"] }
 toml = "0.8"
 # git rev (not crates.io) so this and the `comline-codegen*` crates share one
 # `comline-core` in the tree. Local dev: see .cargo/config.
-comline-core = { git = "https://github.com/ComlineProject/core", rev = "47ac5f10a36b587d14d1b9672fba65d8f3712962" }
+comline-core = { git = "https://github.com/ComlineProject/core", rev = "50c17cc740676416e945582dd6e2547e8535ac03" }
 # Pinned to the same generation rev `comline-codegen-rust` / `-typescript`
 # pin (below) — `codegen/`'s content is identical at this rev and the later
 # `generation` tip (only `conformance/`, which this crate never touches,
 # differs), so matching it here keeps one `comline-codegen` in the tree.
-comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "c70336dcc9485cea2c99b0f1db3789e420deaeda" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "85fd9670fae794f043d28ada415dca7ed090d713", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "f72bc3e336ebadbe062751afc0f2430fd216e28c", optional = true }
+comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "d901db42d094ea9e2f59a310e6e885767abcae6b" }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "f29f6517b9c70f488e7539219be890ef2c4151e4", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "75c5c56af68d8a120c489f5f4cd67dc4813901f4", optional = true }
 
 [features]
 # Which language generators are compiled in. Drop one to shed its whole
