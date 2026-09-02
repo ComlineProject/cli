@@ -32,7 +32,7 @@ comline-core = { git = "https://github.com/ComlineProject/core", rev = "50c17cc7
 # differs), so matching it here keeps one `comline-codegen` in the tree.
 comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "d901db42d094ea9e2f59a310e6e885767abcae6b" }
 comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "f29f6517b9c70f488e7539219be890ef2c4151e4", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "86c2590edafbeb6398abc685cb41859589f7bc82", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "5c20074113a748cd96b639c38c5c030c2de9fbea", optional = true }
 
 [features]
 # Which language generators are compiled in. Drop one to shed its whole
