@@ -24,15 +24,19 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter", "fmt"] }
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"
 # git rev (not crates.io) so this and the `comline-codegen*` crates share one
-# `comline-core` in the tree. Local dev: see .cargo/config.
-comline-core = { git = "https://github.com/ComlineProject/core", rev = "50c17cc740676416e945582dd6e2547e8535ac03" }
+# `comline-core` in the tree. Local dev: see .cargo/config. `deps` is this
+# crate's opt-in: cross-package `dependencies = {...}` resolution (core#6) —
+# needs real I/O (git fetch, filesystem), so it's off by default for
+# `comline-core`'s wasm32 consumers (the playground editor, the language
+# server); the CLI is the one consumer that actually runs `comline build`.
+comline-core = { git = "https://github.com/ComlineProject/core", rev = "ed584aef249e8a9282393d39d24f2615c9b8088a", features = ["deps"] }
 # Pinned to the same generation rev `comline-codegen-rust` / `-typescript`
 # pin (below) — `codegen/`'s content is identical at this rev and the later
 # `generation` tip (only `conformance/`, which this crate never touches,
 # differs), so matching it here keeps one `comline-codegen` in the tree.
-comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "d901db42d094ea9e2f59a310e6e885767abcae6b" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "f29f6517b9c70f488e7539219be890ef2c4151e4", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "5c20074113a748cd96b639c38c5c030c2de9fbea", optional = true }
+comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "0f8dfcd5b27f9571fd7b6bac57b314de240db707" }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "7d56cefbdfde787a3ffdfe0b66bfaeba7ba6d500", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "9af8674291ea7f2b344be9c838d5dc9237319044", optional = true }
 
 [features]
 # Which language generators are compiled in. Drop one to shed its whole
