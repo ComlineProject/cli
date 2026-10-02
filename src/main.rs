@@ -41,9 +41,9 @@ fn main() -> ExitCode {
 
 /// `tracing` carries `comline-core` diagnostics only; the CLI's own output goes
 /// through [`ui`]. Everything is written to stderr so stdout stays a clean
-/// channel for payloads (`comline completions`). Verbosity is shifted down a
-/// notch from the usual so the default run is quiet: `-v` shows info, `-vv`
-/// debug, `-vvv` trace. `RUST_LOG` still overrides.
+/// channel for payloads (`comline completions`, `comline targets`). Verbosity
+/// is shifted down a notch from the usual so the default run is quiet: `-v`
+/// shows info, `-vv` debug, `-vvv` trace. `RUST_LOG` still overrides.
 fn init_tracing(cli: &Cli) {
     let level = if cli.quiet {
         "error"
@@ -110,5 +110,6 @@ fn run(cli: Cli) -> Result<()> {
         Commands::Reset { force, dry_run } => commands::reset::run(&work_dir, force, dry_run),
         Commands::New { name, git } => commands::new::run(&work_dir, &name, git),
         Commands::Completions { shell } => commands::completions::run(shell),
+        Commands::Targets => commands::targets::run(),
     }
 }
