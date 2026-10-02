@@ -9,6 +9,7 @@ pub mod diff;
 pub mod generate;
 pub mod new;
 pub mod reset;
+pub mod targets;
 
 use std::path::Path;
 

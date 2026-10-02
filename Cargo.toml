@@ -29,14 +29,15 @@ toml = "0.8"
 # needs real I/O (git fetch, filesystem), so it's off by default for
 # `comline-core`'s wasm32 consumers (the playground editor, the language
 # server); the CLI is the one consumer that actually runs `comline build`.
-comline-core = { git = "https://github.com/ComlineProject/core", rev = "ed584aef249e8a9282393d39d24f2615c9b8088a", features = ["deps"] }
-# Pinned to the same generation rev `comline-codegen-rust` / `-typescript`
-# pin (below) — `codegen/`'s content is identical at this rev and the later
-# `generation` tip (only `conformance/`, which this crate never touches,
-# differs), so matching it here keeps one `comline-codegen` in the tree.
-comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "0f8dfcd5b27f9571fd7b6bac57b314de240db707" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "7d56cefbdfde787a3ffdfe0b66bfaeba7ba6d500", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "9af8674291ea7f2b344be9c838d5dc9237319044", optional = true }
+comline-core = { git = "https://github.com/ComlineProject/core", rev = "91b3c1a64fce50789a3dfb8299c2fd1f739f1a58", features = ["deps"] }
+# All three pinned to revs that already agree on comline-core@91b3c1a (the
+# `generation`/`comline-rust`/`comline-typescript` default branches were each
+# bumped there independently of this crate — this crate was the one left
+# behind). `comline-codegen`'s rev additionally carries Registry::targets(),
+# needed by `comline targets` (src/commands/targets.rs).
+comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "eb7e4bcf9ad1b3dca856a8c3ab1f4180692ecd18" }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "99f94be1fe39bc42c98c3eb7ca9051c0563c431c", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "e713a19370fa6ac99f3fdbf33de1a42a29b6e664", optional = true }
 
 [features]
 # Which language generators are compiled in. Drop one to shed its whole

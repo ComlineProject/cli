@@ -1,5 +1,5 @@
 //! Global flags and cross-cutting output behaviour (`--plain`, `--quiet`,
-//! `--path`) plus `comline completions`.
+//! `--path`) plus `comline completions`/`comline targets`.
 
 use predicates::prelude::*;
 
@@ -36,6 +36,27 @@ fn completions_are_written_to_stdout() {
         .success()
         .stdout(predicate::str::contains("comline"))
         .stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn targets_are_written_to_stdout_as_language_hash_version() {
+    comline_cmd()
+        .args(["targets"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("rust#"))
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn targets_ignores_path_and_works_outside_any_project() {
+    let temp = tempfile::tempdir().unwrap();
+
+    comline_cmd()
+        .current_dir(&temp)
+        .args(["targets"])
+        .assert()
+        .success();
 }
 
 #[test]

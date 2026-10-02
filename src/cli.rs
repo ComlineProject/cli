@@ -184,4 +184,16 @@ Examples:
         #[arg(value_enum)]
         shell: Shell,
     },
+
+    /// Print every language#version this build can generate, to stdout
+    #[command(long_about = "\
+Print one `language#version` per line — the exact token syntax `config.idp`'s \
+`code_generation.languages` expects — for every generator this binary of \
+`comline` was compiled with. Ignores `--path`: this reflects the build, not \
+any particular project.
+
+Examples:
+  comline targets
+  comline targets | grep '^rust#'")]
+    Targets,
 }

@@ -2,11 +2,11 @@
 //!
 //! `tracing` (`-v` / `-vv`) carries diagnostics coming out of `comline-core`.
 //! This module carries the CLI's own progress and result lines: written to
-//! **stderr** so stdout stays clean for machine-readable payloads (e.g. `comline
-//! completions`). By default it is colored and uses a few leading symbols;
-//! `--plain` drops all of that for logs and CI. Coloring otherwise goes through
-//! `anstream`, which also strips escapes when stderr is not a terminal or
-//! `NO_COLOR` is set.
+//! **stderr** so stdout stays clean for machine-readable payloads (e.g.
+//! `comline completions`, `comline targets`). By default it is colored and
+//! uses a few leading symbols; `--plain` drops all of that for logs and CI.
+//! Coloring otherwise goes through `anstream`, which also strips escapes when
+//! stderr is not a terminal or `NO_COLOR` is set.
 
 use std::borrow::Cow;
 use std::path::Path;
