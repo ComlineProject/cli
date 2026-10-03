@@ -29,15 +29,15 @@ toml = "0.8"
 # needs real I/O (git fetch, filesystem), so it's off by default for
 # `comline-core`'s wasm32 consumers (the playground editor, the language
 # server); the CLI is the one consumer that actually runs `comline build`.
-comline-core = { git = "https://github.com/ComlineProject/core", rev = "91b3c1a64fce50789a3dfb8299c2fd1f739f1a58", features = ["deps"] }
-# All three pinned to revs that already agree on comline-core@91b3c1a (the
-# `generation`/`comline-rust`/`comline-typescript` default branches were each
-# bumped there independently of this crate — this crate was the one left
-# behind). `comline-codegen`'s rev additionally carries Registry::targets(),
-# needed by `comline targets` (src/commands/targets.rs).
-comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "eb7e4bcf9ad1b3dca856a8c3ab1f4180692ecd18" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "99f94be1fe39bc42c98c3eb7ca9051c0563c431c", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "e713a19370fa6ac99f3fdbf33de1a42a29b6e664", optional = true }
+comline-core = { git = "https://github.com/ComlineProject/core", rev = "af7e90452334d302c91b7f8815ad44e2bedfebf9", features = ["deps"] }
+# All three pinned to revs that already agree on comline-core@af7e904 (a
+# transparent `type` alias declaration, core#54) — bumped together, in
+# dependency order: generation#24 first (comline-rust/comline-typescript's
+# own codegen crates consume `comline-codegen`'s types, so they can't bump
+# ahead of it), then comline-rust#15 and comline-typescript#13.
+comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "1464e4fd87537ef6591ba8b165838467e0c33d83" }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "65d986d98900382aa069ed7b787fade6e0fa5c80", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "09db5448994b7475b2f6f748ebaad2a0172d7f05", optional = true }
 
 [features]
 # Which language generators are compiled in. Drop one to shed its whole
