@@ -58,11 +58,13 @@ fn emit_version_info() {
     println!("cargo:rerun-if-changed=.git/HEAD");
     println!("cargo:rerun-if-changed=.git/refs");
 
-    let hash = run(&["git", "rev-parse", "--short=12", "HEAD"]).unwrap_or_else(|| "unknown".to_string());
+    let hash =
+        run(&["git", "rev-parse", "--short=12", "HEAD"]).unwrap_or_else(|| "unknown".to_string());
     let dirty = run(&["git", "status", "--porcelain"]).is_some_and(|s| !s.is_empty());
     let branch =
         run(&["git", "rev-parse", "--abbrev-ref", "HEAD"]).unwrap_or_else(|| "unknown".to_string());
-    let commit_count = run(&["git", "rev-list", "--count", "HEAD"]).unwrap_or_else(|| "unknown".to_string());
+    let commit_count =
+        run(&["git", "rev-list", "--count", "HEAD"]).unwrap_or_else(|| "unknown".to_string());
     let build_date =
         run(&["date", "-u", "+%Y-%m-%dT%H:%M:%SZ"]).unwrap_or_else(|| "unknown".to_string());
 
@@ -79,7 +81,10 @@ fn emit_version_info() {
 /// Run a command, returning trimmed stdout on success - `None` on any
 /// failure (missing binary, non-zero exit, not a git repo, ...).
 fn run(args: &[&str]) -> Option<String> {
-    let output = ProcessCommand::new(args[0]).args(&args[1..]).output().ok()?;
+    let output = ProcessCommand::new(args[0])
+        .args(&args[1..])
+        .output()
+        .ok()?;
     if !output.status.success() {
         return None;
     }
