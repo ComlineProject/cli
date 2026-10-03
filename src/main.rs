@@ -10,7 +10,7 @@ mod watch;
 use std::env;
 use std::process::ExitCode;
 
-use clap::Parser;
+use clap::{CommandFactory, FromArgMatches};
 use miette::Result;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -19,7 +19,7 @@ use cli::{Cli, Commands};
 fn main() -> ExitCode {
     reset_sigpipe();
 
-    let cli = Cli::parse();
+    let cli = parse_cli();
 
     init_tracing(&cli);
     ui::set_quiet(cli.quiet);
@@ -37,6 +37,32 @@ fn main() -> ExitCode {
             ExitCode::from(code as u8)
         }
     }
+}
+
+/// Parse CLI args with an enriched `--version` (`-V` stays the bare
+/// `CARGO_PKG_VERSION` `clap`'s derive attribute already gives `Cli`).
+/// Built as a `Command`, not the `#[command(long_version = ...)]` derive
+/// attribute, because `build.rs` also compiles `cli.rs` (via `#[path]`, for
+/// man-page/completion generation) *before* it has emitted these env vars
+/// for the real binary — a `const` baked in by that attribute would need
+/// `env!()`, which hard-fails the build in that earlier context. Building
+/// the string here instead, with `option_env!()`, means every field just
+/// degrades to `"unknown"` if `build.rs`'s own `git`/`date` capture
+/// (`emit_version_info`) came up empty, rather than failing anything.
+fn parse_cli() -> Cli {
+    let long_version = format!(
+        "{}\ncommit-hash: {}\ncommit-branch: {}\ncommit-count: {}\nbuild-date: {}",
+        env!("CARGO_PKG_VERSION"),
+        option_env!("COMLINE_GIT_HASH").unwrap_or("unknown"),
+        option_env!("COMLINE_GIT_BRANCH").unwrap_or("unknown"),
+        option_env!("COMLINE_COMMIT_COUNT").unwrap_or("unknown"),
+        option_env!("COMLINE_BUILD_DATE").unwrap_or("unknown"),
+    );
+    // `Command::long_version` needs a `&'static str`, not an owned
+    // `String` - leaking it is fine here, it lives for the process anyway.
+    let long_version: &'static str = Box::leak(long_version.into_boxed_str());
+    let matches = Cli::command().long_version(long_version).get_matches();
+    Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit())
 }
 
 /// `tracing` carries `comline-core` diagnostics only; the CLI's own output goes
