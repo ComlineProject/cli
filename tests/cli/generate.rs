@@ -246,6 +246,56 @@ fn lib_mode_emits_a_crate() {
 }
 
 #[test]
+fn lib_mode_flatten_skips_the_language_directory() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    fs::write(
+        project.join("comline.toml"),
+        "[[generate.target]]\n\
+         language = \"rust\"\n\
+         mode = \"lib\"\n\
+         out = \"crate-out\"\n\
+         flatten = true\n",
+    )
+    .unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate"])
+        .assert()
+        .success();
+
+    let crate_dir = project.join("crate-out");
+    assert!(crate_dir.join("Cargo.toml").exists());
+    assert!(crate_dir.join("src/lib.rs").exists());
+    // not nested under an extra `rust/`
+    assert!(!crate_dir.join("rust").exists());
+}
+
+#[test]
+fn lib_mode_warns_that_layout_has_no_effect() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    fs::write(
+        project.join("comline.toml"),
+        "[[generate.target]]\n\
+         language = \"rust\"\n\
+         mode = \"lib\"\n\
+         layout = \"{{namespace}}.{{ext}}\"\n",
+    )
+    .unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "`layout` (`{{namespace}}.{{ext}}`) has no effect in `lib` mode",
+        ));
+}
+
+#[test]
 fn dylib_mode_is_rejected() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());

@@ -209,6 +209,24 @@ out      = "src/generated"
 variables: `{{language}}`, `{{namespace}}` (`/`-joined), `{{ext}}`,
 `{{lang_version}}`, `{{spec_version}}`, `{{package_version}}`.
 
+**`layout` only applies to `code` mode.** A `lib`-mode target ignores it
+entirely (`comline generate` warns if you set one) and always writes the
+crate's fixed internal shape (`Cargo.toml`, `src/lib.rs`, …) at
+`<out>/<language>/` — unless the target sets `flatten = true`, which writes it
+straight into `out` instead:
+
+```toml
+[[generate.target]]
+language = "rust"
+mode     = "lib"
+out      = "../my-rust-crate/"
+flatten  = true   # crate lands at out/ directly, not out/rust/
+```
+
+`flatten` only means something for `lib`/`dylib` targets with their own `out`
+— flattening a shared `out` across several `lib` targets would land two
+crates in the same directory.
+
 **Which versions.** `package_versions = "latest"` (the default) generates the
 working tree — no `.comline/` read. `"all"` generates every committed version in
 the CAS chain; `["0.3.0", "0.4.0"]` (versions or commit hashes) generates just
@@ -227,8 +245,9 @@ paths — the `layout` must contain `{{package_version}}`. For `latest`,
   applied to **every** target (handy in CI). A flag still wins for its target.
 - `--watch` — regenerate on change; see [Watch mode](#watch-mode).
 
-Currently `rust` is the only generator and `code` the only mode; other languages
-or modes fail with a clear message.
+Currently `rust` and `typescript` are the generators; `code` mode is
+implemented for both and `lib` mode for `rust`. `dylib`, and `lib` for other
+languages, fail with a clear message.
 
 ```bash
 comline generate

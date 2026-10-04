@@ -122,6 +122,26 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
             }
         };
 
+        if mode == Mode::Lib && t.layout != gen_config::DEFAULT_LAYOUT {
+            let lands_at = if t.flatten {
+                "<out>/".to_string()
+            } else {
+                format!("<out>/{}/", t.language)
+            };
+            ui::warn(format!(
+                "target `{}`: `layout` (`{}`) has no effect in `lib` mode — the \
+                 crate lands at `{lands_at}`",
+                t.language, t.layout,
+            ));
+        }
+        if mode == Mode::Code && t.flatten {
+            ui::warn(format!(
+                "target `{}`: `flatten` has no effect in `code` mode — it only \
+                 changes where a `lib`-mode crate lands",
+                t.language
+            ));
+        }
+
         let Some((generator, ext)) = registry.find(&t.language, &t.lang_version) else {
             return Err(miette!(
                 "no generator for `{}` (version `{}`)",
@@ -207,9 +227,15 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
                         written += 1;
                     }
                 }
-                // A crate at `<out>/<language>/`; the generator owns the layout inside it.
+                // A crate at `<out>/<language>/` by default, or straight into
+                // `out` with `flatten = true`; the generator owns the layout
+                // inside it either way — `layout` itself never applies here.
                 Mode::Lib => {
-                    let root = t.out.join(&t.language);
+                    let root = if t.flatten {
+                        t.out.clone()
+                    } else {
+                        t.out.join(&t.language)
+                    };
                     for f in &files {
                         let dest = root.join(&f.path);
                         write_file(&dest, &f.contents)?;
