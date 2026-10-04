@@ -29,16 +29,15 @@ toml = "0.8"
 # needs real I/O (git fetch, filesystem), so it's off by default for
 # `comline-core`'s wasm32 consumers (the playground editor, the language
 # server); the CLI is the one consumer that actually runs `comline build`.
-comline-core = { git = "https://github.com/ComlineProject/core", rev = "c9c1e7079b89a7ef6ba0c5d9ec1477d8f1129952", features = ["deps"] }
-# All three pinned to revs that already agree on comline-core@c9c1e70 (a
-# bare `@key` marker annotation, no `=value` required, core#56) — bumped
-# together, in dependency order: generation#28 first (comline-rust/
-# comline-typescript's own codegen crates consume `comline-codegen`'s
-# types, so they can't bump ahead of it), then comline-rust#17 and
-# comline-typescript#15.
-comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "c8572c0a3b1588c43724b411fc8babe20ceb27c4" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "80723a2b19d628e1c02881df1bb39c966d9f4d7a", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "2d267650933d3a0f968115d7504d03eb4012902d", optional = true }
+comline-core = { git = "https://github.com/ComlineProject/core", rev = "a4e810f3b85c715189a4310d389c1f612150cd7d", features = ["deps"] }
+# All three pinned to revs that already agree on comline-core@a4e810f
+# (unresolved imports rejected, core#59) — bumped together: generation#30's
+# first commit (comline-rust/comline-typescript's own codegen crates consume
+# `comline-codegen`'s types, so this pins the same generation rev they do,
+# not a later one), then comline-rust#18 and comline-typescript#16.
+comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "7f094cfdd65cacf29b8a963d31e0231a4b16f0a6" }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "58e718b48897a735abf5b55586419d820e4490d9", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "e21d51e0b34f1e1db1400f8cdc55b2b483afc32e", optional = true }
 
 [features]
 # Which language generators are compiled in. Drop one to shed its whole
