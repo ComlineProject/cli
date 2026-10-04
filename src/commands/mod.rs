@@ -1,6 +1,7 @@
 //! One module per subcommand. Each exposes a `run(...)` that returns
 //! `miette::Result<()>`; `main` maps the error to an exit code.
 
+pub mod add;
 pub mod build;
 pub mod check;
 pub mod clean;

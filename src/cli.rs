@@ -172,6 +172,49 @@ pass `--force`.")]
         git: bool,
     },
 
+    /// Add a dependency to `config.idp`, resolved and pinned
+    #[command(long_about = "\
+Declare another Comline package as a dependency. It is resolved first, the way \
+`check` resolves it (a git pin is fetched into `.comline/deps-cache/`, then \
+compiled), so an entry that wouldn't resolve is never written. Its entry then \
+goes into `config.idp`'s `dependencies` block, with `hash` pinned to the content \
+just compiled: if the dependency changes later, the build fails until the pin is \
+updated. The rest of `config.idp` is left as written.
+
+Its schemas are imported under NAME: `use NAME::models::Thing`.
+
+Examples:
+  comline add shared_types ../shared-types
+  comline add net --git https://github.com/acme/net --commit 4f2c9e1 --version 1.2.0")]
+    Add {
+        /// Name to import it under (`use <NAME>::...`)
+        name: String,
+
+        /// A package on disk, relative to this package's directory
+        #[arg(
+            value_name = "DIR",
+            required_unless_present = "git",
+            conflicts_with = "git"
+        )]
+        dir: Option<PathBuf>,
+
+        /// Fetch it from this git repository instead
+        #[arg(long, value_name = "URI", requires_all = ["commit", "version"])]
+        git: Option<String>,
+
+        /// Commit to pin (with `--git`)
+        #[arg(long, value_name = "SHA", requires = "git")]
+        commit: Option<String>,
+
+        /// Version that commit stands for (with `--git`)
+        #[arg(long, value_name = "VERSION", requires = "git")]
+        version: Option<String>,
+
+        /// Don't pin its content hash (say, a path dependency still being worked on)
+        #[arg(long)]
+        no_hash: bool,
+    },
+
     /// Print a shell completion script to stdout
     #[command(long_about = "\
 Write a completion script for the given shell to stdout.
