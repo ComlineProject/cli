@@ -6,6 +6,7 @@
 
 mod util;
 
+mod add;
 mod build;
 mod check;
 mod clean;

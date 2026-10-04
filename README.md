@@ -30,7 +30,8 @@ comline generate            # write generated code for each configured target
 | Command | What it does |
 |---|---|
 | `comline new <name> [--git]` | Scaffold `<name>/` with `config.idp`, `comline.toml`, `src/main.ids` and a `.gitignore`. `--git` also runs `git init`. |
-| `comline check` | Parse, resolve and validate every schema. No `.comline/` writes, no version bump — safe for editors, hooks and CI. |
+| `comline add <name> <dir>` / `comline add <name> --git <uri> --commit <sha> --version <v>` | Add a dependency to `config.idp`: resolved first (a git pin is fetched), then written with its content `hash` pinned. `--no-hash` skips the pin. |
+| `comline check` | Parse, resolve and validate every schema. No `.comline/` writes (beyond fetching git dependencies), no version bump — safe for editors, hooks and CI. |
 | `comline build [--release] [--watch]` | Compile, validate, and freeze a new immutable version into `.comline/`. Prints the changelog and the version bump. |
 | `comline generate [--target <lang>] [--out <dir>] [--layout <tpl>] [--mode <m>] [--watch]` | Validate (no freeze), then write generated code. Output location/layout come from `comline.toml` `[generate]`; targets from there or `config.idp`. |
 | `comline diff <old> <new>` | Show the schema changes between two built versions. Each argument is a version (`0.2.0`), a commit hash, or `HEAD` (the default for `<new>`). |

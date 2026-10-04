@@ -14,6 +14,7 @@ This is the long-form reference. For a two-minute tour see the
 - [Versioning model](#versioning-model)
 - [Commands](#commands)
   - [`new`](#comline-new)
+  - [`add`](#comline-add)
   - [`check`](#comline-check)
   - [`build`](#comline-build)
   - [`generate`](#comline-generate)
@@ -139,6 +140,40 @@ comline new my-api
 comline new my-api --git
 ```
 
+### `comline add`
+
+```
+comline add <name> <dir> [--no-hash]
+comline add <name> --git <uri> --commit <sha> --version <version> [--no-hash]
+```
+
+Declare another Comline package as a dependency, imported under `<name>`:
+`use <name>::models::Thing`. It is resolved first, the way `check` resolves it,
+so an entry that wouldn't resolve is never written:
+
+- `<dir>` — a package on disk, relative to this package's directory (written to
+  `config.idp` as given);
+- `--git <uri> --commit <sha> --version <version>` — a commit of a git
+  repository, fetched into `.comline/deps-cache/` with the `git` binary.
+  `--version` is the version that commit stands for.
+
+The entry goes into `config.idp`'s `dependencies` block, created at the end of
+the file if there isn't one, in the file's own indentation; every other line is
+left as written. Its `hash` is pinned to the content just compiled, so if the
+dependency changes later, `check` and `build` fail until the pin is updated.
+
+- `--no-hash` — don't pin the hash (say, a path dependency still being worked
+  on).
+
+```bash
+comline add shared_types ../shared-types
+comline add net --git https://github.com/acme/net --commit 4f2c9e1 --version 1.2.0
+```
+
+Exit `0` once added, `1` if the dependency doesn't resolve or can't be added
+(the name is already declared, isn't an identifier, or is already one of this
+package's own namespaces), `2` if the directory is not a Comline project.
+
 ### `comline check`
 
 ```
@@ -146,8 +181,9 @@ comline check
 ```
 
 Parse, resolve and validate every schema and the package config, reporting the
-first error found. It writes **nothing** to `.comline/` and does **not** bump the
-version — safe to run from editors, pre-commit hooks and CI lint steps.
+first error found. It writes **nothing** to `.comline/` (beyond fetching git
+dependencies into `.comline/deps-cache/`) and does **not** bump the version —
+safe to run from editors, pre-commit hooks and CI lint steps.
 
 ```bash
 comline check

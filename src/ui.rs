@@ -41,7 +41,8 @@ fn quiet() -> bool {
     QUIET.load(Ordering::Relaxed)
 }
 
-fn verbose() -> bool {
+/// Whether `-v` was given: `comline-core`'s diagnostics are wanted.
+pub fn verbose() -> bool {
     VERBOSE.load(Ordering::Relaxed)
 }
 
