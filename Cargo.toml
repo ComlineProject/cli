@@ -35,8 +35,12 @@ comline-core = { git = "https://github.com/ComlineProject/core", rev = "1ec7ad15
 # (comline-rust/comline-typescript's own codegen crates consume
 # `comline-codegen`'s types, so this pins the same generation rev they do,
 # not a later one), then comline-rust#20 and comline-typescript#18.
+# comline-codegen-rust bumped again, alone, for comline-rust#21 (lib mode's
+# rust generator rejected any namespace with a `/` in it outright - std's
+# own embedded schemas merge as `std/validators` etc, so `comline generate`
+# failed on any project that imported from std at all).
 comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "f83897ee570074110c35a653bfd4caa7f22224da" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "d59e81a3b2aa3965985934d115e51767150e46fc", optional = true }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "8bfa15e6268b6e98fd1ed22ef6d7b17a5fda0878", optional = true }
 comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "017f79924863f3e44811adf780d83ede87506185", optional = true }
 
 [features]
