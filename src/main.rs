@@ -135,6 +135,17 @@ fn run(cli: Cli) -> Result<()> {
         Commands::Clean { dry_run } => commands::clean::run(&work_dir, dry_run),
         Commands::Reset { force, dry_run } => commands::reset::run(&work_dir, force, dry_run),
         Commands::New { name, git } => commands::new::run(&work_dir, &name, git),
+        Commands::Add {
+            name,
+            dir,
+            git,
+            commit,
+            version,
+            no_hash,
+        } => {
+            let source = commands::add::Source::from_args(dir, git, commit, version)?;
+            commands::add::run(&work_dir, &name, source, !no_hash)
+        }
         Commands::Completions { shell } => commands::completions::run(shell),
         Commands::Targets => commands::targets::run(),
     }
