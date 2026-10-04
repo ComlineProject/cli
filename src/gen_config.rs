@@ -103,6 +103,13 @@ pub struct Target {
     pub mode: Option<String>,
     pub package_versions: Option<VersionSpec>,
     pub default_framing: Option<String>,
+    /// `lib` mode only: write the crate straight into `out` instead of
+    /// `<out>/<language>/`. Target-only (no `[generate]` default, no flag/env)
+    /// — a shared `out` across several `lib` targets needs the per-language
+    /// split to avoid two crates colliding in one directory, so flattening
+    /// only makes sense once a target already has `out` to itself.
+    #[serde(default)]
+    pub flatten: bool,
 }
 
 /// A non-empty `COMLINE_GENERATE_*` env var, if set.
@@ -153,6 +160,8 @@ pub struct ResolvedTarget {
     pub versions: VersionSpec,
     /// Fallback framing handed to the generator; `None` ⇒ its built-in default.
     pub default_framing: Option<String>,
+    /// `lib` mode only — see [`Target::flatten`].
+    pub flatten: bool,
 }
 
 /// Variables a `layout` template can reference.
@@ -218,6 +227,7 @@ pub fn resolve(
                 mode: None,
                 package_versions: None,
                 default_framing: None,
+                flatten: false,
             })
             .collect()
     } else {
@@ -330,6 +340,7 @@ pub fn resolve(
             mode,
             versions,
             default_framing,
+            flatten: t.flatten,
         });
     }
 
@@ -417,5 +428,22 @@ mod tests {
         }];
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
         assert_eq!(resolved[0].default_framing, None);
+    }
+
+    #[test]
+    fn flatten_defaults_to_false_and_is_target_only() {
+        let cfg = parse(
+            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
+             mode = \"lib\"\nflatten = true\n",
+        );
+        let declared = [];
+        let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
+        assert!(resolved[0].flatten);
+
+        let cfg = parse(
+            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\nmode = \"lib\"\n",
+        );
+        let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
+        assert!(!resolved[0].flatten);
     }
 }
