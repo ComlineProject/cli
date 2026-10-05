@@ -344,16 +344,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "codespan-reporting"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
-dependencies = [
- "termcolor",
- "unicode-width 0.1.14",
-]
-
-[[package]]
 name = "colorchoice"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -389,7 +379,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=a5b1b319e810fe5723ee94966ec174c6a1b2e7f1#a5b1b319e810fe5723ee94966ec174c6a1b2e7f1"
+source = "git+https://github.com/ComlineProject/generation?rev=56826746326799e7cfbf988deb80156c3a4bcdfb#56826746326799e7cfbf988deb80156c3a4bcdfb"
 dependencies = [
  "comline-core",
  "eyre",
@@ -398,7 +388,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-rust"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-rust?rev=6b3f4ffd027b37219efa36e167f769e7362821cc#6b3f4ffd027b37219efa36e167f769e7362821cc"
+source = "git+https://github.com/ComlineProject/comline-rust?rev=9366ea18b706aed357c3c745f239c32797048780#9366ea18b706aed357c3c745f239c32797048780"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -408,7 +398,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-typescript"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-typescript?rev=56bea641f6d163120006e853bff4eec4d0a7c88e#56bea641f6d163120006e853bff4eec4d0a7c88e"
+source = "git+https://github.com/ComlineProject/comline-typescript?rev=132630a7d61ec7a2c6425b50bce716098befe617#132630a7d61ec7a2c6425b50bce716098befe617"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -418,13 +408,12 @@ dependencies = [
 [[package]]
 name = "comline-core"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/core?rev=5e6cc3af04964590b43c3c53f8924f474f00951e#5e6cc3af04964590b43c3c53f8924f474f00951e"
+source = "git+https://github.com/ComlineProject/core?rev=f8861a8716ff597e8623ce0b3f067eda0ea1923b#f8861a8716ff597e8623ce0b3f067eda0ea1923b"
 dependencies = [
  "ariadne",
  "bincode",
  "blake3",
  "chumsky",
- "codespan-reporting",
  "comline-core-stdlib",
  "downcast-rs",
  "eyre",
@@ -450,7 +439,7 @@ dependencies = [
 [[package]]
 name = "comline-core-stdlib"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/core?rev=5e6cc3af04964590b43c3c53f8924f474f00951e#5e6cc3af04964590b43c3c53f8924f474f00951e"
+source = "git+https://github.com/ComlineProject/core?rev=f8861a8716ff597e8623ce0b3f067eda0ea1923b#f8861a8716ff597e8623ce0b3f067eda0ea1923b"
 
 [[package]]
 name = "concolor"
@@ -1706,15 +1695,6 @@ dependencies = [
  "once_cell",
  "rustix",
  "windows-sys 0.60.2",
-]
-
-[[package]]
-name = "termcolor"
-version = "1.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
-dependencies = [
- "winapi-util",
 ]
 
 [[package]]

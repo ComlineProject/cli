@@ -190,6 +190,11 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
                 },
                 default_framing: t.default_framing.clone(),
             };
+            // Deliberately not `core_err`: a generator's errors are about
+            // schema/package *structure* (e.g. a namespace that's both a
+            // schema and a parent of deeper schemas), not source *text* -
+            // they carry no span to render a snippet against, so there's
+            // nothing for the multi-line branch there to do.
             let files =
                 generator(&request).map_err(|e| miette!("`{}` generator: {e}", t.language))?;
 
