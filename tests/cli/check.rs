@@ -56,7 +56,11 @@ fn reports_a_broken_schema() {
 fn a_broken_schema_reports_a_source_snippet_not_a_debug_dump() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
-    fs::write(project.join("src/main.ids"), "struct Greeting {\n    / name: string\n}\n").unwrap();
+    fs::write(
+        project.join("src/main.ids"),
+        "struct Greeting {\n    / name: string\n}\n",
+    )
+    .unwrap();
 
     comline_cmd()
         .current_dir(&project)
@@ -75,7 +79,11 @@ fn a_broken_schema_reports_a_source_snippet_not_a_debug_dump() {
 fn a_broken_config_idp_reports_a_source_snippet_not_a_debug_dump() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
-    fs::write(project.join("config.idp"), "congregation test\nspecification_version =\n").unwrap();
+    fs::write(
+        project.join("config.idp"),
+        "congregation test\nspecification_version =\n",
+    )
+    .unwrap();
 
     comline_cmd()
         .current_dir(&project)
