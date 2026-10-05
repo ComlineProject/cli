@@ -29,18 +29,18 @@ toml = "0.8"
 # needs real I/O (git fetch, filesystem), so it's off by default for
 # `comline-core`'s wasm32 consumers (the playground editor, the language
 # server); the CLI is the one consumer that actually runs `comline build`.
-comline-core = { git = "https://github.com/ComlineProject/core", rev = "f8861a8716ff597e8623ce0b3f067eda0ea1923b", features = ["deps"] }
-# All three pinned to revs that already agree on comline-core@f8861a8
-# (core#69 - the Diagnostic rename + dead-code cleanup half of the
-# error-reporting work) - bumped together: generation#35's branch-tip
-# commit (comline-rust/comline-typescript's own codegen crates consume
-# `comline-codegen`'s types, so this pins the exact same generation rev
-# they do - 5682674, not generation's later merge commit, since Cargo
-# only unifies a git dependency across byte-identical revs), then
-# comline-rust#24 and comline-typescript#21.
-comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "56826746326799e7cfbf988deb80156c3a4bcdfb" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "9366ea18b706aed357c3c745f239c32797048780", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "132630a7d61ec7a2c6425b50bce716098befe617", optional = true }
+comline-core = { git = "https://github.com/ComlineProject/core", rev = "16b6e305ad663c376ae8062bb510713d441ae5e0", features = ["deps"] }
+# All three pinned to revs that already agree on comline-core@16b6e30
+# (core#70 - parse errors keep a span even when no leaf names a token) -
+# bumped together: generation#36's branch-tip commit (comline-rust/
+# comline-typescript's own codegen crates consume `comline-codegen`'s
+# types, so this pins the exact same generation rev they do - 0774121,
+# not generation's later merge commit, since Cargo only unifies a git
+# dependency across byte-identical revs), then comline-rust#25 and
+# comline-typescript#22.
+comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "0774121d9f2fe325c9a3601bd5e7c843625ba346" }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "1bb42f0b37cda16752d4c69aaa6e378642af1e2a", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "a7be9e93fb424c106f6698e005e6e924935b00b6", optional = true }
 
 [features]
 # Which language generators are compiled in. Drop one to shed its whole
