@@ -29,19 +29,20 @@ toml = "0.8"
 # needs real I/O (git fetch, filesystem), so it's off by default for
 # `comline-core`'s wasm32 consumers (the playground editor, the language
 # server); the CLI is the one consumer that actually runs `comline build`.
-comline-core = { git = "https://github.com/ComlineProject/core", rev = "1ec7ad15aae2c44c369c8983a6f5cab96733dbe1", features = ["deps"] }
-# All three pinned to revs that already agree on comline-core@1ec7ad1
-# (the embedded std, core#62) — bumped together: generation#32's first commit
+comline-core = { git = "https://github.com/ComlineProject/core", rev = "c28cc2520c3ed2eeaba32f2b8e59c36a86944973", features = ["deps"] }
+# All three pinned to revs that already agree on comline-core@c28cc25
+# (bare relative globs and the git cache fix, core#64/core#65; core#62's
+# embedded std before them) - bumped together: generation#33's first commit
 # (comline-rust/comline-typescript's own codegen crates consume
 # `comline-codegen`'s types, so this pins the same generation rev they do,
-# not a later one), then comline-rust#20 and comline-typescript#18.
-# comline-codegen-rust bumped again, alone, for comline-rust#21 (lib mode's
-# rust generator rejected any namespace with a `/` in it outright - std's
-# own embedded schemas merge as `std/validators` etc, so `comline generate`
-# failed on any project that imported from std at all).
-comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "f83897ee570074110c35a653bfd4caa7f22224da" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "8bfa15e6268b6e98fd1ed22ef6d7b17a5fda0878", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "017f79924863f3e44811adf780d83ede87506185", optional = true }
+# not a later one), then comline-rust#22 and comline-typescript#19.
+# comline-rust's pin includes lib mode's nested-namespace support
+# (comline-rust#21): std's own embedded schemas merge as `std/validators`
+# etc, so `comline generate` failed on any project that imported from std
+# at all before it.
+comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "df2e1372a1b25e19e760b4221ab1b9fceb27a38c" }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "7614bbcdf2d6f40b1457e77c125093778ffda9e1", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "db27ec591c1049cea52b50f3189646083bebe082", optional = true }
 
 [features]
 # Which language generators are compiled in. Drop one to shed its whole
