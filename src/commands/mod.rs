@@ -28,7 +28,17 @@ pub fn ensure_project(dir: &Path) -> Result<()> {
 }
 
 /// Wrap a `comline-core` (`eyre`) error as a `miette` one for the reporting
-/// path. `{:#}` renders the message plus its cause chain, without a backtrace.
+/// path. `{:#}` renders the message plus its cause chain, without a
+/// backtrace. `comline-core`'s own diagnostics (parse/validation errors)
+/// now arrive as a multi-line, already-rendered `ariadne` source snippet
+/// (`comline_core::diagnostics::render`) - gluing `"{context}: "` onto the
+/// front of that would run the prefix into the snippet's own box-drawing on
+/// one line, so a multi-line detail gets its own paragraph instead.
 pub fn core_err(context: &str, e: impl std::fmt::Display) -> miette::Report {
-    miette::miette!("{context}: {e:#}")
+    let detail = format!("{e:#}");
+    if detail.contains('\n') {
+        miette::miette!("{context}:\n\n{detail}")
+    } else {
+        miette::miette!("{context}: {detail}")
+    }
 }

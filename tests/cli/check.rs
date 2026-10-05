@@ -53,6 +53,50 @@ fn reports_a_broken_schema() {
 }
 
 #[test]
+fn a_broken_schema_reports_a_source_snippet_not_a_debug_dump() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    fs::write(
+        project.join("src/main.ids"),
+        "struct Greeting {\n    / name: string\n}\n",
+    )
+    .unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .arg("check")
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicate::str::contains("ParseError {").not())
+        .stderr(predicate::str::contains("FailedNode(").not())
+        .stderr(predicate::str::contains("main.ids"))
+        .stderr(predicate::str::contains("unexpected token"))
+        .stderr(predicate::str::is_match(r"\d+:\d+").unwrap());
+}
+
+#[test]
+fn a_broken_config_idp_reports_a_source_snippet_not_a_debug_dump() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    fs::write(
+        project.join("config.idp"),
+        "congregation test\nspecification_version =\n",
+    )
+    .unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .arg("check")
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicate::str::contains("ParseError {").not())
+        .stderr(predicate::str::contains("FailedNode(").not())
+        .stderr(predicate::str::contains("config.idp"));
+}
+
+#[test]
 fn std_is_usable_and_checked() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
