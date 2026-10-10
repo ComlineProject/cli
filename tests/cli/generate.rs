@@ -436,3 +436,102 @@ fn package_versions_all_without_a_build_errors() {
         .failure()
         .stderr(predicate::str::contains("run `comline build` first"));
 }
+
+fn add_std_reference(project: &std::path::Path) {
+    fs::write(
+        project.join("src/uses_std.ids"),
+        "use std::http::Request\n\nstruct Exchange {\n    request: Request\n}\n",
+    )
+    .unwrap();
+}
+
+#[test]
+fn external_std_flag_qualifies_the_reference_and_omits_stds_own_file() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    add_std_reference(&project);
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust", "--external-std"])
+        .assert()
+        .success();
+
+    let src = fs::read_to_string(project.join("generated/rust/uses_std.rs")).unwrap();
+    assert!(src.contains("pub request: comline_std::http::Request,"), "got: {src}");
+    assert!(
+        src.contains("// comline-std = { git ="),
+        "code mode has no manifest to add the dependency to: {src}"
+    );
+    assert!(!project.join("generated/rust/std/http.rs").exists());
+}
+
+#[test]
+fn external_std_off_by_default_still_inlines_std() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    add_std_reference(&project);
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success();
+
+    let src = fs::read_to_string(project.join("generated/rust/uses_std.rs")).unwrap();
+    assert!(src.contains("pub request: crate::std::http::Request,"), "got: {src}");
+    assert!(project.join("generated/rust/std/http.rs").exists());
+}
+
+#[test]
+fn external_std_lib_mode_adds_the_comline_std_dependency() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    add_std_reference(&project);
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust", "--mode", "lib", "--external-std"])
+        .assert()
+        .success();
+
+    let crate_dir = project.join("generated/rust");
+    let cargo = fs::read_to_string(crate_dir.join("Cargo.toml")).unwrap();
+    assert!(cargo.contains("comline-std = { git ="), "got: {cargo}");
+    assert!(!crate_dir.join("src/std/http.rs").exists());
+}
+
+#[test]
+fn comline_toml_external_std_is_honoured_without_the_flag() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    add_std_reference(&project);
+    fs::write(project.join("comline.toml"), "[generate]\nexternal_std = true\n").unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success();
+
+    let src = fs::read_to_string(project.join("generated/rust/uses_std.rs")).unwrap();
+    assert!(src.contains("comline_std::http::Request"), "got: {src}");
+}
+
+#[test]
+fn env_external_std_beats_comline_toml() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    add_std_reference(&project);
+    fs::write(project.join("comline.toml"), "[generate]\nexternal_std = false\n").unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .env("COMLINE_GENERATE_EXTERNAL_STD", "true")
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success();
+
+    let src = fs::read_to_string(project.join("generated/rust/uses_std.rs")).unwrap();
+    assert!(src.contains("comline_std::http::Request"), "got: {src}");
+}

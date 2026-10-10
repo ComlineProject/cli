@@ -215,7 +215,7 @@ comline build --watch
 ### `comline generate`
 
 ```
-comline generate [--target <lang>] [--out <dir>] [--layout <template>] [--mode <mode>] [--watch]
+comline generate [--target <lang>] [--out <dir>] [--layout <template>] [--mode <mode>] [--external-std] [--watch]
 ```
 
 Validate the project, then write generated code for each target. Unlike `build`,
@@ -232,6 +232,7 @@ none, from `code_generation.languages` in `config.idp`.
 out              = "generated"                            # output root, relative to comline.toml
 layout           = "{{language}}/{{namespace}}.{{ext}}"   # path of each file under the root
 mode             = "code"                                 # code | lib | dylib (only `code` today)
+external_std     = false                                  # reference comline_std instead of inlining it (rust only)
 package_versions = "latest"                               # latest | all | ["0.3.0", "0.4.0"]
 
 # optional, one per target you want to pin or override:
@@ -273,13 +274,24 @@ paths — the `layout` must contain `{{package_version}}`. For `latest`,
 
 - `--target <lang>` — only this language (case-insensitive). Errors if nothing
   matches.
-- `--out <dir>` / `--layout <template>` / `--mode <mode>` — override one target's
-  `[generate]` values. When more than one target is configured they require
-  `--target` (otherwise it is ambiguous which they apply to).
-- `COMLINE_GENERATE_OUT` / `COMLINE_GENERATE_LAYOUT` / `COMLINE_GENERATE_MODE` —
-  the same overrides from the environment, sitting just below the flags but
-  applied to **every** target (handy in CI). A flag still wins for its target.
+- `--out <dir>` / `--layout <template>` / `--mode <mode>` / `--external-std` —
+  override one target's `[generate]` values. When more than one target is
+  configured they require `--target` (otherwise it is ambiguous which they
+  apply to).
+- `COMLINE_GENERATE_OUT` / `COMLINE_GENERATE_LAYOUT` / `COMLINE_GENERATE_MODE` /
+  `COMLINE_GENERATE_EXTERNAL_STD` — the same overrides from the environment,
+  sitting just below the flags but applied to **every** target (handy in CI).
+  A flag still wins for its target.
 - `--watch` — regenerate on change; see [Watch mode](#watch-mode).
+
+**`external_std` (Rust only).** When on, `std` is referenced as its own
+`comline_std` crate (a git dependency `lib` mode adds to the generated
+`Cargo.toml` automatically) instead of being re-emitted into the output on
+every run — a reference qualifies to `comline_std::http::Request` instead of
+a locally-inlined `crate::std::http::Request`. `code` mode has no manifest to
+edit on your behalf, so a file that ends up referencing it carries a comment
+naming the dependency line to add by hand. Default `false` (inlined,
+unchanged).
 
 Currently `rust` and `typescript` are the generators; `code` mode is
 implemented for both and `lib` mode for `rust`. `dylib`, and `lib` for other

@@ -105,6 +105,11 @@ Examples:
         #[arg(short, long, value_name = "MODE")]
         mode: Option<String>,
 
+        /// Reference `comline_std` as its own crate instead of inlining it
+        /// (Rust only; overrides `comline.toml`'s `[generate] external_std`)
+        #[arg(long)]
+        external_std: bool,
+
         /// Regenerate automatically when a schema or `config.idp` changes
         #[arg(short, long)]
         watch: bool,
