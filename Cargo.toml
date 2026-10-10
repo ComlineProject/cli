@@ -38,7 +38,7 @@ comline-core = { git = "https://github.com/ComlineProject/core", rev = "6431e61a
 # revs), then comline-rust#30 and comline-typescript#25 (both branch-tip,
 # pending those PRs' merge).
 comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "efbd9824eb4ee28bd91b1aaa04a52883d4e1ab45" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "930f02d7acbaf8f52803434f857528300a0db882", optional = true }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "d2999a728d9000b2345d04a4352c05016af6de64", optional = true }
 comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "86ddc4a016d5d6251179a140c808e4109d65895c", optional = true }
 
 [features]

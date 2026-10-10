@@ -460,7 +460,7 @@ fn external_std_flag_qualifies_the_reference_and_omits_stds_own_file() {
     let src = fs::read_to_string(project.join("generated/rust/uses_std.rs")).unwrap();
     assert!(src.contains("pub request: comline_std::http::Request,"), "got: {src}");
     assert!(
-        src.contains("// comline-std = { git ="),
+        src.contains("// comline_std = { git ="),
         "code mode has no manifest to add the dependency to: {src}"
     );
     assert!(!project.join("generated/rust/std/http.rs").exists());
@@ -497,7 +497,7 @@ fn external_std_lib_mode_adds_the_comline_std_dependency() {
 
     let crate_dir = project.join("generated/rust");
     let cargo = fs::read_to_string(crate_dir.join("Cargo.toml")).unwrap();
-    assert!(cargo.contains("comline-std = { git ="), "got: {cargo}");
+    assert!(cargo.contains("comline_std = { git ="), "got: {cargo}");
     assert!(!crate_dir.join("src/std/http.rs").exists());
 }
 
