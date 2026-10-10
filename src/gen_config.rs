@@ -277,10 +277,8 @@ pub fn resolve(
         };
     }
 
-    let field_override = ov.out.is_some()
-        || ov.layout.is_some()
-        || ov.mode.is_some()
-        || ov.external_std.is_some();
+    let field_override =
+        ov.out.is_some() || ov.layout.is_some() || ov.mode.is_some() || ov.external_std.is_some();
     if field_override && selected.len() > 1 && ov.target.is_none() {
         return Err(miette!(
             "`--out` / `--layout` / `--mode` / `--external-std` need `--target <lang>` \
@@ -315,11 +313,15 @@ pub fn resolve(
 
         // Same precedence, for a bool field.
         let pick_bool = |flag: Option<bool>,
-                          env: Option<bool>,
-                          target: Option<bool>,
-                          section: Option<bool>,
-                          default: bool| {
-            flag.filter(|_| apply_flag).or(env).or(target).or(section).unwrap_or(default)
+                         env: Option<bool>,
+                         target: Option<bool>,
+                         section: Option<bool>,
+                         default: bool| {
+            flag.filter(|_| apply_flag)
+                .or(env)
+                .or(target)
+                .or(section)
+                .unwrap_or(default)
         };
 
         let out = pick(ov.out, &env_out, &t.out, &cfg.generate.out, DEFAULT_OUT);
@@ -495,7 +497,10 @@ mod tests {
     #[test]
     fn external_std_defaults_to_false() {
         let cfg = parse("[generate]\n");
-        let declared = [DeclaredLang { language: "rust".into(), lang_version: "1.75".into() }];
+        let declared = [DeclaredLang {
+            language: "rust".into(),
+            lang_version: "1.75".into(),
+        }];
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
         assert!(!resolved[0].external_std);
     }
@@ -503,7 +508,10 @@ mod tests {
     #[test]
     fn external_std_section_applies_to_every_target() {
         let cfg = parse("[generate]\nexternal_std = true\n");
-        let declared = [DeclaredLang { language: "rust".into(), lang_version: "1.75".into() }];
+        let declared = [DeclaredLang {
+            language: "rust".into(),
+            lang_version: "1.75".into(),
+        }];
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
         assert!(resolved[0].external_std);
     }
@@ -523,10 +531,15 @@ mod tests {
     #[test]
     fn flag_wins_over_everything_for_external_std() {
         let cfg = parse("[generate]\nexternal_std = false\n");
-        let declared = [DeclaredLang { language: "rust".into(), lang_version: "1.75".into() }];
-        let ov = Overrides { external_std: Some(true), ..Default::default() };
+        let declared = [DeclaredLang {
+            language: "rust".into(),
+            lang_version: "1.75".into(),
+        }];
+        let ov = Overrides {
+            external_std: Some(true),
+            ..Default::default()
+        };
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &ov).unwrap();
         assert!(resolved[0].external_std);
     }
-
 }

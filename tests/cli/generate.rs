@@ -458,7 +458,10 @@ fn external_std_flag_qualifies_the_reference_and_omits_stds_own_file() {
         .success();
 
     let src = fs::read_to_string(project.join("generated/rust/uses_std.rs")).unwrap();
-    assert!(src.contains("pub request: comline_std::http::Request,"), "got: {src}");
+    assert!(
+        src.contains("pub request: comline_std::http::Request,"),
+        "got: {src}"
+    );
     assert!(
         src.contains("// comline_std = { git ="),
         "code mode has no manifest to add the dependency to: {src}"
@@ -479,7 +482,10 @@ fn external_std_off_by_default_still_inlines_std() {
         .success();
 
     let src = fs::read_to_string(project.join("generated/rust/uses_std.rs")).unwrap();
-    assert!(src.contains("pub request: crate::std::http::Request,"), "got: {src}");
+    assert!(
+        src.contains("pub request: crate::std::http::Request,"),
+        "got: {src}"
+    );
     assert!(project.join("generated/rust/std/http.rs").exists());
 }
 
@@ -491,7 +497,14 @@ fn external_std_lib_mode_adds_the_comline_std_dependency() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust", "--mode", "lib", "--external-std"])
+        .args([
+            "generate",
+            "--target",
+            "rust",
+            "--mode",
+            "lib",
+            "--external-std",
+        ])
         .assert()
         .success();
 
@@ -506,7 +519,11 @@ fn comline_toml_external_std_is_honoured_without_the_flag() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
     add_std_reference(&project);
-    fs::write(project.join("comline.toml"), "[generate]\nexternal_std = true\n").unwrap();
+    fs::write(
+        project.join("comline.toml"),
+        "[generate]\nexternal_std = true\n",
+    )
+    .unwrap();
 
     comline_cmd()
         .current_dir(&project)
@@ -523,7 +540,11 @@ fn env_external_std_beats_comline_toml() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
     add_std_reference(&project);
-    fs::write(project.join("comline.toml"), "[generate]\nexternal_std = false\n").unwrap();
+    fs::write(
+        project.join("comline.toml"),
+        "[generate]\nexternal_std = false\n",
+    )
+    .unwrap();
 
     comline_cmd()
         .current_dir(&project)
