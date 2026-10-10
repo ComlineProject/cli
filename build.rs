@@ -66,7 +66,7 @@ fn emit_version_info() {
     let commit_count =
         run(&["git", "rev-list", "--count", "HEAD"]).unwrap_or_else(|| "unknown".to_string());
     let build_date =
-        run(&["date", "-u", "+%Y-%m-%dT%H:%M:%SZ"]).unwrap_or_else(|| "unknown".to_string());
+        run(&["date", "-u", "+%Y-%m-%d %H:%M:%S UTC"]).unwrap_or_else(|| "unknown".to_string());
 
     println!(
         "cargo:rustc-env=COMLINE_GIT_HASH={}{}",
