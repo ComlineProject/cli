@@ -9,7 +9,6 @@
 //! `compile_package` — no `.comline/` write, no version bump. `"all"` or an
 //! explicit list reads committed versions from the CAS chain instead.
 
-use std::collections::HashMap;
 use std::path::Path;
 
 use comline_codegen::{GenRequest, Mode, PackageMeta, Registry};
@@ -200,33 +199,16 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
                 generator(&request).map_err(|e| miette!("`{}` generator: {e}", t.language))?;
 
             match mode {
-                // One file per schema, placed by `layout`.
+                // One file per schema, placed by `layout` - whichever schemas
+                // the generator actually produced a file for (it may
+                // legitimately omit some, e.g. a reference to an external
+                // dependency it doesn't inline).
                 Mode::Code => {
-                    let by_namespace: HashMap<String, &str> = files
-                        .iter()
-                        .map(|f| {
-                            (
-                                f.path.with_extension("").to_string_lossy().into_owned(),
-                                f.contents.as_str(),
-                            )
-                        })
-                        .collect();
-                    for (namespace, _) in &gv.schemas {
-                        // `external_std` deliberately drops `std`'s own
-                        // schemas from a generator's output (comline-rust#30)
-                        // - expecting a file for them here would defeat that.
-                        if t.external_std && is_std_namespace(namespace) {
-                            continue;
-                        }
-                        let contents = by_namespace.get(namespace.as_str()).ok_or_else(|| {
-                            miette!(
-                                "`{}` generator produced no file for `{namespace}`",
-                                t.language
-                            )
-                        })?;
+                    for f in &files {
+                        let namespace = f.path.with_extension("").to_string_lossy().into_owned();
                         let dest =
-                            t.dest_for(namespace, ext, &spec_version, &gv.package_version)?;
-                        write_file(&dest, contents)?;
+                            t.dest_for(&namespace, ext, &spec_version, &gv.package_version)?;
+                        write_file(&dest, &f.contents)?;
 
                         let src_name = format!("{namespace}.{SCHEMA_EXTENSION}");
                         let shown = dest.strip_prefix(work_dir).unwrap_or(&dest).display();
@@ -262,13 +244,6 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
 
     ui::success(format!("Generated {written} file(s)"));
     Ok(())
-}
-
-/// Whether a `/`-joined namespace is `std` or nested under it -
-/// `package::stdlib`'s own namespace-prefixing convention (the same check
-/// `comline-rust`'s generator makes to decide what `external_std` drops).
-fn is_std_namespace(namespace: &str) -> bool {
-    namespace == "std" || namespace.starts_with("std/")
 }
 
 fn write_file(dest: &Path, contents: &str) -> Result<()> {
