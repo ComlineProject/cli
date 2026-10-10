@@ -189,6 +189,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
                     },
                 },
                 default_framing: t.default_framing.clone(),
+                external_std: t.external_std,
             };
             // Deliberately not `core_err`: a generator's errors are about
             // schema/package *structure* (e.g. a namespace that's both a
@@ -211,6 +212,12 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
                         })
                         .collect();
                     for (namespace, _) in &gv.schemas {
+                        // `external_std` deliberately drops `std`'s own
+                        // schemas from a generator's output (comline-rust#30)
+                        // - expecting a file for them here would defeat that.
+                        if t.external_std && is_std_namespace(namespace) {
+                            continue;
+                        }
                         let contents = by_namespace.get(namespace.as_str()).ok_or_else(|| {
                             miette!(
                                 "`{}` generator produced no file for `{namespace}`",
@@ -255,6 +262,13 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
 
     ui::success(format!("Generated {written} file(s)"));
     Ok(())
+}
+
+/// Whether a `/`-joined namespace is `std` or nested under it -
+/// `package::stdlib`'s own namespace-prefixing convention (the same check
+/// `comline-rust`'s generator makes to decide what `external_std` drops).
+fn is_std_namespace(namespace: &str) -> bool {
+    namespace == "std" || namespace.starts_with("std/")
 }
 
 fn write_file(dest: &Path, contents: &str) -> Result<()> {

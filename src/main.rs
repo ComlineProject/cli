@@ -121,6 +121,7 @@ fn run(cli: Cli) -> Result<()> {
             out,
             layout,
             mode,
+            external_std,
             watch,
         } => {
             let overrides = gen_config::Overrides {
@@ -128,6 +129,7 @@ fn run(cli: Cli) -> Result<()> {
                 out: out.as_deref().map(|p| p.to_str().unwrap_or_default()),
                 layout: layout.as_deref(),
                 mode: mode.as_deref(),
+                external_std: external_std.then_some(true),
             };
             commands::generate::run(&work_dir, &overrides, watch)
         }

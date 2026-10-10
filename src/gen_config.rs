@@ -24,6 +24,9 @@ pub const DEFAULT_OUT: &str = "generated";
 pub const DEFAULT_LAYOUT: &str = "{{language}}/{{namespace}}.{{ext}}";
 /// Default emit form. Only `"code"` is implemented today.
 pub const DEFAULT_MODE: &str = "code";
+/// Default: `std` stays inlined into the generated output, unchanged from
+/// before this existed.
+pub const DEFAULT_EXTERNAL_STD: bool = false;
 
 /// Which package versions to generate bindings for.
 ///
@@ -83,6 +86,10 @@ pub struct Generate {
     /// (`"jsonrpc"`, `"datagram"`, …); an unknown one leaves the generator's
     /// built-in default in place.
     pub default_framing: Option<String>,
+    /// `true`: reference `comline_std` as its own crate instead of inlining
+    /// it, shared by every target unless overridden. Only a generator that
+    /// knows how (today, Rust's) acts on it. Default `false`.
+    pub external_std: Option<bool>,
     /// `[[generate.target]]` blocks.
     #[serde(rename = "target")]
     pub targets: Vec<Target>,
@@ -103,6 +110,7 @@ pub struct Target {
     pub mode: Option<String>,
     pub package_versions: Option<VersionSpec>,
     pub default_framing: Option<String>,
+    pub external_std: Option<bool>,
     /// `lib` mode only: write the crate straight into `out` instead of
     /// `<out>/<language>/`. Target-only (no `[generate]` default, no flag/env)
     /// — a shared `out` across several `lib` targets needs the per-language
@@ -115,6 +123,16 @@ pub struct Target {
 /// A non-empty `COMLINE_GENERATE_*` env var, if set.
 fn env_var(name: &str) -> Option<String> {
     std::env::var(name).ok().filter(|s| !s.is_empty())
+}
+
+/// Same as [`env_var`], parsed as a bool (`"true"`/`"1"` ⇒ on,
+/// `"false"`/`"0"` ⇒ off; anything else unset, same as absent).
+fn env_var_bool(name: &str) -> Option<bool> {
+    match env_var(name)?.as_str() {
+        "true" | "1" => Some(true),
+        "false" | "0" => Some(false),
+        _ => None,
+    }
 }
 
 impl ComlineToml {
@@ -147,6 +165,9 @@ pub struct Overrides<'a> {
     pub out: Option<&'a str>,
     pub layout: Option<&'a str>,
     pub mode: Option<&'a str>,
+    /// `--external-std` is presence-only (no `--no-external-std`, since the
+    /// default is already off) - `Some(true)` when passed, `None` otherwise.
+    pub external_std: Option<bool>,
 }
 
 /// A fully-resolved target: every field decided, `out` made absolute.
@@ -162,6 +183,8 @@ pub struct ResolvedTarget {
     pub default_framing: Option<String>,
     /// `lib` mode only — see [`Target::flatten`].
     pub flatten: bool,
+    /// See [`Generate::external_std`].
+    pub external_std: bool,
 }
 
 /// Variables a `layout` template can reference.
@@ -227,6 +250,7 @@ pub fn resolve(
                 mode: None,
                 package_versions: None,
                 default_framing: None,
+                external_std: None,
                 flatten: false,
             })
             .collect()
@@ -253,11 +277,12 @@ pub fn resolve(
         };
     }
 
-    let field_override = ov.out.is_some() || ov.layout.is_some() || ov.mode.is_some();
+    let field_override =
+        ov.out.is_some() || ov.layout.is_some() || ov.mode.is_some() || ov.external_std.is_some();
     if field_override && selected.len() > 1 && ov.target.is_none() {
         return Err(miette!(
-            "`--out` / `--layout` / `--mode` need `--target <lang>` when more \
-             than one target is configured ({} here)",
+            "`--out` / `--layout` / `--mode` / `--external-std` need `--target <lang>` \
+             when more than one target is configured ({} here)",
             selected.len()
         ));
     }
@@ -268,6 +293,7 @@ pub fn resolve(
     let env_out = env_var("COMLINE_GENERATE_OUT");
     let env_layout = env_var("COMLINE_GENERATE_LAYOUT");
     let env_mode = env_var("COMLINE_GENERATE_MODE");
+    let env_external_std = env_var_bool("COMLINE_GENERATE_EXTERNAL_STD");
 
     let mut resolved = Vec::with_capacity(selected.len());
     for t in selected {
@@ -285,6 +311,19 @@ pub fn resolve(
                 .unwrap_or_else(|| default.to_owned())
         };
 
+        // Same precedence, for a bool field.
+        let pick_bool = |flag: Option<bool>,
+                         env: Option<bool>,
+                         target: Option<bool>,
+                         section: Option<bool>,
+                         default: bool| {
+            flag.filter(|_| apply_flag)
+                .or(env)
+                .or(target)
+                .or(section)
+                .unwrap_or(default)
+        };
+
         let out = pick(ov.out, &env_out, &t.out, &cfg.generate.out, DEFAULT_OUT);
         let layout = pick(
             ov.layout,
@@ -299,6 +338,13 @@ pub fn resolve(
             &t.mode,
             &cfg.generate.mode,
             DEFAULT_MODE,
+        );
+        let external_std = pick_bool(
+            ov.external_std,
+            env_external_std,
+            t.external_std,
+            cfg.generate.external_std,
+            DEFAULT_EXTERNAL_STD,
         );
 
         let lang_version = t
@@ -341,6 +387,7 @@ pub fn resolve(
             versions,
             default_framing,
             flatten: t.flatten,
+            external_std,
         });
     }
 
@@ -445,5 +492,54 @@ mod tests {
         );
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
         assert!(!resolved[0].flatten);
+    }
+
+    #[test]
+    fn external_std_defaults_to_false() {
+        let cfg = parse("[generate]\n");
+        let declared = [DeclaredLang {
+            language: "rust".into(),
+            lang_version: "1.75".into(),
+        }];
+        let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
+        assert!(!resolved[0].external_std);
+    }
+
+    #[test]
+    fn external_std_section_applies_to_every_target() {
+        let cfg = parse("[generate]\nexternal_std = true\n");
+        let declared = [DeclaredLang {
+            language: "rust".into(),
+            lang_version: "1.75".into(),
+        }];
+        let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
+        assert!(resolved[0].external_std);
+    }
+
+    #[test]
+    fn target_external_std_wins_over_section() {
+        let cfg = parse(
+            "[generate]\nexternal_std = true\n\n\
+             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
+             external_std = false\n",
+        );
+        let declared = [];
+        let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
+        assert!(!resolved[0].external_std);
+    }
+
+    #[test]
+    fn flag_wins_over_everything_for_external_std() {
+        let cfg = parse("[generate]\nexternal_std = false\n");
+        let declared = [DeclaredLang {
+            language: "rust".into(),
+            lang_version: "1.75".into(),
+        }];
+        let ov = Overrides {
+            external_std: Some(true),
+            ..Default::default()
+        };
+        let resolved = resolve(&cfg, &declared, Path::new("/x"), &ov).unwrap();
+        assert!(resolved[0].external_std);
     }
 }
