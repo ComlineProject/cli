@@ -31,6 +31,9 @@ fn build_once(work_dir: &Path, release: bool) -> Result<()> {
     ui::finish_spinner(spinner);
 
     let result = result.map_err(|e| core_err("build failed", e))?;
+    for warning in result.context.rendered_warnings() {
+        ui::warn(warning);
+    }
 
     ui::success("Project built");
 

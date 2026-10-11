@@ -61,6 +61,9 @@ fn generate_once(work_dir: &Path, overrides: &Overrides) -> Result<()> {
     let context = build::compile_package(work_dir);
     ui::finish_spinner(spinner);
     let context = context.map_err(|e| core_err("code generation failed", e))?;
+    for warning in context.rendered_warnings() {
+        ui::warn(warning);
+    }
 
     let Some(config_units) = &context.config_frozen else {
         ui::warn("no package config was produced");

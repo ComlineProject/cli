@@ -15,7 +15,10 @@ pub fn run(work_dir: &Path) -> Result<()> {
     let outcome = comline_core::package::build::compile_package(work_dir);
     ui::finish_spinner(spinner);
 
-    outcome.map_err(|e| core_err("validation failed", e))?;
+    let context = outcome.map_err(|e| core_err("validation failed", e))?;
+    for warning in context.rendered_warnings() {
+        ui::warn(warning);
+    }
 
     ui::success("Check passed");
     Ok(())
