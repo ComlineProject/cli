@@ -20,7 +20,7 @@ fn force_removes_the_store_and_generated_code() {
         .assert()
         .success();
     assert!(project.join(".comline").is_dir());
-    assert!(project.join("generated/rust/main.rs").exists());
+    assert!(project.join("generated/rust/api.rs").exists());
 
     comline_cmd()
         .current_dir(&project)

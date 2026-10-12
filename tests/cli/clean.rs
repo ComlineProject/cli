@@ -19,7 +19,7 @@ fn removes_generated_code_but_keeps_the_store() {
         .args(["generate", "--target", "rust"])
         .assert()
         .success();
-    assert!(project.join("generated/rust/main.rs").exists());
+    assert!(project.join("generated/rust/api.rs").exists());
     assert!(project.join(".comline").is_dir());
 
     comline_cmd()
@@ -54,7 +54,7 @@ fn dry_run_lists_without_deleting() {
         .success()
         .stderr(predicate::str::contains("would remove"));
 
-    assert!(project.join("generated/rust/main.rs").exists());
+    assert!(project.join("generated/rust/api.rs").exists());
 }
 
 #[test]

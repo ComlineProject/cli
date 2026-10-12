@@ -41,7 +41,7 @@ fn without_config_fails_with_precondition_code() {
 fn reports_a_broken_schema() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
-    fs::write(project.join("src/main.ids"), "struct Broken {").unwrap();
+    fs::write(project.join("src/api.ids"), "struct Broken {").unwrap();
 
     comline_cmd()
         .current_dir(&project)
@@ -57,7 +57,7 @@ fn a_broken_schema_reports_a_source_snippet_not_a_debug_dump() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
     fs::write(
-        project.join("src/main.ids"),
+        project.join("src/api.ids"),
         "struct Greeting {\n    / name: string\n}\n",
     )
     .unwrap();
@@ -70,7 +70,7 @@ fn a_broken_schema_reports_a_source_snippet_not_a_debug_dump() {
         .code(1)
         .stderr(predicate::str::contains("ParseError {").not())
         .stderr(predicate::str::contains("FailedNode(").not())
-        .stderr(predicate::str::contains("main.ids"))
+        .stderr(predicate::str::contains("api.ids"))
         .stderr(predicate::str::contains("unexpected token"))
         .stderr(predicate::str::is_match(r"\d+:\d+").unwrap());
 }

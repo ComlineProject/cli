@@ -122,6 +122,8 @@ fn run(cli: Cli) -> Result<()> {
             layout,
             mode,
             external_std,
+            no_external_std,
+            dry_run,
             watch,
         } => {
             let overrides = gen_config::Overrides {
@@ -129,9 +131,14 @@ fn run(cli: Cli) -> Result<()> {
                 out: out.as_deref().map(|p| p.to_str().unwrap_or_default()),
                 layout: layout.as_deref(),
                 mode: mode.as_deref(),
-                external_std: external_std.then_some(true),
+                // Two presence-only flags rather than one `Option<bool>`:
+                // clap rejects passing both (`conflicts_with`), so at most
+                // one is ever set.
+                external_std: external_std
+                    .then_some(true)
+                    .or(no_external_std.then_some(false)),
             };
-            commands::generate::run(&work_dir, &overrides, watch)
+            commands::generate::run(&work_dir, &overrides, dry_run, watch)
         }
         Commands::Diff { old, new } => commands::diff::run(&work_dir, &old, &new),
         Commands::Clean { dry_run } => commands::clean::run(&work_dir, dry_run),

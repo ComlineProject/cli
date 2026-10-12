@@ -18,7 +18,7 @@ fn reports_changes_between_two_versions() {
         .success();
 
     // add a struct, then rebuild to bump the version
-    let schema = project.join("src/main.ids");
+    let schema = project.join("src/api.ids");
     let mut text = fs::read_to_string(&schema).unwrap();
     text.push_str("\nstruct Added {\n    x: string\n}\n");
     fs::write(&schema, text).unwrap();

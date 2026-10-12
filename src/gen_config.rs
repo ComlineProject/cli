@@ -22,11 +22,21 @@ pub const FILE_NAME: &str = "comline.toml";
 pub const DEFAULT_OUT: &str = "generated";
 /// Default on-disk layout under a target's root.
 pub const DEFAULT_LAYOUT: &str = "{{language}}/{{namespace}}.{{ext}}";
-/// Default emit form. Only `"code"` is implemented today.
+/// Default emit form. `"code"` and `"lib"` are implemented; `"dylib"` is not.
 pub const DEFAULT_MODE: &str = "code";
-/// Default: `std` stays inlined into the generated output, unchanged from
-/// before this existed.
-pub const DEFAULT_EXTERNAL_STD: bool = false;
+
+/// Whether `std` is referenced as its own package rather than inlined, when
+/// nothing says either way.
+///
+/// It follows the mode, because the two modes differ in whether there is
+/// anywhere to put the dependency. `lib` writes the package manifest, so the
+/// generator adds `comline_std` to it and the crate links one shared std.
+/// `code` emits loose source files with no manifest to add anything to - all
+/// a generator can do there is leave a comment naming the dependency line to
+/// write by hand, so inlining stays the honest default.
+fn default_external_std(mode: &str) -> bool {
+    mode == "lib"
+}
 
 /// Which package versions to generate bindings for.
 ///
@@ -165,8 +175,11 @@ pub struct Overrides<'a> {
     pub out: Option<&'a str>,
     pub layout: Option<&'a str>,
     pub mode: Option<&'a str>,
-    /// `--external-std` is presence-only (no `--no-external-std`, since the
-    /// default is already off) - `Some(true)` when passed, `None` otherwise.
+    /// `Some(true)` from `--external-std`, `Some(false)` from
+    /// `--no-external-std`, `None` when neither was passed. Both spellings
+    /// exist because the default is no longer a fixed `false` - it follows
+    /// the mode (see [`default_external_std`]), so either direction can be
+    /// the one a given run needs to override.
     pub external_std: Option<bool>,
 }
 
@@ -344,7 +357,7 @@ pub fn resolve(
             env_external_std,
             t.external_std,
             cfg.generate.external_std,
-            DEFAULT_EXTERNAL_STD,
+            default_external_std(&mode),
         );
 
         let lang_version = t
@@ -464,6 +477,63 @@ mod tests {
         let declared = [];
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
         assert_eq!(resolved[0].default_framing.as_deref(), Some("datagram"));
+    }
+
+    /// `lib` writes the package manifest, so the generator can add
+    /// `comline_std` to it; `code` emits loose files with nowhere to put a
+    /// dependency, so inlining stays the honest default there.
+    #[test]
+    fn external_std_follows_the_mode() {
+        for (mode, expected) in [("code", false), ("lib", true)] {
+            let cfg = parse(&format!(
+                "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
+                 mode = \"{mode}\"\n",
+            ));
+            let resolved = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap();
+            assert_eq!(resolved[0].external_std, expected, "mode {mode}");
+        }
+    }
+
+    /// Following the mode is a *default*, not a rule: a crate that wants a
+    /// self-contained copy of std can still say so.
+    #[test]
+    fn an_explicit_false_still_inlines_std_in_lib_mode() {
+        let cfg = parse(
+            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
+             mode = \"lib\"\nexternal_std = false\n",
+        );
+        let resolved = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap();
+        assert!(!resolved[0].external_std);
+    }
+
+    #[test]
+    fn the_section_default_applies_to_a_code_target_too() {
+        let cfg = parse(
+            "[generate]\nexternal_std = true\n\n\
+             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n",
+        );
+        let resolved = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap();
+        assert!(resolved[0].external_std, "`code`, but asked for explicitly");
+    }
+
+    /// Both flag spellings exist because the default is no longer a fixed
+    /// `false` - either direction can be the one a run needs to override.
+    #[test]
+    fn either_flag_spelling_overrides_the_mode_default() {
+        let cfg = parse(
+            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
+             mode = \"lib\"\n",
+        );
+        let off = Overrides { external_std: Some(false), ..Default::default() };
+        let resolved = resolve(&cfg, &[], Path::new("/x"), &off).unwrap();
+        assert!(!resolved[0].external_std, "--no-external-std");
+
+        let cfg = parse(
+            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n",
+        );
+        let on = Overrides { external_std: Some(true), ..Default::default() };
+        let resolved = resolve(&cfg, &[], Path::new("/x"), &on).unwrap();
+        assert!(resolved[0].external_std, "--external-std");
     }
 
     #[test]

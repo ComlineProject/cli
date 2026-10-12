@@ -7,7 +7,7 @@ use miette::{IntoDiagnostic, Result, WrapErr};
 
 use crate::ui;
 
-const MAIN_IDS: &str = "\
+const GREETING_IDS: &str = "\
 /// The language a greeting is written in.
 enum Language {
     English
@@ -38,7 +38,8 @@ const COMLINE_TOML: &str = "\
 # [generate]
 # out = \"generated\"                                # output root
 # layout = \"{{language}}/{{namespace}}.{{ext}}\"    # path under the root
-# mode = \"code\"                                    # code | lib | dylib (only `code` today)
+# mode = \"code\"                                    # code (loose source) | lib (a buildable package); dylib not built yet
+# external_std = false                             # reference `comline_std` rather than inlining std; defaults on in `lib`
 # package_versions = \"latest\"                      # latest | all | [\"0.3.0\", \"0.4.0\"]
 # default_framing = \"jsonrpc\"                      # wire framing for protocols with no `@framing` (else datagram)
 #
@@ -69,7 +70,7 @@ pub fn run(work_dir: &Path, name: &str, git: bool) -> Result<()> {
 
     write(&root.join("config.idp"), &config_idp(&package))?;
     write(&root.join("comline.toml"), COMLINE_TOML)?;
-    write(&root.join("src/main.ids"), MAIN_IDS)?;
+    write(&root.join("src/greeting.ids"), GREETING_IDS)?;
     write(&root.join(".gitignore"), GITIGNORE)?;
 
     if git {
