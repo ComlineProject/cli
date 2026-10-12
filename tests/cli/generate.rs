@@ -107,6 +107,7 @@ fn env_out_applies_in_a_multi_target_config() {
     // the env var does not — it applies to every target.
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
+    declare_two_languages(&project);
     fs::write(
         project.join("comline.toml"),
         "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\n\
@@ -144,6 +145,7 @@ fn plain_uses_ascii_arrow() {
 fn out_flag_needs_target_when_several_are_configured() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
+    declare_two_languages(&project);
     fs::write(
         project.join("comline.toml"),
         "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\n\
@@ -435,6 +437,19 @@ fn package_versions_all_without_a_build_errors() {
         .assert()
         .failure()
         .stderr(predicate::str::contains("run `comline build` first"));
+}
+
+/// Declare a second language in the congregation, so a test can configure
+/// two targets. A `[[generate.target]]` only configures a language
+/// `config.idp` declares — it can't introduce one.
+fn declare_two_languages(project: &std::path::Path) {
+    fs::write(
+        project.join("config.idp"),
+        "congregation simple_project\nspecification_version = 1\n\n\
+         code_generation = {\n    languages = {\n        rust#1.70.0 = {}\n\
+         \x20       python#3.11.0 = {}\n    }\n}\n",
+    )
+    .unwrap();
 }
 
 fn add_std_reference(project: &std::path::Path) {

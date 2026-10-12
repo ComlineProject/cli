@@ -83,6 +83,15 @@ pub struct ComlineToml {
 #[derive(Debug, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Generate {
+    /// Narrow generation to these languages, out of the ones `config.idp`
+    /// declares. Empty (the default) means every declared language.
+    ///
+    /// The consumer's half of the split: `config.idp` says which languages
+    /// the *package* is for, and this says which of them *this checkout*
+    /// wants built. A name the congregation doesn't declare is an error
+    /// rather than a silent no-op, so a typo here can't quietly stop
+    /// generating something.
+    pub only: Vec<String>,
     /// Output root shared by every target unless overridden.
     pub out: Option<String>,
     /// Layout template shared by every target unless overridden.
@@ -240,9 +249,28 @@ impl ResolvedTarget {
 /// Merge `comline.toml`, the congregation's declared languages and CLI flags
 /// into the concrete set of targets `generate` should emit.
 ///
-/// The base list is `[[generate.target]]` if present, otherwise one target per
-/// declared language. `--target` filters it (case-insensitive). The `--out` /
-/// `--layout` / `--mode` flags apply to the single remaining target, or to the
+/// **The declared languages are the set.** `config.idp`'s
+/// `code_generation.languages` says which languages this package is generated
+/// for - that is the package's own contract, committed alongside it - and a
+/// `[[generate.target]]` block says where and how one of them lands. A block
+/// used to *replace* the list outright, so adding one to redirect `rust`'s
+/// output silently stopped generating every other declared language; the
+/// docs described the block as settings all along ("one block per target you
+/// want to pin or override"), and this is the code catching up.
+///
+/// A language with no block takes the `[generate]` defaults. Several blocks
+/// for one language give several targets - two `rust` blocks writing to
+/// different `out` is a real thing to want. A block naming a language the
+/// congregation doesn't declare is an error, not a silent no-op: that would
+/// be the same footgun inverted.
+///
+/// With no declared languages at all, the blocks are the set - a
+/// `comline.toml`-only project with no `code_generation` in its congregation
+/// still works.
+///
+/// `[generate] only` narrows the declared set persistently; `--target`
+/// narrows it for one run (case-insensitive). The `--out` / `--layout` /
+/// `--mode` flags apply to the single remaining target, or to the
 /// `--target`-named one; using them with several targets and no `--target` is an
 /// error. `COMLINE_GENERATE_{OUT,LAYOUT,MODE}` sit just below the flags but apply
 /// to every target regardless (a deliberate global for CI).
@@ -252,23 +280,65 @@ pub fn resolve(
     work_dir: &Path,
     ov: &Overrides,
 ) -> Result<Vec<ResolvedTarget>> {
-    let base: Vec<Target> = if cfg.generate.targets.is_empty() {
+    let declares = |language: &str| {
+        declared.iter().any(|d| d.language.eq_ignore_ascii_case(language))
+    };
+
+    // A block for a language nobody declared is a mistake worth naming -
+    // it would otherwise configure a target that is never built.
+    if !declared.is_empty() {
+        if let Some(stray) = cfg.generate.targets.iter().find(|t| !declares(&t.language)) {
+            return Err(miette!(
+                "`[[generate.target]]` names `{}`, which config.idp does not declare \
+                 - add `{}#<version> = {{}}` to `code_generation.languages`, or drop \
+                 the block",
+                stray.language,
+                stray.language,
+            ));
+        }
+    }
+    if let Some(stray) = cfg.generate.only.iter().find(|l| !declared.is_empty() && !declares(l)) {
+        return Err(miette!(
+            "`[generate] only` names `{stray}`, which config.idp does not declare",
+        ));
+    }
+
+    let base: Vec<Target> = if declared.is_empty() {
+        // No congregation-declared languages: the blocks are all there is.
+        cfg.generate.targets.clone()
+    } else {
         declared
             .iter()
-            .map(|d| Target {
-                language: d.language.clone(),
-                lang_version: Some(d.lang_version.clone()),
-                out: None,
-                layout: None,
-                mode: None,
-                package_versions: None,
-                default_framing: None,
-                external_std: None,
-                flatten: false,
+            .filter(|d| {
+                cfg.generate.only.is_empty()
+                    || cfg.generate.only.iter().any(|l| l.eq_ignore_ascii_case(&d.language))
+            })
+            .flat_map(|d| {
+                let blocks: Vec<Target> = cfg
+                    .generate
+                    .targets
+                    .iter()
+                    .filter(|t| t.language.eq_ignore_ascii_case(&d.language))
+                    .cloned()
+                    .collect();
+                if blocks.is_empty() {
+                    // Declared but unconfigured: the `[generate]` defaults.
+                    vec![Target {
+                        language: d.language.clone(),
+                        lang_version: Some(d.lang_version.clone()),
+                        out: None,
+                        layout: None,
+                        mode: None,
+                        package_versions: None,
+                        default_framing: None,
+                        external_std: None,
+                        flatten: false,
+                    }]
+                } else {
+                    blocks
+                }
             })
             .collect()
-    } else {
-        cfg.generate.targets.clone()
     };
 
     let selected: Vec<&Target> = base
@@ -282,6 +352,9 @@ pub fn resolve(
     if selected.is_empty() {
         return match ov.target {
             Some(want) => Err(miette!("no code-generation target matches `{want}`")),
+            None if !cfg.generate.only.is_empty() => Err(miette!(
+                "`[generate] only` leaves nothing to generate",
+            )),
             None => Err(miette!(
                 "nothing to generate: add `[[generate.target]]` to {} \
                  or `code_generation.languages` to config.idp",
@@ -454,6 +527,108 @@ mod tests {
         let declared = [];
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
         assert_eq!(resolved[0].versions, VersionSpec::Latest);
+    }
+
+    fn two_langs() -> [DeclaredLang; 2] {
+        [
+            DeclaredLang { language: "rust".into(), lang_version: "1.70.0".into() },
+            DeclaredLang { language: "typescript".into(), lang_version: "5.0".into() },
+        ]
+    }
+
+    /// The bug this rule replaced: one block existed only to redirect
+    /// `rust`'s output, and every other declared language silently stopped
+    /// being generated.
+    #[test]
+    fn a_block_configures_its_language_without_dropping_the_others() {
+        let cfg = parse(
+            "[[generate.target]]\nlanguage = \"rust\"\nout = \"../test-cl-rs/\"\n",
+        );
+        let resolved = resolve(&cfg, &two_langs(), Path::new("/x"), &Overrides::default()).unwrap();
+
+        let langs: Vec<&str> = resolved.iter().map(|t| t.language.as_str()).collect();
+        assert_eq!(langs, vec!["rust", "typescript"]);
+        assert_eq!(resolved[0].out, Path::new("/x/../test-cl-rs/"), "the block's out");
+        assert_eq!(resolved[1].out, Path::new("/x/generated"), "the [generate] default");
+        // A language with no block still gets the version its congregation declared.
+        assert_eq!(resolved[1].lang_version, "5.0");
+    }
+
+    #[test]
+    fn a_block_may_be_matched_case_insensitively() {
+        let cfg = parse("[[generate.target]]\nlanguage = \"Rust\"\nout = \"elsewhere\"\n");
+        let resolved = resolve(&cfg, &two_langs(), Path::new("/x"), &Overrides::default()).unwrap();
+        assert_eq!(resolved[0].out, Path::new("/x/elsewhere"));
+    }
+
+    /// Two outputs for one language is a real thing to want, and survives
+    /// the declared set becoming the base.
+    #[test]
+    fn several_blocks_for_one_language_give_several_targets() {
+        let cfg = parse(
+            "[[generate.target]]\nlanguage = \"rust\"\nout = \"a\"\n\n\
+             [[generate.target]]\nlanguage = \"rust\"\nout = \"b\"\n",
+        );
+        let declared = [DeclaredLang { language: "rust".into(), lang_version: "1.70.0".into() }];
+        let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
+        assert_eq!(resolved.len(), 2);
+        assert_eq!(resolved[0].out, Path::new("/x/a"));
+        assert_eq!(resolved[1].out, Path::new("/x/b"));
+    }
+
+    /// Silently ignoring a block someone wrote would be the same footgun
+    /// inverted, so it names the fix instead.
+    #[test]
+    fn a_block_for_an_undeclared_language_is_an_error() {
+        let cfg = parse("[[generate.target]]\nlanguage = \"python\"\nlang_version = \"3.11\"\n");
+        let declared = [DeclaredLang { language: "rust".into(), lang_version: "1.70.0".into() }];
+        let err = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default())
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("config.idp does not declare"), "{err}");
+        assert!(err.contains("code_generation.languages"), "{err}");
+    }
+
+    /// A congregation with no `code_generation` at all: the blocks are all
+    /// there is, as they always were.
+    #[test]
+    fn blocks_stand_alone_when_nothing_is_declared() {
+        let cfg = parse(
+            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n",
+        );
+        let resolved = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap();
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].language, "rust");
+    }
+
+    #[test]
+    fn only_narrows_the_declared_set() {
+        let cfg = parse("[generate]\nonly = [\"rust\"]\n");
+        let resolved = resolve(&cfg, &two_langs(), Path::new("/x"), &Overrides::default()).unwrap();
+        let langs: Vec<&str> = resolved.iter().map(|t| t.language.as_str()).collect();
+        assert_eq!(langs, vec!["rust"]);
+    }
+
+    /// A typo in `only` would otherwise quietly stop generating something.
+    #[test]
+    fn only_naming_an_undeclared_language_is_an_error() {
+        let cfg = parse("[generate]\nonly = [\"rustt\"]\n");
+        let err = resolve(&cfg, &two_langs(), Path::new("/x"), &Overrides::default())
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("does not declare"), "{err}");
+    }
+
+    #[test]
+    fn only_still_lets_a_block_configure_what_survives() {
+        let cfg = parse(
+            "[generate]\nonly = [\"rust\"]\n\n\
+             [[generate.target]]\nlanguage = \"rust\"\nout = \"here\"\n\n\
+             [[generate.target]]\nlanguage = \"typescript\"\nout = \"there\"\n",
+        );
+        let resolved = resolve(&cfg, &two_langs(), Path::new("/x"), &Overrides::default()).unwrap();
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].out, Path::new("/x/here"));
     }
 
     #[test]
