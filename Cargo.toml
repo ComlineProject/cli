@@ -38,8 +38,8 @@ comline-core = { git = "https://github.com/ComlineProject/core", rev = "016e3860
 # revs), then comline-rust#30 and comline-typescript#25 (both branch-tip,
 # pending those PRs' merge).
 comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "69a3e37ae788a91c5f72dd047d6196aa4c95fdef" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "c95ce654458c262f96fe9ba2e17459d7ff483c2c", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "bfa088c7ca898aca0e8fa74e77d40e2fbb45a0a6", optional = true }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "5b1ba2b099cc295c6768935623f4c084f134e6b8", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "c484b764b4341d8a8529eb52613e4ce2fb6c35d5", optional = true }
 
 [features]
 # Which language generators are compiled in. Drop one to shed its whole
