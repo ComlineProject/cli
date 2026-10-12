@@ -281,7 +281,9 @@ pub fn resolve(
     ov: &Overrides,
 ) -> Result<Vec<ResolvedTarget>> {
     let declares = |language: &str| {
-        declared.iter().any(|d| d.language.eq_ignore_ascii_case(language))
+        declared
+            .iter()
+            .any(|d| d.language.eq_ignore_ascii_case(language))
     };
 
     // A block for a language nobody declared is a mistake worth naming -
@@ -297,7 +299,12 @@ pub fn resolve(
             ));
         }
     }
-    if let Some(stray) = cfg.generate.only.iter().find(|l| !declared.is_empty() && !declares(l)) {
+    if let Some(stray) = cfg
+        .generate
+        .only
+        .iter()
+        .find(|l| !declared.is_empty() && !declares(l))
+    {
         return Err(miette!(
             "`[generate] only` names `{stray}`, which config.idp does not declare",
         ));
@@ -311,7 +318,11 @@ pub fn resolve(
             .iter()
             .filter(|d| {
                 cfg.generate.only.is_empty()
-                    || cfg.generate.only.iter().any(|l| l.eq_ignore_ascii_case(&d.language))
+                    || cfg
+                        .generate
+                        .only
+                        .iter()
+                        .any(|l| l.eq_ignore_ascii_case(&d.language))
             })
             .flat_map(|d| {
                 let blocks: Vec<Target> = cfg
@@ -352,9 +363,9 @@ pub fn resolve(
     if selected.is_empty() {
         return match ov.target {
             Some(want) => Err(miette!("no code-generation target matches `{want}`")),
-            None if !cfg.generate.only.is_empty() => Err(miette!(
-                "`[generate] only` leaves nothing to generate",
-            )),
+            None if !cfg.generate.only.is_empty() => {
+                Err(miette!("`[generate] only` leaves nothing to generate",))
+            }
             None => Err(miette!(
                 "nothing to generate: add `[[generate.target]]` to {} \
                  or `code_generation.languages` to config.idp",
@@ -531,8 +542,14 @@ mod tests {
 
     fn two_langs() -> [DeclaredLang; 2] {
         [
-            DeclaredLang { language: "rust".into(), lang_version: "1.70.0".into() },
-            DeclaredLang { language: "typescript".into(), lang_version: "5.0".into() },
+            DeclaredLang {
+                language: "rust".into(),
+                lang_version: "1.70.0".into(),
+            },
+            DeclaredLang {
+                language: "typescript".into(),
+                lang_version: "5.0".into(),
+            },
         ]
     }
 
@@ -541,15 +558,21 @@ mod tests {
     /// being generated.
     #[test]
     fn a_block_configures_its_language_without_dropping_the_others() {
-        let cfg = parse(
-            "[[generate.target]]\nlanguage = \"rust\"\nout = \"../test-cl-rs/\"\n",
-        );
+        let cfg = parse("[[generate.target]]\nlanguage = \"rust\"\nout = \"../test-cl-rs/\"\n");
         let resolved = resolve(&cfg, &two_langs(), Path::new("/x"), &Overrides::default()).unwrap();
 
         let langs: Vec<&str> = resolved.iter().map(|t| t.language.as_str()).collect();
         assert_eq!(langs, vec!["rust", "typescript"]);
-        assert_eq!(resolved[0].out, Path::new("/x/../test-cl-rs/"), "the block's out");
-        assert_eq!(resolved[1].out, Path::new("/x/generated"), "the [generate] default");
+        assert_eq!(
+            resolved[0].out,
+            Path::new("/x/../test-cl-rs/"),
+            "the block's out"
+        );
+        assert_eq!(
+            resolved[1].out,
+            Path::new("/x/generated"),
+            "the [generate] default"
+        );
         // A language with no block still gets the version its congregation declared.
         assert_eq!(resolved[1].lang_version, "5.0");
     }
@@ -569,7 +592,10 @@ mod tests {
             "[[generate.target]]\nlanguage = \"rust\"\nout = \"a\"\n\n\
              [[generate.target]]\nlanguage = \"rust\"\nout = \"b\"\n",
         );
-        let declared = [DeclaredLang { language: "rust".into(), lang_version: "1.70.0".into() }];
+        let declared = [DeclaredLang {
+            language: "rust".into(),
+            lang_version: "1.70.0".into(),
+        }];
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
         assert_eq!(resolved.len(), 2);
         assert_eq!(resolved[0].out, Path::new("/x/a"));
@@ -581,7 +607,10 @@ mod tests {
     #[test]
     fn a_block_for_an_undeclared_language_is_an_error() {
         let cfg = parse("[[generate.target]]\nlanguage = \"python\"\nlang_version = \"3.11\"\n");
-        let declared = [DeclaredLang { language: "rust".into(), lang_version: "1.70.0".into() }];
+        let declared = [DeclaredLang {
+            language: "rust".into(),
+            lang_version: "1.70.0".into(),
+        }];
         let err = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default())
             .unwrap_err()
             .to_string();
@@ -593,9 +622,7 @@ mod tests {
     /// there is, as they always were.
     #[test]
     fn blocks_stand_alone_when_nothing_is_declared() {
-        let cfg = parse(
-            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n",
-        );
+        let cfg = parse("[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n");
         let resolved = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap();
         assert_eq!(resolved.len(), 1);
         assert_eq!(resolved[0].language, "rust");
@@ -699,14 +726,18 @@ mod tests {
             "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
              mode = \"lib\"\n",
         );
-        let off = Overrides { external_std: Some(false), ..Default::default() };
+        let off = Overrides {
+            external_std: Some(false),
+            ..Default::default()
+        };
         let resolved = resolve(&cfg, &[], Path::new("/x"), &off).unwrap();
         assert!(!resolved[0].external_std, "--no-external-std");
 
-        let cfg = parse(
-            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n",
-        );
-        let on = Overrides { external_std: Some(true), ..Default::default() };
+        let cfg = parse("[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n");
+        let on = Overrides {
+            external_std: Some(true),
+            ..Default::default()
+        };
         let resolved = resolve(&cfg, &[], Path::new("/x"), &on).unwrap();
         assert!(resolved[0].external_std, "--external-std");
     }

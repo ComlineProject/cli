@@ -40,7 +40,9 @@ pub fn run(work_dir: &Path, overrides: &Overrides, dry_run: bool, watching: bool
     ensure_project(work_dir)?;
 
     if watching {
-        watch::run(work_dir, "generate", || generate_once(work_dir, overrides, dry_run))
+        watch::run(work_dir, "generate", || {
+            generate_once(work_dir, overrides, dry_run)
+        })
     } else {
         generate_once(work_dir, overrides, dry_run)
     }
@@ -56,7 +58,11 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool) -> Resul
     ui::step(format!(
         "Generating code{}{}",
         ui::at_path(work_dir),
-        if dry_run { " - dry run, nothing written" } else { "" },
+        if dry_run {
+            " - dry run, nothing written"
+        } else {
+            ""
+        },
     ));
 
     let cfg = ComlineToml::load(work_dir)?;

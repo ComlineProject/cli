@@ -289,7 +289,9 @@ fn print_level(rows: &[Vec<String>], prefix: &[String], indent: &str) {
 
         // A name with nothing below it is a file; anything else is a
         // directory, and gets the trailing slash that says so.
-        let is_dir = rows.iter().any(|r| r.len() > path.len() && r.starts_with(&path));
+        let is_dir = rows
+            .iter()
+            .any(|r| r.len() > path.len() && r.starts_with(&path));
         let branch = if last { elbow } else { tee };
         detail(format!(
             "{indent}{branch}{name}{}",

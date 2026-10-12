@@ -17,9 +17,7 @@ fn writes_one_file_per_schema_under_the_default_layout() {
         .assert()
         .success()
         .stderr(predicate::str::contains("language: rust, version:"))
-        .stderr(predicate::str::contains(
-            "api.ids → generated/rust/api.rs",
-        ))
+        .stderr(predicate::str::contains("api.ids → generated/rust/api.rs"))
         .stderr(predicate::str::contains("Generated"));
 
     // default layout: generated/{language}/{namespace}.{ext}
@@ -135,9 +133,7 @@ fn plain_uses_ascii_arrow() {
         .args(["generate", "--target", "rust", "--plain"])
         .assert()
         .success()
-        .stderr(predicate::str::contains(
-            "api.ids -> generated/rust/api.rs",
-        ))
+        .stderr(predicate::str::contains("api.ids -> generated/rust/api.rs"))
         .stderr(predicate::str::contains('⚙').not());
 }
 
@@ -584,7 +580,9 @@ fn the_target_line_names_the_mode() {
         .args(["generate", "--target", "rust"])
         .assert()
         .success()
-        .stderr(predicate::str::contains("language: rust, version: 1.70.0, mode: code"));
+        .stderr(predicate::str::contains(
+            "language: rust, version: 1.70.0, mode: code",
+        ));
 
     comline_cmd()
         .current_dir(&project)
@@ -613,7 +611,10 @@ fn dry_run_prints_the_tree_and_writes_nothing() {
         .stderr(predicate::str::contains("api.rs"))
         .stderr(predicate::str::contains("Would write 4 file(s)"));
 
-    assert!(!project.join("generated").exists(), "a dry run must write nothing");
+    assert!(
+        !project.join("generated").exists(),
+        "a dry run must write nothing"
+    );
 }
 
 /// `lib` mode writes the package manifest, so it can add `comline_std` to
@@ -635,8 +636,14 @@ fn lib_mode_links_comline_std_instead_of_inlining_it() {
     let cargo = fs::read_to_string(crate_dir.join("Cargo.toml")).unwrap();
     assert!(cargo.contains("comline_std = { git"), "{cargo}");
     assert!(cargo.contains("rust-version = \"1.70.0\""), "{cargo}");
-    assert!(!crate_dir.join("src/std.rs").exists(), "std should not be inlined");
-    assert!(!crate_dir.join("src/std").exists(), "std should not be inlined");
+    assert!(
+        !crate_dir.join("src/std.rs").exists(),
+        "std should not be inlined"
+    );
+    assert!(
+        !crate_dir.join("src/std").exists(),
+        "std should not be inlined"
+    );
 }
 
 /// `code` mode has no manifest to add a dependency to, so it keeps
@@ -652,12 +659,25 @@ fn code_mode_still_inlines_std_and_the_flag_overrides_lib() {
         .args(["generate", "--target", "rust"])
         .assert()
         .success();
-    assert!(project.join("generated/rust/std/http.rs").exists(), "code mode inlines std");
+    assert!(
+        project.join("generated/rust/std/http.rs").exists(),
+        "code mode inlines std"
+    );
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust", "--mode", "lib", "--no-external-std"])
+        .args([
+            "generate",
+            "--target",
+            "rust",
+            "--mode",
+            "lib",
+            "--no-external-std",
+        ])
         .assert()
         .success();
-    assert!(project.join("generated/rust/src/std/http.rs").exists(), "--no-external-std inlines");
+    assert!(
+        project.join("generated/rust/src/std/http.rs").exists(),
+        "--no-external-std inlines"
+    );
 }
