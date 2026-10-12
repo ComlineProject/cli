@@ -20,7 +20,7 @@ fn scaffolds_a_buildable_project() {
     let root = temp.path().join("my_api");
     assert!(root.join("config.idp").exists());
     assert!(root.join("comline.toml").exists());
-    assert!(root.join("src/main.ids").exists());
+    assert!(root.join("src/greeting.ids").exists());
     assert!(root.join(".gitignore").exists());
 
     let config = fs::read_to_string(root.join("config.idp")).unwrap();

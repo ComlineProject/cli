@@ -82,7 +82,9 @@ lists none — from `code_generation.languages` in `config.idp`. Output location
 and layout live in `comline.toml`'s `[generate]` table. `--out` / `--layout` / \
 `--mode` override one target and need `--target` when several are configured. \
 Defaults: out `generated`, layout `{{language}}/{{namespace}}.{{ext}}`, mode \
-`code` (the only one implemented).
+`code` (`lib` emits a buildable package instead; `dylib` is not built yet).
+
+`--dry-run` prints the tree each target would write and writes nothing.
 
 Examples:
   comline generate
@@ -101,14 +103,22 @@ Examples:
         #[arg(short, long, value_name = "TEMPLATE")]
         layout: Option<String>,
 
-        /// Emit form for the selected target: `code` (only one supported today), `lib`, `dylib`
+        /// Emit form for the selected target: `code` or `lib` (`dylib` is not built yet)
         #[arg(short, long, value_name = "MODE")]
         mode: Option<String>,
 
-        /// Reference `comline_std` as its own crate instead of inlining it
-        /// (Rust only; overrides `comline.toml`'s `[generate] external_std`)
-        #[arg(long)]
+        /// Reference `comline_std` as its own package instead of inlining it
+        /// (Rust only; the default in `lib` mode, off in `code` mode)
+        #[arg(long, conflicts_with = "no_external_std")]
         external_std: bool,
+
+        /// Inline `std` into the generated output instead of referencing it
+        #[arg(long)]
+        no_external_std: bool,
+
+        /// Print what would be written, without writing anything
+        #[arg(long)]
+        dry_run: bool,
 
         /// Regenerate automatically when a schema or `config.idp` changes
         #[arg(short, long)]

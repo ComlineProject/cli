@@ -18,12 +18,12 @@ fn writes_one_file_per_schema_under_the_default_layout() {
         .success()
         .stderr(predicate::str::contains("language: rust, version:"))
         .stderr(predicate::str::contains(
-            "main.ids → generated/rust/main.rs",
+            "api.ids → generated/rust/api.rs",
         ))
         .stderr(predicate::str::contains("Generated"));
 
     // default layout: generated/{language}/{namespace}.{ext}
-    assert!(project.join("generated/rust/main.rs").exists());
+    assert!(project.join("generated/rust/api.rs").exists());
     assert!(project.join("generated/rust/other.rs").exists());
     // and it does NOT freeze a version
     assert!(!project.join(".comline").exists());
@@ -48,7 +48,7 @@ fn honours_out_flag_and_a_flat_layout() {
         .assert()
         .success();
 
-    assert!(project.join("bindings/main.rs").exists());
+    assert!(project.join("bindings/api.rs").exists());
     assert!(project.join("bindings/other.rs").exists());
     assert!(!project.join("generated").exists());
 }
@@ -65,7 +65,7 @@ fn reads_out_from_comline_toml() {
         .assert()
         .success();
 
-    assert!(project.join("gen/rust/main.rs").exists());
+    assert!(project.join("gen/rust/api.rs").exists());
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn env_out_overrides_the_file() {
         .assert()
         .success();
 
-    assert!(project.join("envgen/rust/main.rs").exists());
+    assert!(project.join("envgen/rust/api.rs").exists());
     assert!(!project.join("gen").exists());
 }
 
@@ -97,7 +97,7 @@ fn out_flag_beats_env_out() {
         .assert()
         .success();
 
-    assert!(project.join("flaggen/rust/main.rs").exists());
+    assert!(project.join("flaggen/rust/api.rs").exists());
     assert!(!project.join("envgen").exists());
 }
 
@@ -121,7 +121,7 @@ fn env_out_applies_in_a_multi_target_config() {
         .assert()
         .success();
 
-    assert!(project.join("envgen/rust/main.rs").exists());
+    assert!(project.join("envgen/rust/api.rs").exists());
 }
 
 #[test]
@@ -135,7 +135,7 @@ fn plain_uses_ascii_arrow() {
         .assert()
         .success()
         .stderr(predicate::str::contains(
-            "main.ids -> generated/rust/main.rs",
+            "api.ids -> generated/rust/api.rs",
         ))
         .stderr(predicate::str::contains('⚙').not());
 }
@@ -236,13 +236,13 @@ fn lib_mode_emits_a_crate() {
     assert!(cargo.contains("serde = { version = \"1\""));
 
     let lib = fs::read_to_string(crate_dir.join("src/lib.rs")).unwrap();
-    assert!(lib.contains("pub mod main;"));
+    assert!(lib.contains("pub mod api;"));
     assert!(lib.contains("pub mod other;"));
 
-    assert!(crate_dir.join("src/main.rs").exists());
+    assert!(crate_dir.join("src/api.rs").exists());
     assert!(crate_dir.join("src/other.rs").exists());
     // no bare files at the target root
-    assert!(!crate_dir.join("main.rs").exists());
+    assert!(!crate_dir.join("api.rs").exists());
 }
 
 #[test]
@@ -317,7 +317,7 @@ fn built_twice(project: &std::path::Path) {
         .arg("build")
         .assert()
         .success();
-    let schema = project.join("src/main.ids");
+    let schema = project.join("src/api.ids");
     let mut text = fs::read_to_string(&schema).unwrap();
     text.push_str("\nstruct Added {\n    x: string\n}\n");
     fs::write(&schema, text).unwrap();
@@ -349,7 +349,7 @@ fn latest_stamps_the_last_committed_version() {
         .assert()
         .success();
 
-    assert!(project.join("generated/rust/0.0.1/main.rs").exists());
+    assert!(project.join("generated/rust/0.0.1/api.rs").exists());
 }
 
 #[test]
@@ -372,8 +372,8 @@ fn package_versions_all_generates_every_committed_version() {
         .stderr(predicate::str::contains("[0.0.1]"))
         .stderr(predicate::str::contains("[0.1.0]"));
 
-    assert!(project.join("generated/rust/0.0.1/main.rs").exists());
-    assert!(project.join("generated/rust/0.1.0/main.rs").exists());
+    assert!(project.join("generated/rust/0.0.1/api.rs").exists());
+    assert!(project.join("generated/rust/0.1.0/api.rs").exists());
 }
 
 #[test]
@@ -394,7 +394,7 @@ fn package_versions_list_generates_only_the_named_versions() {
         .assert()
         .success();
 
-    assert!(project.join("generated/rust/0.0.1/main.rs").exists());
+    assert!(project.join("generated/rust/0.0.1/api.rs").exists());
     assert!(!project.join("generated/rust/0.1.0").exists());
 }
 
@@ -555,4 +555,94 @@ fn env_external_std_beats_comline_toml() {
 
     let src = fs::read_to_string(project.join("generated/rust/uses_std.rs")).unwrap();
     assert!(src.contains("comline_std::http::Request"), "got: {src}");
+}
+
+/// Which mode a target is being generated as was invisible — the only way
+/// to tell `code` from `lib` was to look at what landed.
+#[test]
+fn the_target_line_names_the_mode() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("language: rust, version: 1.70.0, mode: code"));
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust", "--mode", "lib"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("mode: lib"));
+}
+
+/// The generators are pure and `write_file` is the only side effect, so a
+/// dry run is the real run with the write suppressed — what it prints is
+/// what would be written, not a prediction of it.
+#[test]
+fn dry_run_prints_the_tree_and_writes_nothing() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust", "--mode", "lib", "--dry-run"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("dry run, nothing written"))
+        .stderr(predicate::str::contains("Cargo.toml"))
+        .stderr(predicate::str::contains("src/"))
+        .stderr(predicate::str::contains("api.rs"))
+        .stderr(predicate::str::contains("Would write 4 file(s)"));
+
+    assert!(!project.join("generated").exists(), "a dry run must write nothing");
+}
+
+/// `lib` mode writes the package manifest, so it can add `comline_std` to
+/// it — every `lib` crate used to carry its own private copy of std
+/// instead, drifting from everyone else's.
+#[test]
+fn lib_mode_links_comline_std_instead_of_inlining_it() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    add_std_reference(&project);
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust", "--mode", "lib"])
+        .assert()
+        .success();
+
+    let crate_dir = project.join("generated/rust");
+    let cargo = fs::read_to_string(crate_dir.join("Cargo.toml")).unwrap();
+    assert!(cargo.contains("comline_std = { git"), "{cargo}");
+    assert!(cargo.contains("rust-version = \"1.70.0\""), "{cargo}");
+    assert!(!crate_dir.join("src/std.rs").exists(), "std should not be inlined");
+    assert!(!crate_dir.join("src/std").exists(), "std should not be inlined");
+}
+
+/// `code` mode has no manifest to add a dependency to, so it keeps
+/// inlining — and `--no-external-std` puts `lib` back to that too.
+#[test]
+fn code_mode_still_inlines_std_and_the_flag_overrides_lib() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    add_std_reference(&project);
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success();
+    assert!(project.join("generated/rust/std/http.rs").exists(), "code mode inlines std");
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust", "--mode", "lib", "--no-external-std"])
+        .assert()
+        .success();
+    assert!(project.join("generated/rust/src/std/http.rs").exists(), "--no-external-std inlines");
 }
