@@ -27,15 +27,18 @@ const GITIGNORE: &str = "\
 ";
 
 /// Consumer-owned code-generation config. Committed. All-commented by default —
-/// `comline generate` falls back to the languages declared in `config.idp` and
-/// writes to `generated/{{language}}/{{namespace}}.{{ext}}`.
+/// Which languages get generated always comes from `config.idp`; this file
+/// only says where each lands. Everything here is commented by default, so a
+/// new project writes to `generated/{{language}}/{{namespace}}.{{ext}}`.
 const COMLINE_TOML: &str = "\
 # comline.toml — where `comline generate` writes code, and how.
 #
-# With everything below commented out, targets come from `config.idp`'s
-# `code_generation.languages` and land in `generated/`. Uncomment to change it.
+# Which languages are generated comes from `config.idp`'s
+# `code_generation.languages` — this file says where each one lands.
+# With everything below commented out they all land in `generated/`.
 #
 # [generate]
+# only = [\"rust\"]                                  # generate just these, out of the declared languages
 # out = \"generated\"                                # output root
 # layout = \"{{language}}/{{namespace}}.{{ext}}\"    # path under the root
 # mode = \"code\"                                    # code (loose source) | lib (a buildable package); dylib not built yet
@@ -43,6 +46,9 @@ const COMLINE_TOML: &str = "\
 # package_versions = \"latest\"                      # latest | all | [\"0.3.0\", \"0.4.0\"]
 # default_framing = \"jsonrpc\"                      # wire framing for protocols with no `@framing` (else datagram)
 #
+# One block per declared language you want to configure. A block sets that
+# language's output; it does not decide which languages are generated, and
+# naming one `config.idp` doesn't declare is an error.
 # [[generate.target]]
 # language = \"rust\"
 # out = \"src/generated\"

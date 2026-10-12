@@ -77,9 +77,12 @@ bumps the version, so it is safe to run in editors and pre-commit hooks.")]
 Validate the project (no version bump, no `.comline/` write), then write \
 generated code for each target.
 
-Targets come from `[[generate.target]]` in `comline.toml`, or — if that file \
-lists none — from `code_generation.languages` in `config.idp`. Output location \
-and layout live in `comline.toml`'s `[generate]` table. `--out` / `--layout` / \
+Every language `config.idp` declares under `code_generation.languages` is \
+generated. A `[[generate.target]]` block in `comline.toml` configures one of \
+them (where it lands, in what mode); a language with no block takes the \
+`[generate]` defaults. Narrow the set with `[generate] only` for good, or \
+`--target` for one run. Output location and layout live in `comline.toml`'s \
+`[generate]` table. `--out` / `--layout` / \
 `--mode` override one target and need `--target` when several are configured. \
 Defaults: out `generated`, layout `{{language}}/{{namespace}}.{{ext}}`, mode \
 `code` (`lib` emits a buildable package instead; `dylib` is not built yet).

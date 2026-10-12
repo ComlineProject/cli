@@ -40,7 +40,9 @@ pub fn run(work_dir: &Path, overrides: &Overrides, dry_run: bool, watching: bool
     ensure_project(work_dir)?;
 
     if watching {
-        watch::run(work_dir, "generate", || generate_once(work_dir, overrides, dry_run))
+        watch::run(work_dir, "generate", || {
+            generate_once(work_dir, overrides, dry_run)
+        })
     } else {
         generate_once(work_dir, overrides, dry_run)
     }
@@ -56,7 +58,11 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool) -> Resul
     ui::step(format!(
         "Generating code{}{}",
         ui::at_path(work_dir),
-        if dry_run { " - dry run, nothing written" } else { "" },
+        if dry_run {
+            " - dry run, nothing written"
+        } else {
+            ""
+        },
     ));
 
     let cfg = ComlineToml::load(work_dir)?;
@@ -148,11 +154,20 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool) -> Resul
             ));
         }
 
+        // Reached for every language the congregation declares now, not only
+        // for one named by a `[[generate.target]]`, so it says what to do
+        // about it: `only` is how a consumer whose binary can't produce a
+        // language says so on purpose.
         let Some((generator, ext)) = registry.find(&t.language, &t.lang_version) else {
             return Err(miette!(
-                "no generator for `{}` (version `{}`)",
+                "no generator for `{}` (version `{}`)\n  \
+                 help: this build of comline has no {} generator. Install one that \
+                 does, or narrow the set in {}:\n      \
+                 [generate]\n      only = [...]",
                 t.language,
-                t.lang_version
+                t.lang_version,
+                t.language,
+                gen_config::FILE_NAME,
             ));
         };
 

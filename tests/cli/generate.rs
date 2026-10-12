@@ -17,9 +17,7 @@ fn writes_one_file_per_schema_under_the_default_layout() {
         .assert()
         .success()
         .stderr(predicate::str::contains("language: rust, version:"))
-        .stderr(predicate::str::contains(
-            "api.ids → generated/rust/api.rs",
-        ))
+        .stderr(predicate::str::contains("api.ids → generated/rust/api.rs"))
         .stderr(predicate::str::contains("Generated"));
 
     // default layout: generated/{language}/{namespace}.{ext}
@@ -107,6 +105,7 @@ fn env_out_applies_in_a_multi_target_config() {
     // the env var does not — it applies to every target.
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
+    declare_two_languages(&project);
     fs::write(
         project.join("comline.toml"),
         "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\n\
@@ -134,9 +133,7 @@ fn plain_uses_ascii_arrow() {
         .args(["generate", "--target", "rust", "--plain"])
         .assert()
         .success()
-        .stderr(predicate::str::contains(
-            "api.ids -> generated/rust/api.rs",
-        ))
+        .stderr(predicate::str::contains("api.ids -> generated/rust/api.rs"))
         .stderr(predicate::str::contains('⚙').not());
 }
 
@@ -144,6 +141,7 @@ fn plain_uses_ascii_arrow() {
 fn out_flag_needs_target_when_several_are_configured() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
+    declare_two_languages(&project);
     fs::write(
         project.join("comline.toml"),
         "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\n\
@@ -437,6 +435,19 @@ fn package_versions_all_without_a_build_errors() {
         .stderr(predicate::str::contains("run `comline build` first"));
 }
 
+/// Declare a second language in the congregation, so a test can configure
+/// two targets. A `[[generate.target]]` only configures a language
+/// `config.idp` declares — it can't introduce one.
+fn declare_two_languages(project: &std::path::Path) {
+    fs::write(
+        project.join("config.idp"),
+        "congregation simple_project\nspecification_version = 1\n\n\
+         code_generation = {\n    languages = {\n        rust#1.70.0 = {}\n\
+         \x20       python#3.11.0 = {}\n    }\n}\n",
+    )
+    .unwrap();
+}
+
 fn add_std_reference(project: &std::path::Path) {
     fs::write(
         project.join("src/uses_std.ids"),
@@ -569,7 +580,9 @@ fn the_target_line_names_the_mode() {
         .args(["generate", "--target", "rust"])
         .assert()
         .success()
-        .stderr(predicate::str::contains("language: rust, version: 1.70.0, mode: code"));
+        .stderr(predicate::str::contains(
+            "language: rust, version: 1.70.0, mode: code",
+        ));
 
     comline_cmd()
         .current_dir(&project)
@@ -598,7 +611,10 @@ fn dry_run_prints_the_tree_and_writes_nothing() {
         .stderr(predicate::str::contains("api.rs"))
         .stderr(predicate::str::contains("Would write 4 file(s)"));
 
-    assert!(!project.join("generated").exists(), "a dry run must write nothing");
+    assert!(
+        !project.join("generated").exists(),
+        "a dry run must write nothing"
+    );
 }
 
 /// `lib` mode writes the package manifest, so it can add `comline_std` to
@@ -620,8 +636,14 @@ fn lib_mode_links_comline_std_instead_of_inlining_it() {
     let cargo = fs::read_to_string(crate_dir.join("Cargo.toml")).unwrap();
     assert!(cargo.contains("comline_std = { git"), "{cargo}");
     assert!(cargo.contains("rust-version = \"1.70.0\""), "{cargo}");
-    assert!(!crate_dir.join("src/std.rs").exists(), "std should not be inlined");
-    assert!(!crate_dir.join("src/std").exists(), "std should not be inlined");
+    assert!(
+        !crate_dir.join("src/std.rs").exists(),
+        "std should not be inlined"
+    );
+    assert!(
+        !crate_dir.join("src/std").exists(),
+        "std should not be inlined"
+    );
 }
 
 /// `code` mode has no manifest to add a dependency to, so it keeps
@@ -637,12 +659,25 @@ fn code_mode_still_inlines_std_and_the_flag_overrides_lib() {
         .args(["generate", "--target", "rust"])
         .assert()
         .success();
-    assert!(project.join("generated/rust/std/http.rs").exists(), "code mode inlines std");
+    assert!(
+        project.join("generated/rust/std/http.rs").exists(),
+        "code mode inlines std"
+    );
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust", "--mode", "lib", "--no-external-std"])
+        .args([
+            "generate",
+            "--target",
+            "rust",
+            "--mode",
+            "lib",
+            "--no-external-std",
+        ])
         .assert()
         .success();
-    assert!(project.join("generated/rust/src/std/http.rs").exists(), "--no-external-std inlines");
+    assert!(
+        project.join("generated/rust/src/std/http.rs").exists(),
+        "--no-external-std inlines"
+    );
 }
