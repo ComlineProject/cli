@@ -36,15 +36,21 @@ pub(crate) fn generator_registry() -> Registry {
     registry
 }
 
-pub fn run(work_dir: &Path, overrides: &Overrides, dry_run: bool, watching: bool) -> Result<()> {
+pub fn run(
+    work_dir: &Path,
+    overrides: &Overrides,
+    dry_run: bool,
+    list: bool,
+    watching: bool,
+) -> Result<()> {
     ensure_project(work_dir)?;
 
     if watching {
         watch::run(work_dir, "generate", || {
-            generate_once(work_dir, overrides, dry_run)
+            generate_once(work_dir, overrides, dry_run, list)
         })
     } else {
-        generate_once(work_dir, overrides, dry_run)
+        generate_once(work_dir, overrides, dry_run, list)
     }
 }
 
@@ -54,7 +60,7 @@ struct GenVersion {
     schemas: Vec<(String, Vec<FrozenUnit>)>, // (namespace path, frozen units)
 }
 
-fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool) -> Result<()> {
+fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bool) -> Result<()> {
     ui::step(format!(
         "Generating code{}{}",
         ui::at_path(work_dir),
@@ -224,12 +230,13 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool) -> Resul
             let files =
                 generator(&request).map_err(|e| miette!("`{}` generator: {e}", t.language))?;
 
-            // A dry run lists destinations instead of writing them, then
-            // renders them as one tree per target. Everything above has
-            // already happened for real - the generators are pure, and
-            // `write_file` is the only side effect in this command - so the
-            // tree is what *would* be written rather than a guess at it.
-            let mut planned: Vec<PathBuf> = Vec::new();
+            // Every destination, whether or not it gets written: the tree
+            // is drawn from these once the loop is done. A dry run differs
+            // only in skipping `write_file` - everything above has already
+            // happened for real (the generators are pure, and `write_file`
+            // is the only side effect in this command), so the tree reports
+            // what *would* be written rather than guessing at it.
+            let mut destinations: Vec<PathBuf> = Vec::new();
 
             match mode {
                 // One file per schema, placed by `layout` - whichever schemas
@@ -241,21 +248,23 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool) -> Resul
                         let namespace = f.path.with_extension("").to_string_lossy().into_owned();
                         let dest =
                             t.dest_for(&namespace, ext, &spec_version, &gv.package_version)?;
-                        if dry_run {
-                            planned.push(dest);
-                            written += 1;
-                            continue;
+                        if !dry_run {
+                            write_file(&dest, &f.contents)?;
                         }
-                        write_file(&dest, &f.contents)?;
-
-                        let src_name = format!("{namespace}.{SCHEMA_EXTENSION}");
-                        let shown = dest.strip_prefix(work_dir).unwrap_or(&dest).display();
-                        let tag = if multi {
-                            format!("[{}] ", gv.package_version)
-                        } else {
-                            String::new()
-                        };
-                        ui::detail(format!("     {tag}{src_name} {} {shown}", ui::arrow()));
+                        if list {
+                            // The schema each file came from, which the tree
+                            // can't show - the one thing `--list` has that
+                            // the default doesn't.
+                            let src_name = format!("{namespace}.{SCHEMA_EXTENSION}");
+                            let shown = dest.strip_prefix(work_dir).unwrap_or(&dest).display();
+                            let tag = if multi {
+                                format!("[{}] ", gv.package_version)
+                            } else {
+                                String::new()
+                            };
+                            ui::detail(format!("     {tag}{src_name} {} {shown}", ui::arrow()));
+                        }
+                        destinations.push(dest);
                         written += 1;
                     }
                 }
@@ -270,21 +279,25 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool) -> Resul
                     };
                     for f in &files {
                         let dest = root.join(&f.path);
-                        if dry_run {
-                            planned.push(dest);
-                            written += 1;
-                            continue;
+                        if !dry_run {
+                            write_file(&dest, &f.contents)?;
                         }
-                        write_file(&dest, &f.contents)?;
-                        let shown = dest.strip_prefix(work_dir).unwrap_or(&dest).display();
-                        ui::detail(format!("     {} {} {shown}", f.path.display(), ui::arrow()));
+                        if list {
+                            let shown = dest.strip_prefix(work_dir).unwrap_or(&dest).display();
+                            ui::detail(format!(
+                                "     {} {} {shown}",
+                                f.path.display(),
+                                ui::arrow()
+                            ));
+                        }
+                        destinations.push(dest);
                         written += 1;
                     }
                 }
             }
 
-            if dry_run {
-                ui::tree(work_dir, &planned);
+            if !list {
+                ui::tree(work_dir, &destinations);
             }
         }
     }

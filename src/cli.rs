@@ -87,7 +87,7 @@ them (where it lands, in what mode); a language with no block takes the \
 Defaults: out `generated`, layout `{{language}}/{{namespace}}.{{ext}}`, mode \
 `code` (`lib` emits a buildable package instead; `dylib` is not built yet).
 
-`--dry-run` prints the tree each target would write and writes nothing.
+Each target's files are drawn as a tree. `--list` prints them one per line instead, with the schema each came from. `--dry-run` writes nothing, and reports the same way.
 
 Examples:
   comline generate
@@ -122,6 +122,10 @@ Examples:
         /// Print what would be written, without writing anything
         #[arg(long)]
         dry_run: bool,
+
+        /// List each file on its own line instead of drawing a tree
+        #[arg(long)]
+        list: bool,
 
         /// Regenerate automatically when a schema or `config.idp` changes
         #[arg(short, long)]

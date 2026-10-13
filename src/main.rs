@@ -124,6 +124,7 @@ fn run(cli: Cli) -> Result<()> {
             external_std,
             no_external_std,
             dry_run,
+            list,
             watch,
         } => {
             let overrides = gen_config::Overrides {
@@ -138,7 +139,7 @@ fn run(cli: Cli) -> Result<()> {
                     .then_some(true)
                     .or(no_external_std.then_some(false)),
             };
-            commands::generate::run(&work_dir, &overrides, dry_run, watch)
+            commands::generate::run(&work_dir, &overrides, dry_run, list, watch)
         }
         Commands::Diff { old, new } => commands::diff::run(&work_dir, &old, &new),
         Commands::Clean { dry_run } => commands::clean::run(&work_dir, dry_run),
