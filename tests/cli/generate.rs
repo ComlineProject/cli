@@ -17,7 +17,9 @@ fn writes_one_file_per_schema_under_the_default_layout() {
         .assert()
         .success()
         .stderr(predicate::str::contains("language: rust, version:"))
-        .stderr(predicate::str::contains("api.ids → generated/rust/api.rs"))
+        // Drawn as a tree, the same way `--dry-run` reports.
+        .stderr(predicate::str::contains("generated/rust/"))
+        .stderr(predicate::str::contains("├─ api.rs").or(predicate::str::contains("└─ api.rs")))
         .stderr(predicate::str::contains("Generated"));
 
     // default layout: generated/{language}/{namespace}.{ext}
@@ -124,17 +126,28 @@ fn env_out_applies_in_a_multi_target_config() {
 }
 
 #[test]
-fn plain_uses_ascii_arrow() {
+fn plain_uses_ascii_output() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
 
+    // The default tree, drawn with ASCII branches.
     comline_cmd()
         .current_dir(&project)
         .args(["generate", "--target", "rust", "--plain"])
         .assert()
         .success()
-        .stderr(predicate::str::contains("api.ids -> generated/rust/api.rs"))
+        .stderr(predicate::str::contains("|- api.rs").or(predicate::str::contains("\\- api.rs")))
+        .stderr(predicate::str::contains('├').not())
         .stderr(predicate::str::contains('⚙').not());
+
+    // And `--list`'s arrow.
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust", "--plain", "--list"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("api.ids -> generated/rust/api.rs"))
+        .stderr(predicate::str::contains('→').not());
 }
 
 #[test]
@@ -350,6 +363,49 @@ fn latest_stamps_the_last_committed_version() {
     assert!(project.join("generated/rust/0.0.1/api.rs").exists());
 }
 
+/// The tree shows where files land; only `--list` shows which schema each
+/// came from, which is the reason to keep it.
+#[test]
+fn list_names_the_schema_each_file_came_from() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust", "--list"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("api.ids → generated/rust/api.rs"))
+        .stderr(predicate::str::contains(
+            "other.ids → generated/rust/other.rs",
+        ))
+        .stderr(predicate::str::contains('├').not());
+
+    assert!(project.join("generated/rust/api.rs").exists());
+}
+
+/// `--dry-run` and `--list` are independent: one decides whether anything is
+/// written, the other how it is reported.
+#[test]
+fn dry_run_and_list_combine() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust", "--dry-run", "--list"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("api.ids → generated/rust/api.rs"))
+        .stderr(predicate::str::contains('├').not())
+        .stderr(predicate::str::contains("Would write"));
+
+    assert!(
+        !project.join("generated").exists(),
+        "a dry run writes nothing"
+    );
+}
+
 #[test]
 fn package_versions_all_generates_every_committed_version() {
     let temp = tempfile::tempdir().unwrap();
@@ -367,11 +423,23 @@ fn package_versions_all_generates_every_committed_version() {
         .args(["generate", "--target", "rust"])
         .assert()
         .success()
-        .stderr(predicate::str::contains("[0.0.1]"))
-        .stderr(predicate::str::contains("[0.1.0]"));
+        // One tree per version. `layout` has to carry `{{package_version}}`
+        // for multi-version output, so each tree's root names its version -
+        // no `[0.0.1]` tag needed to tell them apart.
+        .stderr(predicate::str::contains("generated/rust/0.0.1/"))
+        .stderr(predicate::str::contains("generated/rust/0.1.0/"));
 
     assert!(project.join("generated/rust/0.0.1/api.rs").exists());
     assert!(project.join("generated/rust/0.1.0/api.rs").exists());
+
+    // `--list` tags each line with the version it belongs to.
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust", "--list"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("[0.0.1]"))
+        .stderr(predicate::str::contains("[0.1.0]"));
 }
 
 #[test]
