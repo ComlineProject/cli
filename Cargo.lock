@@ -416,7 +416,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-typescript"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-typescript?rev=77cd29126cebaf71e2d11efd2729029a3a70b9f0#77cd29126cebaf71e2d11efd2729029a3a70b9f0"
+source = "git+https://github.com/ComlineProject/comline-typescript?rev=ce52a8a6c25aa0aa3286618f1fd33b155d6ba853#ce52a8a6c25aa0aa3286618f1fd33b155d6ba853"
 dependencies = [
  "comline-codegen",
  "comline-core",
