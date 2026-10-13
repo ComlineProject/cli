@@ -397,7 +397,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=69a3e37ae788a91c5f72dd047d6196aa4c95fdef#69a3e37ae788a91c5f72dd047d6196aa4c95fdef"
+source = "git+https://github.com/ComlineProject/generation?rev=e627ed36ea0ca4f8942cf29f59b741030ba74e2b#e627ed36ea0ca4f8942cf29f59b741030ba74e2b"
 dependencies = [
  "comline-core",
  "eyre",
@@ -406,7 +406,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-rust"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-rust?rev=f48b6c7c3bccb6b2d1b9d54c10aa803a90cc091a#f48b6c7c3bccb6b2d1b9d54c10aa803a90cc091a"
+source = "git+https://github.com/ComlineProject/comline-rust?rev=2d06526f730b22d8d2b5942a70047d6992a55a7e#2d06526f730b22d8d2b5942a70047d6992a55a7e"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -416,7 +416,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-typescript"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-typescript?rev=ce52a8a6c25aa0aa3286618f1fd33b155d6ba853#ce52a8a6c25aa0aa3286618f1fd33b155d6ba853"
+source = "git+https://github.com/ComlineProject/comline-typescript?rev=646795ceece85c0b46952cf4973eaaf3c64ee49c#646795ceece85c0b46952cf4973eaaf3c64ee49c"
 dependencies = [
  "comline-codegen",
  "comline-core",
