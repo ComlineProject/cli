@@ -8,9 +8,14 @@ error Rejected {
     reason: str
 }
 
+error TooLong {
+    message = "too long: {self.limit} max"
+    limit: u32
+}
+
 protocol Chat {
-    /// Request/response with a struct return and a raised error.
-    function send(text: str) -> Message ! Rejected;
+    /// Request/response with a struct return, raising either of two errors.
+    function send(text: str) -> Message ! Rejected, TooLong;
     /// Fire-and-forget.
     function note(text: str);
 }

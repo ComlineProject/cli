@@ -2,7 +2,8 @@
 //! `comline generate --mode lib` → the emitted crate is compiled against
 //! `comline-runtime` and a hand-written driver runs a client ⇆ provider
 //! round-trip over an in-memory transport (a request/response call, a raised
-//! typed error, a one-way notify).
+//! typed error, the *second* of two declared errors, a provider fault, a
+//! one-way notify).
 //!
 //! Slow: it fetches and builds `comline-runtime`. Needs network.
 
@@ -17,8 +18,10 @@ const DRIVER: &str = r#"
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use chat_e2e::chat::{Chat, ChatClient, ChatDispatcher, ChatSendError, Message, Rejected};
-use comline_runtime::contract::CallError;
+use chat_e2e::chat::{
+    Chat, ChatClient, ChatDispatcher, ChatSendError, Message, Rejected, TooLong,
+};
+use comline_runtime::contract::{CallError, Fault, RuntimeError};
 use comline_runtime::format::MsgPack;
 use comline_runtime::transport::duplex;
 
@@ -27,9 +30,22 @@ struct Svc {
 }
 
 impl Chat for Svc {
-    fn send(&self, text: &str) -> Result<Message, ChatSendError> {
+    fn send(&self, text: &str) -> Result<Message, Fault<ChatSendError>> {
         if text.is_empty() {
-            return Err(ChatSendError::Rejected(Rejected { reason: "empty".into() }));
+            // A declared error: `From<E> for Fault<E>` means `?`/`.into()`
+            // works, but spell it out here so the test pins the shape.
+            return Err(Fault::App(ChatSendError::Rejected(Rejected {
+                reason: "empty".into(),
+            })));
+        }
+        if text.len() > 8 {
+            // the second error in `! Rejected, TooLong`
+            return Err(Fault::App(ChatSendError::TooLong(TooLong { limit: 8 })));
+        }
+        if text == "boom" {
+            // Nothing in the schema declares this failure. Before the fault
+            // channel the provider's only options were to panic or to lie.
+            return Err(Fault::Internal);
         }
         Ok(Message { body: format!("echo: {text}"), seq: 1 })
     }
@@ -62,6 +78,33 @@ fn client_and_provider_over_duplex() {
         CallError::App(ChatSendError::Rejected(r)) => assert_eq!(r.reason, "empty"),
         other => panic!("expected a Rejected, got {other:?}"),
     }
+
+    // The declared error renders through the generated `Display`, from the
+    // schema's `message` template.
+    assert_eq!(
+        Rejected { reason: "empty".into() }.to_string(),
+        "rejected: empty",
+    );
+
+    // Both arms of `! Rejected, TooLong` are reachable, and each decodes
+    // into its own variant rather than into whichever shares an ordinal.
+    match client.send("far too long to accept").unwrap_err() {
+        CallError::App(ChatSendError::TooLong(t)) => {
+            assert_eq!(t.limit, 8);
+            assert_eq!(t.to_string(), "too long: 8 max");
+        }
+        other => panic!("expected a TooLong, got {other:?}"),
+    }
+
+    // An undeclared failure arrives as a fault, not as some ordinal the
+    // client would have decoded into the wrong error type.
+    match client.send("boom").unwrap_err() {
+        CallError::Runtime(RuntimeError::Provider) => {}
+        other => panic!("expected a provider fault, got {other:?}"),
+    }
+
+    // and the connection survives it — a fault is a reply, not a teardown
+    assert_eq!(client.send("ok").unwrap().body, "echo: ok");
 
     client.note("saved").unwrap(); // one-way
 
