@@ -221,6 +221,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
                 lang_version: t.lang_version.clone(),
                 default_framing: t.default_framing.clone(),
                 external_std: t.external_std,
+                validate_on_decode: t.validate_on_decode,
             };
             // Deliberately not `core_err`: a generator's errors are about
             // schema/package *structure* (e.g. a namespace that's both a

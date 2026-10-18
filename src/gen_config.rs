@@ -11,6 +11,7 @@
 
 use std::path::{Path, PathBuf};
 
+use comline_codegen::validation::ValidateOnDecode;
 use comline_core::utils::templating::recurse_render;
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
 use serde::{Deserialize, Serialize};
@@ -109,6 +110,10 @@ pub struct Generate {
     /// it, shared by every target unless overridden. Only a generator that
     /// knows how (today, Rust's) acts on it. Default `false`.
     pub external_std: Option<bool>,
+    /// Whether decoding a value runs its `@validators` checks: `off` (the
+    /// default), `collect` (fail with every failure) or `first` (fail with
+    /// the first). Shared by every target unless overridden.
+    pub validate_on_decode: Option<String>,
     /// `[[generate.target]]` blocks.
     #[serde(rename = "target")]
     pub targets: Vec<Target>,
@@ -130,6 +135,7 @@ pub struct Target {
     pub package_versions: Option<VersionSpec>,
     pub default_framing: Option<String>,
     pub external_std: Option<bool>,
+    pub validate_on_decode: Option<String>,
     /// `lib` mode only: write the crate straight into `out` instead of
     /// `<out>/<language>/`. Target-only (no `[generate]` default, no flag/env)
     /// — a shared `out` across several `lib` targets needs the per-language
@@ -190,6 +196,8 @@ pub struct Overrides<'a> {
     /// the mode (see [`default_external_std`]), so either direction can be
     /// the one a given run needs to override.
     pub external_std: Option<bool>,
+    /// `--validate-on-decode`.
+    pub validate_on_decode: Option<&'a str>,
 }
 
 /// A fully-resolved target: every field decided, `out` made absolute.
@@ -207,6 +215,8 @@ pub struct ResolvedTarget {
     pub flatten: bool,
     /// See [`Generate::external_std`].
     pub external_std: bool,
+    /// See [`Generate::validate_on_decode`].
+    pub validate_on_decode: ValidateOnDecode,
 }
 
 /// Variables a `layout` template can reference.
@@ -343,6 +353,7 @@ pub fn resolve(
                         package_versions: None,
                         default_framing: None,
                         external_std: None,
+                        validate_on_decode: None,
                         flatten: false,
                     }]
                 } else {
@@ -374,12 +385,15 @@ pub fn resolve(
         };
     }
 
-    let field_override =
-        ov.out.is_some() || ov.layout.is_some() || ov.mode.is_some() || ov.external_std.is_some();
+    let field_override = ov.out.is_some()
+        || ov.layout.is_some()
+        || ov.mode.is_some()
+        || ov.external_std.is_some()
+        || ov.validate_on_decode.is_some();
     if field_override && selected.len() > 1 && ov.target.is_none() {
         return Err(miette!(
-            "`--out` / `--layout` / `--mode` / `--external-std` need `--target <lang>` \
-             when more than one target is configured ({} here)",
+            "`--out` / `--layout` / `--mode` / `--external-std` / `--validate-on-decode` \
+             need `--target <lang>` when more than one target is configured ({} here)",
             selected.len()
         ));
     }
@@ -391,6 +405,7 @@ pub fn resolve(
     let env_layout = env_var("COMLINE_GENERATE_LAYOUT");
     let env_mode = env_var("COMLINE_GENERATE_MODE");
     let env_external_std = env_var_bool("COMLINE_GENERATE_EXTERNAL_STD");
+    let env_validate_on_decode = env_var("COMLINE_GENERATE_VALIDATE_ON_DECODE");
 
     let mut resolved = Vec::with_capacity(selected.len());
     for t in selected {
@@ -443,6 +458,21 @@ pub fn resolve(
             cfg.generate.external_std,
             default_external_std(&mode),
         );
+        let validate_on_decode = pick(
+            ov.validate_on_decode,
+            &env_validate_on_decode,
+            &t.validate_on_decode,
+            &cfg.generate.validate_on_decode,
+            ValidateOnDecode::Off.name(),
+        );
+        let validate_on_decode = ValidateOnDecode::parse(&validate_on_decode).ok_or_else(|| {
+            miette!(
+                "`validate_on_decode = \"{validate_on_decode}\"` for target `{}` - expected one of \
+                 {}",
+                t.language,
+                ValidateOnDecode::NAMES.map(|n| format!("`{n}`")).join(", ")
+            )
+        })?;
 
         let lang_version = t
             .lang_version
@@ -485,6 +515,7 @@ pub fn resolve(
             default_framing,
             flatten: t.flatten,
             external_std,
+            validate_on_decode,
         });
     }
 
@@ -817,5 +848,43 @@ mod tests {
         };
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &ov).unwrap();
         assert!(resolved[0].external_std);
+    }
+
+    #[test]
+    fn validate_on_decode_defaults_to_off() {
+        let cfg = parse("[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n");
+        let resolved = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap();
+        assert_eq!(resolved[0].validate_on_decode, ValidateOnDecode::Off);
+    }
+
+    #[test]
+    fn validate_on_decode_target_wins_over_section_and_the_flag_over_both() {
+        let cfg = parse(
+            "[generate]\nvalidate_on_decode = \"collect\"\n\n\
+             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
+             validate_on_decode = \"first\"\n",
+        );
+        let resolved = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap();
+        assert_eq!(resolved[0].validate_on_decode, ValidateOnDecode::First);
+
+        let ov = Overrides {
+            validate_on_decode: Some("off"),
+            ..Default::default()
+        };
+        let resolved = resolve(&cfg, &[], Path::new("/x"), &ov).unwrap();
+        assert_eq!(resolved[0].validate_on_decode, ValidateOnDecode::Off);
+    }
+
+    #[test]
+    fn an_unknown_validate_on_decode_names_the_accepted_values() {
+        let cfg = parse(
+            "[generate]\nvalidate_on_decode = \"always\"\n\n\
+                         [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n",
+        );
+        let error = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "`validate_on_decode = \"always\"` for target `rust` - expected one of `off`, `collect`, `first`"
+        );
     }
 }

@@ -119,6 +119,11 @@ Examples:
         #[arg(long)]
         no_external_std: bool,
 
+        /// Run `@validators` checks while decoding: `off`, `collect` (fail
+        /// with every failure) or `first` (fail with the first)
+        #[arg(long, value_name = "WHEN")]
+        validate_on_decode: Option<String>,
+
         /// Print what would be written, without writing anything
         #[arg(long)]
         dry_run: bool,

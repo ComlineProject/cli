@@ -32,6 +32,9 @@ pub fn copy_fixture(name: &str, temp: &Path) -> PathBuf {
         .join(name);
     fs::create_dir_all(&dest).unwrap();
     fs::copy(src.join("config.idp"), dest.join("config.idp")).unwrap();
+    if src.join("comline.toml").exists() {
+        fs::copy(src.join("comline.toml"), dest.join("comline.toml")).unwrap();
+    }
     copy_dir(&src.join("src"), &dest.join("src"));
     dest
 }

@@ -123,6 +123,7 @@ fn run(cli: Cli) -> Result<()> {
             mode,
             external_std,
             no_external_std,
+            validate_on_decode,
             dry_run,
             list,
             watch,
@@ -138,6 +139,7 @@ fn run(cli: Cli) -> Result<()> {
                 external_std: external_std
                     .then_some(true)
                     .or(no_external_std.then_some(false)),
+                validate_on_decode: validate_on_decode.as_deref(),
             };
             commands::generate::run(&work_dir, &overrides, dry_run, list, watch)
         }
