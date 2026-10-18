@@ -397,7 +397,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=e6e7249d64fb63206f6a4cb2b7678b0010bce34b#e6e7249d64fb63206f6a4cb2b7678b0010bce34b"
+source = "git+https://github.com/ComlineProject/generation?rev=a7d62ef4270f7cda5eb894f9180ced3fde28093e#a7d62ef4270f7cda5eb894f9180ced3fde28093e"
 dependencies = [
  "comline-core",
  "eyre",
@@ -406,7 +406,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-rust"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-rust?rev=742ffcca0c7dc34f37d5d5fe734ea6f3893fec40#742ffcca0c7dc34f37d5d5fe734ea6f3893fec40"
+source = "git+https://github.com/ComlineProject/comline-rust?rev=833bade81ceaf4c5a08a5a7a27bbc646d8897793#833bade81ceaf4c5a08a5a7a27bbc646d8897793"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -416,7 +416,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-typescript"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-typescript?rev=f66641e31226c91965138ee79954ebad113091f9#f66641e31226c91965138ee79954ebad113091f9"
+source = "git+https://github.com/ComlineProject/comline-typescript?rev=e9c297d0ddf6c52e7170ac6884430eb879015ec6#e9c297d0ddf6c52e7170ac6884430eb879015ec6"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -426,7 +426,7 @@ dependencies = [
 [[package]]
 name = "comline-core"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/core?rev=1245d12f7fe3a5ae11329621e80d27b6d72eed97#1245d12f7fe3a5ae11329621e80d27b6d72eed97"
+source = "git+https://github.com/ComlineProject/core?rev=b04836d22537af00e1e7017d9a8a232ea691860b#b04836d22537af00e1e7017d9a8a232ea691860b"
 dependencies = [
  "ariadne",
  "blake3",
@@ -446,8 +446,6 @@ dependencies = [
  "serde",
  "serde_derive",
  "snafu",
- "strum",
- "strum_macros",
  "toml_edit 0.21.1",
  "tracing",
 ]
@@ -455,7 +453,7 @@ dependencies = [
 [[package]]
 name = "comline-core-stdlib"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/core?rev=1245d12f7fe3a5ae11329621e80d27b6d72eed97#1245d12f7fe3a5ae11329621e80d27b6d72eed97"
+source = "git+https://github.com/ComlineProject/core?rev=b04836d22537af00e1e7017d9a8a232ea691860b#b04836d22537af00e1e7017d9a8a232ea691860b"
 
 [[package]]
 name = "concolor"
@@ -1611,28 +1609,6 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
-
-[[package]]
-name = "strum"
-version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
-dependencies = [
- "strum_macros",
-]
-
-[[package]]
-name = "strum_macros"
-version = "0.25.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23dc1fa9ac9c169a78ba62f0b841814b7abae11bdd047b9c58f893439e309ea0"
-dependencies = [
- "heck 0.4.1",
- "proc-macro2",
- "quote",
- "rustversion",
- "syn 2.0.114",
-]
 
 [[package]]
 name = "supports-color"
