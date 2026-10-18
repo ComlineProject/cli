@@ -9,9 +9,10 @@
 //! `compile_package` — no `.comline/` write, no version bump. `"all"` or an
 //! explicit list reads committed versions from the CAS chain instead.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use comline_codegen::{GenRequest, Mode, PackageMeta, Registry};
+use comline_codegen::{features, GenRequest, Mode, PackageMeta, Registry};
 use comline_core::package::build::{self, cas::ObjectStore};
 use comline_core::package::config::ir::frozen::FrozenUnit as ConfigUnit;
 use comline_core::schema::idl::constants::SCHEMA_EXTENSION;
@@ -228,6 +229,11 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
             // schema and a parent of deeper schemas), not source *text* -
             // they carry no span to render a snippet against, so there's
             // nothing for the multi-line branch there to do.
+            warn_ignored(
+                &t.language,
+                &request,
+                registry.support(&t.language, &t.lang_version),
+            );
             let files =
                 generator(&request).map_err(|e| miette!("`{}` generator: {e}", t.language))?;
 
@@ -381,4 +387,39 @@ fn gen_version_from_commit(
         package_version: version.to_owned(),
         schemas,
     })
+}
+
+/// A warning per feature `request` uses that this generator ignores - it
+/// generates, but without the feature (a TypeScript target with
+/// `@validators` gets the types, not the checks). An unsupported feature
+/// needs nothing here: the generator refuses it, naming every use.
+fn warn_ignored(language: &str, request: &GenRequest, support: Option<features::SupportTable>) {
+    let Some(support) = support else { return };
+    let uses = features::used(request.schemas, &features::Options::of(request));
+    let mut ignored: BTreeMap<features::Feature, Vec<&features::FeatureUse>> = BTreeMap::new();
+    for u in &uses {
+        if features::support_for(support, u.feature).state == features::State::Ignored {
+            ignored.entry(u.feature).or_default().push(u);
+        }
+    }
+    for (feature, uses) in ignored {
+        let s = features::support_for(support, feature);
+        let mut message = format!("`{language}` ignores {}", feature.title());
+        if let Some(note) = s.note {
+            message.push_str(&format!(": {note}"));
+        }
+        if let Some(tracking) = s.tracking {
+            message.push_str(&format!(" ({tracking})"));
+        }
+        let first = uses[0];
+        let place = match first.namespace.is_empty() {
+            true => first.owner.clone(),
+            false => format!("schema '{}', {}", first.namespace, first.owner),
+        };
+        message.push_str(&format!(" - used by {place}"));
+        if uses.len() > 1 {
+            message.push_str(&format!(" and {} more", uses.len() - 1));
+        }
+        ui::warn(message);
+    }
 }
