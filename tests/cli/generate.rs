@@ -758,7 +758,14 @@ fn an_ignored_feature_is_a_warning() {
     let project = copy_fixture("validated_project", temp.path());
     let config = project.join("config.idp");
     let idp = std::fs::read_to_string(&config).unwrap();
-    std::fs::write(&config, idp.replace("rust#1.70.0 = {}", "rust#1.70.0 = {}\n        typescript#5.0 = {}")).unwrap();
+    std::fs::write(
+        &config,
+        idp.replace(
+            "rust#1.70.0 = {}",
+            "rust#1.70.0 = {}\n        typescript#5.0 = {}",
+        ),
+    )
+    .unwrap();
 
     comline_cmd()
         .current_dir(&project)

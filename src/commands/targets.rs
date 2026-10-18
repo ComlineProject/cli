@@ -24,17 +24,29 @@ pub fn run(with_features: bool, json: bool) -> Result<()> {
             .into_iter()
             .filter_map(|t| {
                 let support = registry.support(t.name, t.version)?;
-                Some(Column { generator: t.name, version: t.version, support })
+                Some(Column {
+                    generator: t.name,
+                    version: t.version,
+                    support,
+                })
             })
             .collect();
         let report = features::json(&columns, &BTreeMap::new());
-        writeln!(out, "{}", serde_json::to_string_pretty(&report).into_diagnostic()?).into_diagnostic()?;
+        writeln!(
+            out,
+            "{}",
+            serde_json::to_string_pretty(&report).into_diagnostic()?
+        )
+        .into_diagnostic()?;
         return Ok(());
     }
 
     for t in registry.targets() {
         writeln!(out, "{}#{}", t.name, t.version).into_diagnostic()?;
-        let Some(support) = registry.support(t.name, t.version).filter(|_| with_features) else {
+        let Some(support) = registry
+            .support(t.name, t.version)
+            .filter(|_| with_features)
+        else {
             continue;
         };
         for &feature in Feature::ALL {

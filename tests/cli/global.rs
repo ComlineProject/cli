@@ -61,11 +61,23 @@ fn targets_features_lists_each_generators_support() {
 
 #[test]
 fn targets_features_json_is_the_report() {
-    let output = comline_cmd().args(["targets", "--features", "--json"]).output().unwrap();
+    let output = comline_cmd()
+        .args(["targets", "--features", "--json"])
+        .output()
+        .unwrap();
     assert!(output.status.success());
     let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("JSON");
-    assert!(report["features"].as_array().unwrap().iter().any(|f| f["id"] == "unions"));
-    let rust = report["generators"].as_array().unwrap().iter().find(|g| g["name"] == "rust").unwrap();
+    assert!(report["features"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|f| f["id"] == "unions"));
+    let rust = report["generators"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|g| g["name"] == "rust")
+        .unwrap();
     assert_eq!(rust["support"]["unions"]["state"], "unsupported");
 }
 
