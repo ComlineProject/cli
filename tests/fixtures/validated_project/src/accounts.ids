@@ -1,0 +1,14 @@
+use std::validators::StringBounds
+
+@validators = [StringBounds(min_chars = 2, max_chars = 8)]
+type Handle = string
+
+struct Account {
+    handle: Handle
+    optional nickname: Handle
+    friends: Handle[]
+}
+
+protocol Accounts {
+    function rename(to: Handle) -> Account;
+}

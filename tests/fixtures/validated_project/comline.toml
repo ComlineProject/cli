@@ -1,0 +1,2 @@
+[generate]
+validate_on_decode = "collect"

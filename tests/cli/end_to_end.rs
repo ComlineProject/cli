@@ -150,3 +150,100 @@ fn a_generated_protocol_crate_runs_a_real_round_trip() {
         String::from_utf8_lossy(&out.stderr),
     );
 }
+
+/// Driven against the generated `validated_e2e` crate (see
+/// `tests/fixtures/validated_project`, which sets
+/// `validate_on_decode = "collect"`).
+const VALIDATED_DRIVER: &str = r#"
+use std::thread;
+
+use comline_runtime::contract::{CallError, Fault, RuntimeError};
+use comline_runtime::format::MsgPack;
+use comline_runtime::transport::duplex;
+use comline_runtime::validation::Validate;
+use validated_e2e::accounts::{Account, Accounts, AccountsClient, AccountsDispatcher, AccountsRenameError};
+
+struct Svc;
+
+impl Accounts for Svc {
+    fn rename(&self, to: String) -> Result<Account, Fault<AccountsRenameError>> {
+        Ok(Account { handle: to, nickname: None, friends: vec![] })
+    }
+}
+
+#[test]
+fn std_validators_run_through_an_alias() {
+    let bad = Account {
+        handle: "a".into(),
+        nickname: Some("far_too_long".into()),
+        friends: vec!["ok".into(), "x".into()],
+    };
+    let failures: Vec<(String, String)> =
+        bad.validate().unwrap_err().0.into_iter().map(|e| (e.field, e.message)).collect();
+    assert_eq!(
+        failures,
+        [
+            ("handle".to_string(), "handle must be at least 2 characters".to_string()),
+            ("nickname".to_string(), "nickname must be at most 8 characters".to_string()),
+            ("friends[1]".to_string(), "friends[1] must be at least 2 characters".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn a_call_with_arguments_failing_their_checks_is_refused() {
+    let (client_side, provider_side) = duplex();
+    let provider = thread::spawn(move || {
+        let mut provider_side = provider_side;
+        AccountsDispatcher(Svc).serve(&mut provider_side, MsgPack).unwrap();
+    });
+    let mut client = AccountsClient::connect(client_side, MsgPack).expect("handshake");
+
+    assert_eq!(client.rename("ada".into()).unwrap().handle, "ada");
+    match client.rename("x".into()).unwrap_err() {
+        CallError::Runtime(RuntimeError::Provider) => {}
+        other => panic!("expected the call refused, got {other:?}"),
+    }
+    // and the connection survives it
+    assert_eq!(client.rename("bob".into()).unwrap().handle, "bob");
+
+    drop(client);
+    provider.join().unwrap();
+}
+"#;
+
+/// `@validators` through `comline generate` itself: std's `StringBounds`
+/// reached by `use`, carried by a `type` alias, run by the generated
+/// `validate()` - and, with `validate_on_decode = "collect"` in
+/// `comline.toml`, a call whose arguments fail is refused by the provider.
+#[test]
+fn generated_validators_run_end_to_end() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = copy_fixture("validated_project", temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args([
+            "generate", "--target", "rust", "--mode", "lib", "--out", "gen",
+        ])
+        .assert()
+        .success();
+
+    let crate_dir = project.join("gen/rust");
+    fs::create_dir_all(crate_dir.join("tests")).unwrap();
+    fs::write(crate_dir.join("tests/validation.rs"), VALIDATED_DRIVER).unwrap();
+
+    let out = Command::new(env!("CARGO"))
+        .args(["test", "--quiet"])
+        .current_dir(&crate_dir)
+        .env("CARGO_TARGET_DIR", crate_dir.join("target"))
+        .output()
+        .expect("run cargo test on the generated crate");
+
+    assert!(
+        out.status.success(),
+        "the generated crate's validation test failed\n--- stdout ---\n{}\n--- stderr ---\n{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr),
+    );
+}
