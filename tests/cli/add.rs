@@ -70,7 +70,7 @@ fn adds_a_path_dependency_pinned_and_importable() {
     // The pin catches a change to the dependency.
     fs::write(
         temp.path().join("shared/src/models.ids"),
-        "struct Thing {\n    id: u64\n    name: str\n}\n",
+        "struct Thing {\n    id: u64\n    name: string\n}\n",
     )
     .unwrap();
     check(&project)
@@ -95,7 +95,7 @@ fn no_hash_leaves_it_unpinned() {
         .contains("hash ="));
     fs::write(
         temp.path().join("shared/src/models.ids"),
-        "struct Thing {\n    id: u64\n    name: str\n}\n",
+        "struct Thing {\n    id: u64\n    name: string\n}\n",
     )
     .unwrap();
     uses_thing_from(&project, "shared");
