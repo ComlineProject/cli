@@ -1,11 +1,11 @@
 struct Message {
-    body: str
+    body: string
     seq: u64
 }
 
 error Rejected {
     message = "rejected: {self.reason}"
-    reason: str
+    reason: string
 }
 
 error TooLong {
@@ -15,7 +15,7 @@ error TooLong {
 
 protocol Chat {
     /// Request/response with a struct return, raising either of two errors.
-    function send(text: str) -> Message ! Rejected, TooLong;
+    function send(text: string) -> Message ! Rejected, TooLong;
     /// Fire-and-forget.
-    function note(text: str);
+    function note(text: string);
 }

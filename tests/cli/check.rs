@@ -102,7 +102,7 @@ fn std_is_usable_and_checked() {
     let project = fixture_project(temp.path());
     fs::write(
         project.join("src/exchange.ids"),
-        "use std::http::{Request, Response}\nuse std::validators::StringBounds\n\nstruct Exchange {\n    request: Request\n    response: Response\n    @validators = [StringBounds(min_chars = 1)]\n    label: str\n}\n",
+        "use std::http::{Request, Response}\nuse std::validators::StringBounds\n\nstruct Exchange {\n    request: Request\n    response: Response\n    @validators = [StringBounds(min_chars = 1)]\n    label: string\n}\n",
     )
     .unwrap();
 
