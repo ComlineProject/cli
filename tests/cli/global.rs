@@ -49,6 +49,32 @@ fn targets_are_written_to_stdout_as_language_hash_version() {
 }
 
 #[test]
+fn targets_features_lists_each_generators_support() {
+    comline_cmd()
+        .args(["targets", "--features"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("rust#"))
+        .stdout(predicate::str::contains("  supported    structs"))
+        .stdout(predicate::str::contains("  unsupported  unions - "));
+}
+
+#[test]
+fn targets_features_json_is_the_report() {
+    let output = comline_cmd().args(["targets", "--features", "--json"]).output().unwrap();
+    assert!(output.status.success());
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).expect("JSON");
+    assert!(report["features"].as_array().unwrap().iter().any(|f| f["id"] == "unions"));
+    let rust = report["generators"].as_array().unwrap().iter().find(|g| g["name"] == "rust").unwrap();
+    assert_eq!(rust["support"]["unions"]["state"], "unsupported");
+}
+
+#[test]
+fn targets_json_needs_features() {
+    comline_cmd().args(["targets", "--json"]).assert().failure();
+}
+
+#[test]
 fn targets_ignores_path_and_works_outside_any_project() {
     let temp = tempfile::tempdir().unwrap();
 

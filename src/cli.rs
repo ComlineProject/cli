@@ -262,8 +262,22 @@ Print one `language#version` per line — the exact token syntax `config.idp`'s 
 `comline` was compiled with. Ignores `--path`: this reflects the build, not \
 any particular project.
 
+With `--features`, also what each generator implements, feature by feature: \
+supported, partial, ignored (generated without it) or unsupported (refused), \
+each claim proven by the generators' conformance suite. `--json` prints the \
+same as JSON.
+
 Examples:
   comline targets
-  comline targets | grep '^rust#'")]
-    Targets,
+  comline targets | grep '^rust#'
+  comline targets --features
+  comline targets --features --json")]
+    Targets {
+        /// Also list what each generator supports, feature by feature
+        #[arg(long)]
+        features: bool,
+        /// With `--features`: print it as JSON
+        #[arg(long, requires = "features")]
+        json: bool,
+    },
 }

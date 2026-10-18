@@ -749,3 +749,22 @@ fn code_mode_still_inlines_std_and_the_flag_overrides_lib() {
         "--no-external-std inlines"
     );
 }
+
+/// A generator that ignores a feature the schema uses still generates, and
+/// says so: TypeScript gets `@validators`' types, not the checks.
+#[test]
+fn an_ignored_feature_is_a_warning() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = copy_fixture("validated_project", temp.path());
+    let config = project.join("config.idp");
+    let idp = std::fs::read_to_string(&config).unwrap();
+    std::fs::write(&config, idp.replace("rust#1.70.0 = {}", "rust#1.70.0 = {}\n        typescript#5.0 = {}")).unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "typescript"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("`typescript` ignores validators: the types are generated; the checks aren't run yet (core#96)"))
+        .stderr(predicate::str::contains("used by schema 'accounts', type alias 'Handle'"));
+}

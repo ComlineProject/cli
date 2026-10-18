@@ -159,6 +159,6 @@ fn run(cli: Cli) -> Result<()> {
             commands::add::run(&work_dir, &name, source, !no_hash)
         }
         Commands::Completions { shell } => commands::completions::run(shell),
-        Commands::Targets => commands::targets::run(),
+        Commands::Targets { features, json } => commands::targets::run(features, json),
     }
 }

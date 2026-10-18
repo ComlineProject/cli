@@ -387,6 +387,7 @@ dependencies = [
  "notify-debouncer-mini",
  "predicates",
  "serde",
+ "serde_json",
  "tempfile",
  "thiserror 1.0.69",
  "toml",
@@ -397,16 +398,17 @@ dependencies = [
 [[package]]
 name = "comline-codegen"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=39d378b01cbbc66282689f0b763b77c063dfe38a#39d378b01cbbc66282689f0b763b77c063dfe38a"
+source = "git+https://github.com/ComlineProject/generation?rev=269ec60590db1c6599499e82b53c41e56bcf2b32#269ec60590db1c6599499e82b53c41e56bcf2b32"
 dependencies = [
  "comline-core",
  "eyre",
+ "serde_json",
 ]
 
 [[package]]
 name = "comline-codegen-rust"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-rust?rev=37d537edc79d842b6e364ed06adc95b2e5db729a#37d537edc79d842b6e364ed06adc95b2e5db729a"
+source = "git+https://github.com/ComlineProject/comline-rust?rev=9fe85575008e35c0f5c58c62da472db9b0703832#9fe85575008e35c0f5c58c62da472db9b0703832"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -416,7 +418,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-typescript"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-typescript?rev=cfca91460686502171e3ccce418d555c8b3513b6#cfca91460686502171e3ccce418d555c8b3513b6"
+source = "git+https://github.com/ComlineProject/comline-typescript?rev=5d7805f4bd441dd97a91d347939c7823f42af4a9#5d7805f4bd441dd97a91d347939c7823f42af4a9"
 dependencies = [
  "comline-codegen",
  "comline-core",
