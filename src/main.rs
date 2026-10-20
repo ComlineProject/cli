@@ -160,6 +160,12 @@ fn run(cli: Cli) -> Result<()> {
             commands::add::run(&work_dir, &name, source, !no_hash, accept_unverified)
         }
         Commands::Accept { target, yes } => commands::accept::run(&work_dir, &target, yes),
+        Commands::Release {
+            version,
+            raise,
+            reason,
+            yes,
+        } => commands::release::run(&work_dir, version.as_deref(), raise, reason, yes),
         Commands::Completions { shell } => commands::completions::run(shell),
         Commands::Targets { features, json } => commands::targets::run(features, json),
     }

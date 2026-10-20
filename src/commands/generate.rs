@@ -350,9 +350,18 @@ fn expand_versions(
             }])
         }
         VersionSpec::All => {
+            // Every release: what consumers see. The builds between them
+            // are named one by one when wanted.
             let chain = history::load(work_dir)?;
             let store = ObjectStore::new(work_dir);
-            chain
+            let releases: Vec<_> = chain.iter().filter(|e| e.commit.is_release()).collect();
+            if releases.is_empty() {
+                return Err(miette!(
+                    "`package_versions = \"all\"` generates every release, and there's none yet; \
+                     run `comline release`, or name the builds to generate"
+                ));
+            }
+            releases
                 .iter()
                 .map(|e| gen_version_from_commit(&store, &e.commit.version, &e.commit))
                 .collect()

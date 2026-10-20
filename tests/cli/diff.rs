@@ -31,7 +31,7 @@ fn reports_changes_between_two_versions() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["diff", "0.0.1", "HEAD"])
+        .args(["diff", "0.1.0-dev.1", "HEAD"])
         .assert()
         .success()
         .stderr(predicate::str::contains("New features"))
@@ -45,7 +45,7 @@ fn without_a_build_fails_with_precondition_code() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["diff", "0.0.1", "HEAD"])
+        .args(["diff", "0.1.0-dev.1", "HEAD"])
         .assert()
         .failure()
         .code(2)
@@ -98,7 +98,7 @@ fn a_new_schema_file_sorting_first_is_an_addition_not_a_break() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["diff", "0.0.1", "HEAD"])
+        .args(["diff", "0.1.0-dev.1", "HEAD"])
         .assert()
         .success()
         .stderr(predicate::str::contains("Added struct `First`"))

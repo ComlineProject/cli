@@ -15,7 +15,10 @@ fn freezes_an_initial_version() {
         .assert()
         .success()
         .stderr(predicate::str::contains("Project built"))
-        .stderr(predicate::str::contains("initial version 0.0.1"));
+        .stderr(predicate::str::contains("initial build 0.1.0-dev.1"))
+        .stderr(predicate::str::contains(
+            "next release: 0.1.0 (the first release)",
+        ));
 
     assert!(project.join(".comline").is_dir());
 }

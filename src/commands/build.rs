@@ -38,7 +38,8 @@ fn build_once(work_dir: &Path, release: bool) -> Result<()> {
     ui::success("Project built");
 
     if result.is_initial_build() {
-        ui::detail(pkg(format!("initial version {}", result.current_version)));
+        ui::detail(pkg(format!("initial build {}", result.current_version)));
+        next_release_line(&result);
         return Ok(());
     }
 
@@ -54,6 +55,7 @@ fn build_once(work_dir: &Path, release: bool) -> Result<()> {
             "version {} (no changes)",
             result.current_version
         )));
+        next_release_line(&result);
         return Ok(());
     }
 
@@ -68,8 +70,34 @@ fn build_once(work_dir: &Path, release: bool) -> Result<()> {
         changes::render(&dependency.changes);
     }
     ui::detail(bump_line(result.version_bump));
+    next_release_line(&result);
 
     Ok(())
+}
+
+/// What `comline release` would make now: the release this build leads to.
+/// Nothing when the latest commit is itself a release.
+fn next_release_line(result: &build::BuildResult) {
+    // A build's version is the release it leads to plus `-dev.N`.
+    let Some((next, _)) = result.current_version.split_once('-') else {
+        return;
+    };
+    let since = match &result.last_release {
+        Some(last) => format!(" ({} since {last})", bump_word(result.release_bump)),
+        None => " (the first release)".to_string(),
+    };
+    ui::detail(format!(
+        "next release: {next}{since} — run `comline release`"
+    ));
+}
+
+fn bump_word(bump: VersionBump) -> &'static str {
+    match bump {
+        VersionBump::Major => "breaking changes",
+        VersionBump::Minor => "new features",
+        VersionBump::Patch => "modifications",
+        VersionBump::None => "nothing that calls for a bump",
+    }
 }
 
 /// A `📦`-prefixed package line, or plain text (with an ASCII arrow) under `--plain`.

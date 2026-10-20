@@ -10,6 +10,7 @@ pub mod completions;
 pub mod diff;
 pub mod generate;
 pub mod new;
+pub mod release;
 pub mod reset;
 pub mod targets;
 

@@ -321,11 +321,12 @@ fn dylib_mode_is_rejected() {
 
 // -------- multi-version (package_versions) --------
 
-/// Build twice with a schema change, so the CAS chain has 0.0.1 and 0.1.0.
+/// Release twice with a schema change between, so the CAS chain has the
+/// releases 0.1.0 and 0.1.1 (a new struct is a minor: before 1.0, the patch).
 fn built_twice(project: &std::path::Path) {
     comline_cmd()
         .current_dir(project)
-        .arg("build")
+        .arg("release")
         .assert()
         .success();
     let schema = project.join("src/api.ids");
@@ -334,7 +335,7 @@ fn built_twice(project: &std::path::Path) {
     fs::write(&schema, text).unwrap();
     comline_cmd()
         .current_dir(project)
-        .arg("build")
+        .arg("release")
         .assert()
         .success();
 }
@@ -360,7 +361,7 @@ fn latest_stamps_the_last_committed_version() {
         .assert()
         .success();
 
-    assert!(project.join("generated/rust/0.0.1/api.rs").exists());
+    assert!(project.join("generated/rust/0.1.0-dev.1/api.rs").exists());
 }
 
 /// The tree shows where files land; only `--list` shows which schema each
@@ -407,7 +408,7 @@ fn dry_run_and_list_combine() {
 }
 
 #[test]
-fn package_versions_all_generates_every_committed_version() {
+fn package_versions_all_generates_every_release() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
     built_twice(&project);
@@ -425,12 +426,14 @@ fn package_versions_all_generates_every_committed_version() {
         .success()
         // One tree per version. `layout` has to carry `{{package_version}}`
         // for multi-version output, so each tree's root names its version -
-        // no `[0.0.1]` tag needed to tell them apart.
-        .stderr(predicate::str::contains("generated/rust/0.0.1/"))
-        .stderr(predicate::str::contains("generated/rust/0.1.0/"));
+        // no `[0.1.0]` tag needed to tell them apart.
+        .stderr(predicate::str::contains("generated/rust/0.1.0/"))
+        .stderr(predicate::str::contains("generated/rust/0.1.1/"));
 
-    assert!(project.join("generated/rust/0.0.1/api.rs").exists());
     assert!(project.join("generated/rust/0.1.0/api.rs").exists());
+    assert!(project.join("generated/rust/0.1.1/api.rs").exists());
+    // Releases only: not the builds that led to them.
+    assert!(!project.join("generated/rust/0.1.0-dev.1").exists());
 
     // `--list` tags each line with the version it belongs to.
     comline_cmd()
@@ -438,8 +441,8 @@ fn package_versions_all_generates_every_committed_version() {
         .args(["generate", "--target", "rust", "--list"])
         .assert()
         .success()
-        .stderr(predicate::str::contains("[0.0.1]"))
-        .stderr(predicate::str::contains("[0.1.0]"));
+        .stderr(predicate::str::contains("[0.1.0]"))
+        .stderr(predicate::str::contains("[0.1.1]"));
 }
 
 #[test]
@@ -449,7 +452,7 @@ fn package_versions_list_generates_only_the_named_versions() {
     built_twice(&project);
     fs::write(
         project.join("comline.toml"),
-        "[generate]\npackage_versions = [\"0.0.1\"]\n\
+        "[generate]\npackage_versions = [\"0.1.0\"]\n\
          layout = \"{{language}}/{{package_version}}/{{namespace}}.{{ext}}\"\n",
     )
     .unwrap();
@@ -460,8 +463,8 @@ fn package_versions_list_generates_only_the_named_versions() {
         .assert()
         .success();
 
-    assert!(project.join("generated/rust/0.0.1/api.rs").exists());
-    assert!(!project.join("generated/rust/0.1.0").exists());
+    assert!(project.join("generated/rust/0.1.0/api.rs").exists());
+    assert!(!project.join("generated/rust/0.1.1").exists());
 }
 
 #[test]

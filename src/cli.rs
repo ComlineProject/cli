@@ -43,6 +43,14 @@ pub struct Cli {
     pub command: Commands,
 }
 
+/// How far `comline release --raise` goes.
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum ReleaseLevel {
+    Patch,
+    Minor,
+    Major,
+}
+
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Compile the project and freeze a new immutable version
@@ -168,6 +176,46 @@ history.")]
         /// List what would be removed without deleting anything
         #[arg(long)]
         dry_run: bool,
+    },
+
+    /// Release the builds since the last release as a version
+    #[command(long_about = "\
+Builds record history under pre-release versions (`0.3.0-dev.2`: the release \
+they lead to, and a count). A release is the version consumers see. This builds \
+first, so what's released is what's in `src/` now, then creates the version from \
+the highest bump the changes since the last release call for: a breaking change \
+is a major (before 1.0, the minor), a new feature a minor, anything else a patch. \
+The first release is 0.1.0.
+
+`--raise` releases a higher bump than the changes show (a behaviour change the \
+schema can't express), with a `--reason` recorded with the release. It never \
+lowers the bump.
+
+`comline release 1.0` makes a 0.x package stable: it says what 1.0 commits to \
+and what the package exposes, then releases 1.0.0.
+
+Raising to major and releasing 1.0 ask for confirmation on a terminal; \
+otherwise pass `--yes`.
+
+Examples:
+  comline release
+  comline release --raise minor --reason \"`ping` now retries on timeout\"
+  comline release 1.0")]
+    Release {
+        /// `1.0`, to make a 0.x package stable; otherwise omitted
+        version: Option<String>,
+
+        /// Release a higher bump than the changes call for
+        #[arg(long, value_enum, value_name = "LEVEL")]
+        raise: Option<ReleaseLevel>,
+
+        /// Why: required with `--raise`, recorded with the release
+        #[arg(long, value_name = "TEXT")]
+        reason: Option<String>,
+
+        /// Don't ask for confirmation
+        #[arg(long, short)]
+        yes: bool,
     },
 
     /// Discard the version history (delete `.comline/`)

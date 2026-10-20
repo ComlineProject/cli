@@ -41,6 +41,12 @@ pub enum CliError {
          to be asked, or pass `{flag}` to accept them"
     )]
     AcceptanceRequired { flag: &'static str },
+
+    #[error(
+        "refusing to {what} without confirmation: re-run in a terminal to be asked, or pass \
+         `--yes`"
+    )]
+    ReleaseConfirmationRequired { what: &'static str },
 }
 
 /// Map a finished-command error to its process exit code.
@@ -50,6 +56,7 @@ pub fn exit_code_for(report: &miette::Report) -> i32 {
         Some(CliError::NothingBuilt(_)) => EXIT_PRECONDITION,
         Some(CliError::ConfirmationRequired) => EXIT_PRECONDITION,
         Some(CliError::AcceptanceRequired { .. }) => EXIT_PRECONDITION,
+        Some(CliError::ReleaseConfirmationRequired { .. }) => EXIT_PRECONDITION,
         None => EXIT_FAILURE,
     }
 }

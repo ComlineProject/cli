@@ -45,7 +45,8 @@ fn default_external_std(mode: &str) -> bool {
 ///
 /// TOML: `package_versions = "latest"` (default) | `"all"` | `"0.3.0"` |
 /// `["0.3.0", "0.4.0"]`. `latest` is the working tree; anything else reads
-/// committed versions from the CAS chain.
+/// committed versions from the CAS chain: `all` every release, a list any
+/// version named, a build (`0.3.0-dev.2`) included.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum VersionSpec {
     /// The working tree (no CAS read).

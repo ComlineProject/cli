@@ -75,7 +75,7 @@ fn dry_run_keeps_everything() {
         .assert()
         .success()
         .stderr(predicate::str::contains("would remove .comline"))
-        .stderr(predicate::str::contains("currently 0.0.1"));
+        .stderr(predicate::str::contains("currently 0.1.0-dev.1"));
 
     assert!(project.join(".comline").is_dir());
 }
