@@ -10,21 +10,17 @@ use crate::commands::{core_err, ensure_project};
 use crate::ui;
 use crate::watch;
 
-pub fn run(work_dir: &Path, release: bool, watching: bool) -> Result<()> {
+pub fn run(work_dir: &Path, watching: bool) -> Result<()> {
     ensure_project(work_dir)?;
 
     if watching {
-        watch::run(work_dir, "build", || build_once(work_dir, release))
+        watch::run(work_dir, "build", || build_once(work_dir))
     } else {
-        build_once(work_dir, release)
+        build_once(work_dir)
     }
 }
 
-fn build_once(work_dir: &Path, release: bool) -> Result<()> {
-    if release {
-        ui::note("--release is reserved and currently has no effect");
-    }
-
+fn build_once(work_dir: &Path) -> Result<()> {
     ui::step(format!("Building project{}", ui::at_path(work_dir)));
     let spinner = ui::spinner("compiling schemas");
     let result = build::build(work_dir);

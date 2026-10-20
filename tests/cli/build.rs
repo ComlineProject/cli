@@ -11,7 +11,7 @@ fn freezes_an_initial_version() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["build", "--release"])
+        .arg("build")
         .assert()
         .success()
         .stderr(predicate::str::contains("Project built"))

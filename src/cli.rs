@@ -53,21 +53,18 @@ pub enum ReleaseLevel {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    /// Compile the project and freeze a new immutable version
+    /// Compile the project and record a new build
     #[command(long_about = "\
 Compile and validate every schema, then freeze the result into the project's \
-content-addressable store (`.comline/`). The project version is bumped \
-automatically to match the largest schema change since the last build \
-(major for breaking changes, minor for new features, patch for tweaks).
+content-addressable store (`.comline/`). A build is recorded under a \
+pre-release version: the release it leads to and a count (`0.3.0-dev.2`). \
+The release follows the largest change since the last release; \
+`comline release` makes it.
 
 Examples:
   comline build
   comline build --watch")]
     Build {
-        /// Enable release optimizations (reserved; currently a no-op)
-        #[arg(short, long)]
-        release: bool,
-
         /// Rebuild automatically when a schema or `config.idp` changes
         #[arg(short, long)]
         watch: bool,
