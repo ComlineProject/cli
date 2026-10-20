@@ -114,7 +114,7 @@ fn run(cli: Cli) -> Result<()> {
     };
 
     match cli.command {
-        Commands::Build { release, watch } => commands::build::run(&work_dir, release, watch),
+        Commands::Build { watch } => commands::build::run(&work_dir, watch),
         Commands::Check => commands::check::run(&work_dir),
         Commands::Generate {
             target,
