@@ -46,7 +46,8 @@ fn build_once(work_dir: &Path, release: bool) -> Result<()> {
         .schema_changes
         .as_ref()
         .map(|c| !c.is_empty())
-        .unwrap_or(false);
+        .unwrap_or(false)
+        || !result.dependency_changes.is_empty();
 
     if !has_changes {
         ui::detail(pkg(format!(
@@ -61,6 +62,10 @@ fn build_once(work_dir: &Path, release: bool) -> Result<()> {
     }
     if let Some(changes) = &result.schema_changes {
         changes::render(changes);
+    }
+    for dependency in &result.dependency_changes {
+        ui::group(format!("In dependency `{}`:", dependency.name));
+        changes::render(&dependency.changes);
     }
     ui::detail(bump_line(result.version_bump));
 

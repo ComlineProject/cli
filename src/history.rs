@@ -78,7 +78,9 @@ pub fn resolve<'a>(history: &'a [Entry], spec: &str) -> Result<&'a Commit> {
     ))
 }
 
-/// Load every schema's frozen units from a commit's root tree, in tree order.
+/// Load every local schema's frozen units from a commit's root tree, in tree
+/// order. Vendored dependencies (`dep_<name>` trees) aren't this package's
+/// schemas and are skipped.
 pub fn load_schemas(store: &ObjectStore, commit: &Commit) -> Result<Vec<Vec<FrozenUnit>>> {
     let root_bytes = store
         .read(&commit.tree)
@@ -88,7 +90,7 @@ pub fn load_schemas(store: &ObjectStore, commit: &Commit) -> Result<Vec<Vec<Froz
 
     let mut schemas = Vec::new();
     for entry in &root.entries {
-        if entry.mode != EntryMode::Tree {
+        if entry.mode != EntryMode::Tree || !entry.name.starts_with("schema_") {
             continue;
         }
         let sub_bytes = store

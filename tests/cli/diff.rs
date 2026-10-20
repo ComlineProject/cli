@@ -70,3 +70,37 @@ fn rejects_an_unknown_ref() {
         .code(1)
         .stderr(predicate::str::contains("no built version matches"));
 }
+
+#[test]
+fn a_new_schema_file_sorting_first_is_an_addition_not_a_break() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .arg("build")
+        .assert()
+        .success();
+
+    // `aaa` sorts before `api`: paired by position, `api`'s old schema would
+    // be compared with this file and reported as removed.
+    fs::write(
+        project.join("src/aaa.ids"),
+        "struct First {\n    x: string\n}\n",
+    )
+    .unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .arg("build")
+        .assert()
+        .success();
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["diff", "0.0.1", "HEAD"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("Added struct `First`"))
+        .stderr(predicate::str::contains("Breaking").not());
+}

@@ -30,15 +30,15 @@ toml = "0.8"
 # needs real I/O (git fetch, filesystem), so it's off by default for
 # `comline-core`'s wasm32 consumers (the playground editor, the language
 # server); the CLI is the one consumer that actually runs `comline build`.
-comline-core = { git = "https://github.com/ComlineProject/core", rev = "ad2b3f582dabb4a27d616741e425699299fc84de", features = ["deps"] }
+comline-core = { git = "https://github.com/ComlineProject/core", rev = "622500a39a49ad4118cdce9344531cf6f0f5978d", features = ["deps"] }
 # All three pinned to revs that agree on one `comline-codegen`, and bumped
 # together: comline-rust and comline-typescript's codegen crates consume
 # `comline-codegen`'s types, so the rev below must be byte-identical to the
 # one *they* pin - Cargo only unifies a git dependency across identical rev
 # strings, and two copies of `GenRequest` are two incompatible types.
-comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "2d824dded159efc862d2c6266c27c015542baa96" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "8f7e0baa81e1cf6350582148ace7c4fe86be830c", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "62bbf796eff54c2bd304004b7d29e854074d4396", optional = true }
+comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "350bbce6e88caf65e60449e3ebd0e1d45eb19179" }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "bc1c4af956bfad9e110583620e6f85255a0dda42", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "4ad1c3574a342d974e83a94570d51d903ea32bbe", optional = true }
 
 [features]
 # Which language generators are compiled in. Drop one to shed its whole
