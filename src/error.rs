@@ -35,6 +35,12 @@ pub enum CliError {
     #[error("refusing to delete the version history without confirmation")]
     #[diagnostic(help("re-run in a terminal to confirm, or pass `--force`"))]
     ConfirmationRequired,
+
+    #[error(
+        "refusing to accept unverified protocols without confirmation: re-run in a terminal \
+         to be asked, or pass `{flag}` to accept them"
+    )]
+    AcceptanceRequired { flag: &'static str },
 }
 
 /// Map a finished-command error to its process exit code.
@@ -43,6 +49,7 @@ pub fn exit_code_for(report: &miette::Report) -> i32 {
         Some(CliError::NotAProject(_)) => EXIT_PRECONDITION,
         Some(CliError::NothingBuilt(_)) => EXIT_PRECONDITION,
         Some(CliError::ConfirmationRequired) => EXIT_PRECONDITION,
+        Some(CliError::AcceptanceRequired { .. }) => EXIT_PRECONDITION,
         None => EXIT_FAILURE,
     }
 }

@@ -154,10 +154,12 @@ fn run(cli: Cli) -> Result<()> {
             commit,
             version,
             no_hash,
+            accept_unverified,
         } => {
             let source = commands::add::Source::from_args(dir, git, commit, version)?;
-            commands::add::run(&work_dir, &name, source, !no_hash)
+            commands::add::run(&work_dir, &name, source, !no_hash, accept_unverified)
         }
+        Commands::Accept { target, yes } => commands::accept::run(&work_dir, &target, yes),
         Commands::Completions { shell } => commands::completions::run(shell),
         Commands::Targets { features, json } => commands::targets::run(features, json),
     }

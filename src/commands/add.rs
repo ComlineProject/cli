@@ -16,7 +16,7 @@ use comline_core::package::deps;
 use comline_core::package::layout::SCHEMAS_DIR;
 use miette::{IntoDiagnostic, Result, WrapErr};
 
-use crate::commands::{core_err, ensure_project};
+use crate::commands::{accept, core_err, ensure_project};
 use crate::ui;
 
 /// Where the dependency comes from.
@@ -54,7 +54,13 @@ impl Source {
     }
 }
 
-pub fn run(work_dir: &Path, name: &str, source: Source, pin: bool) -> Result<()> {
+pub fn run(
+    work_dir: &Path,
+    name: &str,
+    source: Source,
+    pin: bool,
+    accept_unverified: bool,
+) -> Result<()> {
     ensure_project(work_dir)?;
     if !is_identifier(name) {
         return Err(miette::miette!(
@@ -121,15 +127,34 @@ pub fn run(work_dir: &Path, name: &str, source: Source, pin: bool) -> Result<()>
         Source::Git { .. } => "fetching and compiling",
     });
     let cache_dir = work_dir.join(DEPS_CACHE_DIR);
-    let resolve = || deps::resolve(&dependency, work_dir, &cache_dir);
     // `resolve` warns that an entry without a hash is trusted and suggests
     // the very pin this command writes next: keep that out of a normal run.
-    let resolved = if ui::verbose() {
-        resolve()
-    } else {
-        tracing::subscriber::with_default(tracing::subscriber::NoSubscriber::default(), resolve)
+    let resolve = |dependency: &DependencyConfig| {
+        accept::quietly(|| deps::resolve(dependency, work_dir, &cache_dir))
     };
+    let mut resolved = resolve(&dependency);
     ui::finish_spinner(spinner);
+    // A dependency with `@unverified` protocols resolves only once they're
+    // accepted: show what they give up and ask, then try again.
+    if resolved.is_err() {
+        let unverified = match dependency.package_dir(work_dir) {
+            Some(dir) if dir.join("config.idp").exists() => {
+                accept::unverified_in(&dir).unwrap_or_default()
+            }
+            _ => vec![],
+        };
+        if !unverified.is_empty() {
+            if !accept::decide(name, &unverified, accept_unverified, "--accept-unverified")? {
+                ui::note(format!("Not accepted: {name} wasn't added"));
+                return Ok(());
+            }
+            dependency.accept_unverified = unverified
+                .into_iter()
+                .map(|p| (p.protocol, p.set))
+                .collect();
+            resolved = resolve(&dependency);
+        }
+    }
     let resolved = resolved.map_err(|e| core_err("couldn't resolve the dependency", e))?;
 
     let hash = pin.then(|| format!("blake3:{}", resolved.content_hash.to_hex()));
@@ -166,7 +191,7 @@ pub fn run(work_dir: &Path, name: &str, source: Source, pin: bool) -> Result<()>
     Ok(())
 }
 
-fn declared_dependencies(manifest: &str) -> Result<Vec<DependencyConfig>> {
+pub(crate) fn declared_dependencies(manifest: &str) -> Result<Vec<DependencyConfig>> {
     let congregation = config_grammar::parse(manifest).map_err(|_| {
         miette::miette!("config.idp doesn't parse; fix it before adding a dependency")
     })?;
@@ -202,7 +227,17 @@ fn entry_fields(dependency: &DependencyConfig) -> Result<Vec<(&'static str, Stri
     if let Some(hash) = dependency.declared_hash() {
         fields.push(("hash", hash.to_string()));
     }
-    if let Some((key, _)) = fields.iter().find(|(_, value)| value.contains(['"', '\\'])) {
+    let checked = fields.clone();
+    if !dependency.accept_unverified.is_empty() {
+        fields.push((
+            ACCEPT_UNVERIFIED,
+            accept::render(&dependency.accept_unverified),
+        ));
+    }
+    if let Some((key, _)) = checked
+        .iter()
+        .find(|(_, value)| value.contains(['"', '\\']))
+    {
         return Err(miette::miette!(
             "the dependency's `{key}` can't contain `\"` or `\\`"
         ));
@@ -261,20 +296,22 @@ fn with_dependency(manifest: &str, name: &str, fields: &[(&str, String)]) -> Str
     }
 }
 
+/// The key whose value [`entry_fields`] renders itself, unquoted.
+const ACCEPT_UNVERIFIED: &str = "accept_unverified";
+
 fn entry_lines(name: &str, fields: &[(&str, String)], indent: &str, step: &str) -> Vec<String> {
     let mut lines = vec![format!("{indent}{name} = {{")];
-    lines.extend(
-        fields
-            .iter()
-            .map(|(key, value)| format!("{indent}{step}{key} = \"{value}\"")),
-    );
+    lines.extend(fields.iter().map(|(key, value)| match *key {
+        ACCEPT_UNVERIFIED => format!("{indent}{step}{key} = {value}"),
+        _ => format!("{indent}{step}{key} = \"{value}\""),
+    }));
     lines.push(format!("{indent}}}"));
     lines
 }
 
 /// Byte offsets of the `{` and matching `}` of the top-level
 /// `dependencies = { ... }`, skipping strings and comments.
-fn dependencies_block(manifest: &str) -> Option<(usize, usize)> {
+pub(crate) fn dependencies_block(manifest: &str) -> Option<(usize, usize)> {
     let tokens = tokens(manifest);
     let mut depth = 0usize;
     for (i, &(token, _)) in tokens.iter().enumerate() {
@@ -302,7 +339,7 @@ fn dependencies_block(manifest: &str) -> Option<(usize, usize)> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum Token<'a> {
+pub(crate) enum Token<'a> {
     Word(&'a str),
     Equals,
     /// `{` or `[`.
@@ -314,7 +351,7 @@ enum Token<'a> {
 
 /// `config.idp`'s tokens with their byte offsets, minus whitespace, comments
 /// (`//`, `/* */`) and string contents.
-fn tokens(text: &str) -> Vec<(Token<'_>, usize)> {
+pub(crate) fn tokens(text: &str) -> Vec<(Token<'_>, usize)> {
     let bytes = text.as_bytes();
     let is_word =
         |b: u8| b.is_ascii_alphanumeric() || matches!(b, b'_' | b':' | b'#' | b'@' | b'.');
@@ -369,7 +406,7 @@ fn tokens(text: &str) -> Vec<(Token<'_>, usize)> {
 }
 
 /// The leading whitespace of the line `at` is on.
-fn indent_of(text: &str, at: usize) -> &str {
+pub(crate) fn indent_of(text: &str, at: usize) -> &str {
     let start = text[..at].rfind('\n').map_or(0, |i| i + 1);
     let line = &text[start..];
     &line[..line.len() - line.trim_start_matches([' ', '\t']).len()]
@@ -377,7 +414,7 @@ fn indent_of(text: &str, at: usize) -> &str {
 
 /// One indentation level, in the file's own style: a tab if the line is
 /// tab-indented, else four spaces.
-fn unit(indent: &str) -> &'static str {
+pub(crate) fn unit(indent: &str) -> &'static str {
     if indent.starts_with('\t') {
         "\t"
     } else {
@@ -423,7 +460,10 @@ fn verify(
         ) => (va, ua, ca) == (vb, ub, cb),
         _ => false,
     };
-    match same && added.declared_hash() == dependency.declared_hash() {
+    match same
+        && added.declared_hash() == dependency.declared_hash()
+        && added.accept_unverified == dependency.accept_unverified
+    {
         true => Ok(()),
         false => Err("the entry reads back differently".to_string()),
     }
