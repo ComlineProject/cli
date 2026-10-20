@@ -61,7 +61,7 @@ fn client_and_provider_over_duplex() {
     let notes_for_svc = notes.clone();
 
     // Provider: the generated `serve` helper runs the connection handshake
-    // (IR_HASH + format name) before serving.
+    // (IR_HASH + format and framing names) before serving.
     let provider = thread::spawn(move || {
         let mut provider_side = provider_side;
         ChatDispatcher(Svc { notes: notes_for_svc })
