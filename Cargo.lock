@@ -398,7 +398,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=46ff2b0f98af9c3b6cf92a15f4cf311ef4c19d64#46ff2b0f98af9c3b6cf92a15f4cf311ef4c19d64"
+source = "git+https://github.com/ComlineProject/generation?rev=64136010b9e9ae7ccc2f6c1d8400bccb5da42e5e#64136010b9e9ae7ccc2f6c1d8400bccb5da42e5e"
 dependencies = [
  "comline-core",
  "eyre",
@@ -408,7 +408,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-rust"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-rust?rev=7a2c04c871be6ee13ed7e9a64f45b72babda7790#7a2c04c871be6ee13ed7e9a64f45b72babda7790"
+source = "git+https://github.com/ComlineProject/comline-rust?rev=edef1c870f99eae43c4444f7b3875a5145ee35a0#edef1c870f99eae43c4444f7b3875a5145ee35a0"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -418,7 +418,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-typescript"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-typescript?rev=0309d82a8871fc459143ddde653fc8f395571588#0309d82a8871fc459143ddde653fc8f395571588"
+source = "git+https://github.com/ComlineProject/comline-typescript?rev=d30ae2919180262ee4495faa83cd3f61b971b81c#d30ae2919180262ee4495faa83cd3f61b971b81c"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -428,7 +428,7 @@ dependencies = [
 [[package]]
 name = "comline-core"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/core?rev=bd9d9f4557e56db1dbcece1b6fae54c1fc5394fd#bd9d9f4557e56db1dbcece1b6fae54c1fc5394fd"
+source = "git+https://github.com/ComlineProject/core?rev=af0371f84994da906805cc8c9b6693236adb86f5#af0371f84994da906805cc8c9b6693236adb86f5"
 dependencies = [
  "ariadne",
  "blake3",
@@ -455,7 +455,7 @@ dependencies = [
 [[package]]
 name = "comline-core-stdlib"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/core?rev=bd9d9f4557e56db1dbcece1b6fae54c1fc5394fd#bd9d9f4557e56db1dbcece1b6fae54c1fc5394fd"
+source = "git+https://github.com/ComlineProject/core?rev=af0371f84994da906805cc8c9b6693236adb86f5#af0371f84994da906805cc8c9b6693236adb86f5"
 
 [[package]]
 name = "concolor"

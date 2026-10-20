@@ -16,4 +16,5 @@ mod end_to_end;
 mod generate;
 mod global;
 mod new;
+mod release;
 mod reset;
