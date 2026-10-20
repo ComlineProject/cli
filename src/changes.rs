@@ -118,7 +118,114 @@ fn breaking_line(change: &BreakingChange) -> String {
             mark("❌", "-", format!("Removed protocol `{name}`"))
         }
         BreakingChange::RemovedError { name } => mark("❌", "-", format!("Removed error `{name}`")),
+        BreakingChange::ChangedFieldOptionality {
+            type_name,
+            field_name,
+            now_optional,
+        } => {
+            let now = if *now_optional {
+                "optional"
+            } else {
+                "required"
+            };
+            mark(
+                "🔄",
+                "~",
+                format!("Made field `{type_name}.{field_name}` {now}"),
+            )
+        }
+        BreakingChange::RenamedEnumVariant {
+            enum_name,
+            old_name,
+            new_name,
+        } => mark(
+            "🔄",
+            "~",
+            format!(
+                "Renamed `{enum_name}::{old_name}` {} `{enum_name}::{new_name}`",
+                ui::arrow()
+            ),
+        ),
+        BreakingChange::RemovedThrownError {
+            protocol_name,
+            function_name,
+            error,
+        } => mark(
+            "❌",
+            "-",
+            format!("`{protocol_name}.{function_name}` no longer declares `! {error}`"),
+        ),
+        BreakingChange::ChangedErrorOrdinal {
+            name,
+            old_ordinal,
+            new_ordinal,
+        } => mark(
+            "🔄",
+            "~",
+            format!(
+                "Error `{name}`'s ordinal moved: {old_ordinal} {} {new_ordinal}",
+                ui::arrow()
+            ),
+        ),
+        BreakingChange::RemovedConstant { name } => {
+            mark("❌", "-", format!("Removed constant `{name}`"))
+        }
+        BreakingChange::ChangedConstantType {
+            name,
+            old_type,
+            new_type,
+        } => mark(
+            "🔄",
+            "~",
+            format!(
+                "Changed constant `{name}`: {old_type} {} {new_type}",
+                ui::arrow()
+            ),
+        ),
+        BreakingChange::RemovedTypeAlias { name } => {
+            mark("❌", "-", format!("Removed type alias `{name}`"))
+        }
+        BreakingChange::ChangedTypeAliasTarget {
+            name,
+            old_target,
+            new_target,
+        } => mark(
+            "🔄",
+            "~",
+            format!(
+                "Changed type alias `{name}`: {old_target} {} {new_target}",
+                ui::arrow()
+            ),
+        ),
+        BreakingChange::RemovedValidator { name } => {
+            mark("❌", "-", format!("Removed validator `{name}`"))
+        }
+        BreakingChange::ChangedValidator { name } => {
+            mark("🔄", "~", format!("Changed validator `{name}`"))
+        }
+        BreakingChange::ValidationTightened { target } => {
+            mark("🔄", "~", format!("Validation tightened on `{target}`"))
+        }
+        BreakingChange::ChangedWireAnnotation {
+            target,
+            key,
+            old_value,
+            new_value,
+        } => mark(
+            "🔄",
+            "~",
+            format!(
+                "Changed `@{key}` on `{target}`: {}",
+                value_change(old_value, new_value)
+            ),
+        ),
     }
+}
+
+/// `old → new`, with `(none)` for a side that has no value.
+fn value_change(old: &Option<String>, new: &Option<String>) -> String {
+    let show = |v: &Option<String>| v.clone().unwrap_or_else(|| "(none)".to_string());
+    format!("{} {} {}", show(old), ui::arrow(), show(new))
 }
 
 fn feature_line(feature: &NewFeature) -> String {
@@ -177,21 +284,69 @@ fn feature_line(feature: &NewFeature) -> String {
             "+",
             format!("Added error `{name}` ({})", count(*field_count, "field")),
         ),
+        NewFeature::AddedThrownError {
+            protocol_name,
+            function_name,
+            error,
+        } => mark(
+            "➕",
+            "+",
+            format!("`{protocol_name}.{function_name}` now declares `! {error}`"),
+        ),
+        NewFeature::AddedConstant { name, ty } => {
+            mark("➕", "+", format!("Added constant `{name}`: {ty}"))
+        }
+        NewFeature::ChangedConstantValue {
+            name,
+            old_value,
+            new_value,
+        } => mark(
+            "🔧",
+            "~",
+            format!(
+                "Changed constant `{name}`'s value: {}",
+                value_change(old_value, new_value)
+            ),
+        ),
+        NewFeature::AddedTypeAlias { name, target } => {
+            mark("➕", "+", format!("Added type alias `{name}` = {target}"))
+        }
+        NewFeature::AddedValidator { name } => mark("➕", "+", format!("Added validator `{name}`")),
+        NewFeature::ValidationLoosened { target } => {
+            mark("🔧", "~", format!("Validation loosened on `{target}`"))
+        }
+        NewFeature::Deprecated { target } => mark("⚠️", "!", format!("Deprecated `{target}`")),
     }
 }
 
 fn modification_line(modification: &Modification) -> String {
     match modification {
-        Modification::FieldMadeOptional {
+        Modification::DocstringChanged { name } => {
+            mark("📝", "~", format!("Docstring changed on `{name}`"))
+        }
+        Modification::ChangedFieldDefault {
             type_name,
             field_name,
         } => mark(
             "🔧",
             "~",
-            format!("Made field `{type_name}.{field_name}` optional"),
+            format!("Changed the default of `{type_name}.{field_name}`"),
         ),
-        Modification::DocstringChanged { name } => {
-            mark("📝", "~", format!("Docstring changed on `{name}`"))
+        Modification::ChangedErrorMessage { name } => {
+            mark("📝", "~", format!("Changed error `{name}`'s message"))
         }
+        Modification::ChangedAnnotation {
+            target,
+            key,
+            old_value,
+            new_value,
+        } => mark(
+            "🔧",
+            "~",
+            format!(
+                "Changed `@{key}` on `{target}`: {}",
+                value_change(old_value, new_value)
+            ),
+        ),
     }
 }

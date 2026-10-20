@@ -4,8 +4,7 @@ use std::path::Path;
 
 use comline_core::package::build::cas::objects::Commit;
 use comline_core::package::build::cas::ObjectStore;
-use comline_core::schema::ir::diff::{analyze_schema_changes, SchemaChanges};
-use comline_core::schema::ir::frozen::unit::FrozenUnit;
+use comline_core::schema::ir::diff::analyze_package_changes;
 use miette::Result;
 
 use crate::commands::ensure_project;
@@ -34,32 +33,8 @@ pub fn run(work_dir: &Path, old: &str, new: &str) -> Result<()> {
 
     let old_schemas = history::load_schemas(&store, old_commit)?;
     let new_schemas = history::load_schemas(&store, new_commit)?;
-    changes::render(&aggregate(&old_schemas, &new_schemas));
+    changes::render(&analyze_package_changes(&old_schemas, &new_schemas));
     Ok(())
-}
-
-/// Diff schema-by-schema (paired by position) and merge the results, treating
-/// added/removed schema files as wholesale additions/removals.
-fn aggregate(old: &[Vec<FrozenUnit>], new: &[Vec<FrozenUnit>]) -> SchemaChanges {
-    let mut merged = SchemaChanges::default();
-    let common = old.len().min(new.len());
-
-    for i in 0..common {
-        extend(&mut merged, analyze_schema_changes(&old[i], &new[i]));
-    }
-    for schema in &new[common..] {
-        extend(&mut merged, analyze_schema_changes(&[], schema));
-    }
-    for schema in &old[common..] {
-        extend(&mut merged, analyze_schema_changes(schema, &[]));
-    }
-    merged
-}
-
-fn extend(into: &mut SchemaChanges, from: SchemaChanges) {
-    into.breaking_changes.extend(from.breaking_changes);
-    into.new_features.extend(from.new_features);
-    into.modifications.extend(from.modifications);
 }
 
 fn label(spec: &str, commit: &Commit) -> String {
