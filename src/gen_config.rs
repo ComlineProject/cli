@@ -541,7 +541,11 @@ fn canonical_framing(written: &str, language: &str) -> Result<String> {
         .unwrap_or_default();
     Err(miette!(
         "`default_framing = \"{written}\"` for target `{language}` - expected one of {}{hint}",
-        spellings.iter().map(|n| format!("`{n}`")).collect::<Vec<_>>().join(", ")
+        spellings
+            .iter()
+            .map(|n| format!("`{n}`"))
+            .collect::<Vec<_>>()
+            .join(", ")
     ))
 }
 
