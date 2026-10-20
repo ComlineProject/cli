@@ -1,6 +1,7 @@
 //! Rendering for `comline_core`'s [`SchemaChanges`], shared by `build` and `diff`.
 
 use comline_core::schema::ir::diff::{BreakingChange, Modification, NewFeature, SchemaChanges};
+use comline_core::schema::ir::unverified;
 
 use crate::ui;
 
@@ -219,6 +220,14 @@ fn breaking_line(change: &BreakingChange) -> String {
                 value_change(old_value, new_value)
             ),
         ),
+        BreakingChange::GaveUpGuarantees { target, guarantees } => mark(
+            "🔓",
+            "-",
+            format!(
+                "`{target}` now gives up {}",
+                unverified::describe(guarantees)
+            ),
+        ),
     }
 }
 
@@ -316,6 +325,14 @@ fn feature_line(feature: &NewFeature) -> String {
             mark("🔧", "~", format!("Validation loosened on `{target}`"))
         }
         NewFeature::Deprecated { target } => mark("⚠️", "!", format!("Deprecated `{target}`")),
+        NewFeature::RestoredGuarantees { target, guarantees } => mark(
+            "🔒",
+            "+",
+            format!(
+                "`{target}` keeps {} again",
+                unverified::describe(guarantees)
+            ),
+        ),
     }
 }
 

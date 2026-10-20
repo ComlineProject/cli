@@ -94,6 +94,7 @@ pub fn run(work_dir: &Path, name: &str, source: Source, pin: bool) -> Result<()>
 
     let mut dependency = DependencyConfig {
         name: name.to_string(),
+        accept_unverified: Default::default(),
         source: match &source {
             Source::Path(dir) => DependencySource::Path {
                 path: dir.clone(),
@@ -523,6 +524,7 @@ mod tests {
             let before = declared_dependencies(&manifest).unwrap();
             let dependency = DependencyConfig {
                 name: "shared".to_string(),
+                accept_unverified: Default::default(),
                 source: DependencySource::Path { path: "../shared".into(), hash: Some("blake3:abc".to_string()) },
             };
             let updated = with_dependency(&manifest, "shared", &entry_fields(&dependency).unwrap());
