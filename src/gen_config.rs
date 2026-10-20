@@ -12,7 +12,9 @@
 use std::path::{Path, PathBuf};
 
 use comline_codegen::validation::ValidateOnDecode;
+use comline_core::schema::idl::annotations;
 use comline_core::utils::templating::recurse_render;
+use comline_core::utils::text::closest;
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
 use serde::{Deserialize, Serialize};
 
@@ -102,9 +104,9 @@ pub struct Generate {
     /// Version selection shared by every target unless overridden.
     pub package_versions: Option<VersionSpec>,
     /// Fallback wire framing for protocols that do not pick one with `@framing`,
-    /// shared by every target unless overridden. A generator-recognised name
-    /// (`"jsonrpc"`, `"datagram"`, …); an unknown one leaves the generator's
-    /// built-in default in place.
+    /// shared by every target unless overridden. One of `@framing`'s accepted
+    /// spellings (`"jsonrpc"`, `"datagram"`, …), folded onto its canonical
+    /// form; an unknown one is an error.
     pub default_framing: Option<String>,
     /// `true`: reference `comline_std` as its own crate instead of inlining
     /// it, shared by every target unless overridden. Only a generator that
@@ -502,8 +504,10 @@ pub fn resolve(
         // a per-run knob.
         let default_framing = t
             .default_framing
-            .clone()
-            .or_else(|| cfg.generate.default_framing.clone());
+            .as_deref()
+            .or(cfg.generate.default_framing.as_deref())
+            .map(|written| canonical_framing(written, &t.language))
+            .transpose()?;
 
         resolved.push(ResolvedTarget {
             language: t.language.clone(),
@@ -520,6 +524,29 @@ pub fn resolve(
     }
 
     Ok(resolved)
+}
+
+/// Fold a `default_framing` onto the canonical spelling `@framing` uses, the
+/// same table core checks `@framing` against. An unknown name is an error:
+/// each generator falls back to datagram for a name it doesn't recognise, so
+/// a typo would otherwise generate the wrong framing and only surface as a
+/// refused handshake.
+fn canonical_framing(written: &str, language: &str) -> Result<String> {
+    if let Some(canonical) = annotations::canonical_value("framing", written) {
+        return Ok(canonical.to_string());
+    }
+    let spellings = annotations::value_spellings("framing");
+    let hint = closest(written, spellings.iter().copied())
+        .map(|s| format!(" - did you mean `{s}`?"))
+        .unwrap_or_default();
+    Err(miette!(
+        "`default_framing = \"{written}\"` for target `{language}` - expected one of {}{hint}",
+        spellings
+            .iter()
+            .map(|n| format!("`{n}`"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    ))
 }
 
 #[cfg(test)]
@@ -873,6 +900,30 @@ mod tests {
         };
         let resolved = resolve(&cfg, &[], Path::new("/x"), &ov).unwrap();
         assert_eq!(resolved[0].validate_on_decode, ValidateOnDecode::Off);
+    }
+
+    #[test]
+    fn default_framing_is_folded_onto_its_canonical_spelling() {
+        let cfg = parse(
+            "[generate]\ndefault_framing = \"json-rpc\"\n\n\
+             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n",
+        );
+        let resolved = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap();
+        assert_eq!(resolved[0].default_framing.as_deref(), Some("jsonrpc"));
+    }
+
+    #[test]
+    fn an_unknown_default_framing_names_the_accepted_values_and_a_near_miss() {
+        let cfg = parse(
+            "[generate]\ndefault_framing = \"jsonrcp\"\n\n\
+             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n",
+        );
+        let error = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "`default_framing = \"jsonrcp\"` for target `rust` - expected one of `jsonrpc`, \
+             `datagram` - did you mean `jsonrpc`?"
+        );
     }
 
     #[test]
