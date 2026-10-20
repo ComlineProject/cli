@@ -210,6 +210,10 @@ updated. The rest of `config.idp` is left as written.
 
 Its schemas are imported under NAME: `use NAME::models::Thing`.
 
+If it has `@unverified` protocols, what each gives up is shown and, on a \
+terminal, you are asked to accept it (see `comline accept`); otherwise pass \
+`--accept-unverified`. Nothing is written unless it's accepted.
+
 Examples:
   comline add shared_types ../shared-types
   comline add net --git https://github.com/acme/net --commit 4f2c9e1 --version 1.2.0")]
@@ -240,6 +244,36 @@ Examples:
         /// Don't pin its content hash (say, a path dependency still being worked on)
         #[arg(long)]
         no_hash: bool,
+
+        /// Accept what its `@unverified` protocols give up without being asked
+        #[arg(long)]
+        accept_unverified: bool,
+    },
+
+    /// Accept what a dependency's `@unverified` protocols give up
+    #[command(long_about = "\
+A protocol marked `@unverified` gives up guarantees Comline otherwise gives its \
+peers (a `none` handshake gives up schema and encoding agreement), and a \
+package depending on it has to accept that in its own `config.idp`, for exactly \
+what's given up. This shows what each protocol gives up and why, then writes \
+`accept_unverified` into the dependency's entry. The rest of `config.idp` is \
+left as written.
+
+Run it again when a dependency's update gives up more: the build stops until \
+the new set is accepted.
+
+Requires confirmation: on a terminal you are asked; otherwise pass `--yes`.
+
+Examples:
+  comline accept billing            every unverified protocol in `billing`
+  comline accept billing::Billing   just `Billing`")]
+    Accept {
+        /// The dependency, or one protocol in it: `NAME` or `NAME::PROTOCOL`
+        target: String,
+
+        /// Accept without being asked
+        #[arg(long, short)]
+        yes: bool,
     },
 
     /// Print a shell completion script to stdout
