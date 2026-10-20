@@ -37,7 +37,7 @@ comline-core = { git = "https://github.com/ComlineProject/core", rev = "622500a3
 # one *they* pin - Cargo only unifies a git dependency across identical rev
 # strings, and two copies of `GenRequest` are two incompatible types.
 comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "350bbce6e88caf65e60449e3ebd0e1d45eb19179" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "bc1c4af956bfad9e110583620e6f85255a0dda42", optional = true }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "2df0e4bb837e9facd36106a6ea1ef9b936cc084d", optional = true }
 comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "4ad1c3574a342d974e83a94570d51d903ea32bbe", optional = true }
 
 [features]
