@@ -210,7 +210,7 @@ fn comline_toml_default_framing_reaches_the_rust_generator() {
     let chat = fs::read_to_string(project.join("generated/rust/chat.rs")).unwrap();
     assert!(chat.contains("comline_runtime::framing::JsonRpcFraming"));
     assert!(chat.contains("Client::connect_with_framing"));
-    assert!(!chat.contains("FRAMING_DATAGRAM"));
+    assert!(!chat.contains("Client::connect(transport, format, IR_HASH)"));
 }
 
 #[test]
@@ -225,7 +225,7 @@ fn without_comline_toml_a_protocol_stays_on_datagram_framing() {
         .success();
 
     let chat = fs::read_to_string(project.join("generated/rust/chat.rs")).unwrap();
-    assert!(chat.contains("FRAMING_DATAGRAM"));
+    assert!(chat.contains("Client::connect(transport, format, IR_HASH)"));
     assert!(!chat.contains("JsonRpcFraming"));
 }
 
