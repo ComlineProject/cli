@@ -923,7 +923,7 @@ mod tests {
         assert_eq!(
             error.to_string(),
             "`default_framing = \"jsonrcp\"` for target `rust` - expected one of `jsonrpc`, \
-             `datagram` - did you mean `jsonrpc`?"
+             `datagram`, `datagram@2` - did you mean `jsonrpc`?"
         );
     }
 
