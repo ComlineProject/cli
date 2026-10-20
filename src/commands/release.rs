@@ -48,7 +48,7 @@ pub fn run(
             ))
         }
     };
-    if raise.is_some() && reason.as_deref().map_or(true, |r| r.trim().is_empty()) {
+    if raise.is_some() && reason.as_deref().is_none_or(|r| r.trim().is_empty()) {
         return Err(miette::miette!(
             "--raise needs --reason: it's recorded with the release and shown in its history"
         ));
@@ -91,7 +91,7 @@ pub fn run(
     ui::success(format!("Released {}", released.version));
     match &released.previous_release {
         Some(previous) => ui::detail(format!("{previous} -> {}", released.version)),
-        None => ui::detail("the first release".to_string()),
+        None => ui::detail("the first release"),
     }
     if let Some(changes) = &released.changes {
         changes::render(&changes.schema_changes);
@@ -102,7 +102,7 @@ pub fn run(
     }
     let record = &released.record;
     if record.stable {
-        ui::detail("stable: from now on a breaking change is a major release".to_string());
+        ui::detail("stable: from now on a breaking change is a major release");
     } else if released.previous_release.is_some() {
         ui::detail(format!(
             "{} bump{}",
@@ -181,7 +181,7 @@ fn explain_stable(context: &ProjectContext, last_release: Option<&str>) {
         }
     }
     if protocols.is_empty() {
-        ui::detail("protocols: none".to_string());
+        ui::detail("protocols: none");
     } else {
         ui::detail(format!("protocols: {}", protocols.join(", ")));
     }
