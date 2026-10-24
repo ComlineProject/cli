@@ -8,6 +8,8 @@ use std::path::Path;
 use comline_core::package::build::cas::objects::{Commit, EntryMode, Tree};
 use comline_core::package::build::cas::storage::Hash;
 use comline_core::package::build::cas::{refs, ObjectStore};
+use comline_core::package::config::ir::frozen::cas::blob::read_config;
+use comline_core::package::config::ir::frozen::FrozenUnit as ConfigUnit;
 use comline_core::schema::ir::frozen::cas::blob::load_schema_from_tree;
 use comline_core::schema::ir::frozen::unit::FrozenUnit;
 use miette::Result;
@@ -76,6 +78,23 @@ pub fn resolve<'a>(history: &'a [Entry], spec: &str) -> Result<&'a Commit> {
         "no built version matches `{spec}` (available: {})",
         available.join(", ")
     ))
+}
+
+/// The package config `commit` was built with; empty for a commit made
+/// before config was stored.
+pub fn load_config(store: &ObjectStore, commit: &Commit) -> Result<Vec<ConfigUnit>> {
+    let root_bytes = store
+        .read(&commit.tree)
+        .map_err(|e| miette::miette!("failed to read root tree: {e:#}"))?;
+    let root =
+        Tree::from_bytes(&root_bytes).map_err(|e| miette::miette!("corrupt root tree: {e:#}"))?;
+    root.entries
+        .iter()
+        .find(|e| e.name == "config" && e.mode == EntryMode::Blob)
+        .map(|e| read_config(store, &e.hash))
+        .transpose()
+        .map(Option::unwrap_or_default)
+        .map_err(|e| miette::miette!("failed to read the package config: {e:#}"))
 }
 
 /// Load every local schema's frozen units from a commit's root tree, in tree

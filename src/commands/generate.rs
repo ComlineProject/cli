@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 
 use comline_codegen::{features, GenRequest, Mode, PackageMeta, Registry, Resolved, Unresolved};
 use comline_core::package::build::{self, cas::ObjectStore};
-use comline_core::package::config::ir::frozen::FrozenUnit as ConfigUnit;
+use comline_core::package::config::ir::frozen::{self, FrozenUnit as ConfigUnit};
 use comline_core::schema::idl::constants::SCHEMA_EXTENSION;
 use comline_core::schema::ir::frozen::unit::{schema_namespace_as_path, FrozenUnit};
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
@@ -60,6 +60,9 @@ pub fn run(
 struct GenVersion {
     package_version: String,
     schemas: Vec<(String, Vec<FrozenUnit>)>, // (namespace path, frozen units)
+    /// The version's own `wire.format`: a built version keeps the format it
+    /// was built with.
+    wire_format: String,
 }
 
 fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bool) -> Result<()> {
@@ -179,7 +182,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
         }
         let (generator, ext) = (resolved.generator.generate, resolved.generator.ext);
 
-        let versions = expand_versions(&t.versions, work_dir, &live_schemas)?;
+        let versions = expand_versions(&t.versions, work_dir, &live_schemas, config_units)?;
         if mode == Mode::Lib && versions.len() > 1 {
             return Err(miette!(
                 "target `{}`: `lib` mode does not support multiple package versions yet",
@@ -221,7 +224,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
                     },
                 },
                 lang_version: t.lang_version.clone(),
-                default_framing: t.default_framing.clone(),
+                wire_format: gv.wire_format.clone(),
                 external_std: t.external_std,
                 async_api: t.async_api,
                 validate_on_decode: t.validate_on_decode,
@@ -336,6 +339,7 @@ fn expand_versions(
     spec: &VersionSpec,
     work_dir: &Path,
     live: &[(String, Vec<FrozenUnit>)],
+    live_config: &[ConfigUnit],
 ) -> Result<Vec<GenVersion>> {
     match spec {
         VersionSpec::Latest => {
@@ -346,6 +350,7 @@ fn expand_versions(
             Ok(vec![GenVersion {
                 package_version,
                 schemas: live.to_vec(),
+                wire_format: frozen::wire_format(live_config).to_string(),
             }])
         }
         VersionSpec::All => {
@@ -391,14 +396,19 @@ fn gen_version_from_commit(
             (ns, units)
         })
         .collect();
+    let config = history::load_config(store, commit)?;
     Ok(GenVersion {
         package_version: version.to_owned(),
         schemas,
+        wire_format: frozen::wire_format(&config).to_string(),
     })
 }
 
 /// `async = true` changes only protocols on a connection; with none, the
 /// output is the same as without it, which looks like the setting did nothing.
+/// Every protocol is on one by default, so that's a package whose protocols
+/// are all lockstep: on the `datagram` framing, or on JSON-RPC with none of
+/// them client-provided.
 fn warn_async_unused(language: &str, request: &GenRequest) {
     if !request.async_api {
         return;
@@ -409,9 +419,9 @@ fn warn_async_unused(language: &str, request: &GenRequest) {
     }
     ui::warn(format!(
         "`{language}`: `async = true`, but no protocol runs on a connection, so the output \
-         is the same as without it - a protocol is on one with `@provider = Client` or \
-         `Multiple`, a `datagram@2` framing, or JSON-RPC once any of the package's JSON-RPC \
-         protocols is client-provided"
+         is the same as without it - every protocol here is lockstep: on the `datagram` \
+         framing (the default, `datagram@2`, is a connection), or on JSON-RPC with none of \
+         the package's JSON-RPC protocols client-provided"
     ));
 }
 
