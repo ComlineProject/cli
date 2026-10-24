@@ -4,6 +4,7 @@ mod commands;
 mod error;
 mod gen_config;
 mod history;
+mod lang_targets;
 mod ui;
 mod watch;
 

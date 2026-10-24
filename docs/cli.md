@@ -76,7 +76,7 @@ specification_version = 1
 
 code_generation = {
     languages = {
-        rust#1.70.0 = {}
+        rust#1.85.0 = {}
     }
 }
 ```
@@ -305,7 +305,7 @@ comline -p ./schemas generate --target rust
 
 ```
 • Generating code (in schemas/)
-  ⚙️  language: rust, version: 1.70.0
+  ⚙️  language: rust, version: 1.85.0
        main.ids → generated/rust/main.rs
        other.ids → generated/rust/other.rs
 ✓ Generated 2 file(s)

@@ -24,21 +24,23 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter", "fmt"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
 toml = "0.8"
+# The error type of `comline-core`'s `build_with` check, which `build` passes.
+eyre = "0.6.8"
 # git rev (not crates.io) so this and the `comline-codegen*` crates share one
 # `comline-core` in the tree. Local dev: see .cargo/config. `deps` is this
 # crate's opt-in: cross-package `dependencies = {...}` resolution (core#6) —
 # needs real I/O (git fetch, filesystem), so it's off by default for
 # `comline-core`'s wasm32 consumers (the playground editor, the language
 # server); the CLI is the one consumer that actually runs `comline build`.
-comline-core = { git = "https://github.com/ComlineProject/core", rev = "eb5802f2d8ab12fcf8f9b63afba10d71dcbbc98d", features = ["deps"] }
+comline-core = { git = "https://github.com/ComlineProject/core", rev = "a3f9eef50c939b4cd5e7563f96d67c8db4012747", features = ["deps"] }
 # All three pinned to revs that agree on one `comline-codegen`, and bumped
 # together: comline-rust and comline-typescript's codegen crates consume
 # `comline-codegen`'s types, so the rev below must be byte-identical to the
 # one *they* pin - Cargo only unifies a git dependency across identical rev
 # strings, and two copies of `GenRequest` are two incompatible types.
-comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "dbb8530034cd2a8e6d390737b091e8bc2ca7029e" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "dbe579776327928a3b31c8a3fef1bbfea16c42ac", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "c9b868084ef7a13618944e72ecdf16f91223982a", optional = true }
+comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "bbfadb25cd34f02974c69cc2f102e667a089f684" }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "577bdb2910db8b3aedb6061f5436816836a08942", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "c72d14efa93135f892c04c6546f690a8e65b6cc1", optional = true }
 
 [features]
 # Which language generators are compiled in. Drop one to shed its whole

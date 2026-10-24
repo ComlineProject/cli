@@ -26,6 +26,8 @@ fn scaffolds_a_buildable_project() {
     let config = fs::read_to_string(root.join("config.idp")).unwrap();
     assert!(config.contains("congregation my_api"));
     assert!(config.contains("code_generation"));
+    // The widest promise: the Rust generator's floor.
+    assert!(config.contains("rust#1.85.0 = {}"), "{config}");
 
     // the scaffold must actually build
     comline_cmd()

@@ -12,7 +12,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use comline_codegen::{features, GenRequest, Mode, PackageMeta, Registry};
+use comline_codegen::{features, GenRequest, Mode, PackageMeta, Registry, Resolved, Unresolved};
 use comline_core::package::build::{self, cas::ObjectStore};
 use comline_core::package::config::ir::frozen::FrozenUnit as ConfigUnit;
 use comline_core::schema::idl::constants::SCHEMA_EXTENSION;
@@ -21,6 +21,7 @@ use miette::{miette, IntoDiagnostic, Result, WrapErr};
 
 use crate::commands::{core_err, ensure_project};
 use crate::gen_config::{self, ComlineToml, DeclaredLang, Overrides, VersionSpec};
+use crate::lang_targets::{self, TargetError};
 use crate::{history, ui, watch};
 
 /// The generator registry, composed from the per-language `comline-codegen-*`
@@ -87,19 +88,8 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
         return Ok(());
     };
 
-    // Languages the congregation declared: `rust#1.70.0` -> ("rust", "1.70.0").
-    let declared: Vec<DeclaredLang> = config_units
-        .iter()
-        .filter_map(|u| match u {
-            ConfigUnit::CodeGeneration(g) => {
-                g.name.split_once('#').map(|(lang, ver)| DeclaredLang {
-                    language: lang.to_owned(),
-                    lang_version: ver.to_owned(),
-                })
-            }
-            _ => None,
-        })
-        .collect();
+    // Languages the congregation declared: `rust#1.85.0` -> ("rust", "1.85.0").
+    let declared: Vec<DeclaredLang> = lang_targets::declared(config_units);
 
     let spec_version = config_units
         .iter()
@@ -165,18 +155,29 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
         // for one named by a `[[generate.target]]`, so it says what to do
         // about it: `only` is how a consumer whose binary can't produce a
         // language says so on purpose.
-        let Some((generator, ext)) = registry.find(&t.language, &t.lang_version) else {
-            return Err(miette!(
-                "no generator for `{}` (version `{}`)\n  \
-                 help: this build of comline has no {} generator. Install one that \
-                 does, or narrow the set in {}:\n      \
-                 [generate]\n      only = [...]",
-                t.language,
-                t.lang_version,
-                t.language,
-                gen_config::FILE_NAME,
-            ));
-        };
+        let resolved: Resolved =
+            match lang_targets::resolve(&registry, &context, &t.language, &t.lang_version) {
+                Ok(resolved) => resolved,
+                Err(TargetError::Unresolved(Unresolved::UnknownLanguage { .. })) => {
+                    return Err(miette!(
+                        "no generator for `{}` (version `{}`)\n  \
+                     help: this build of comline has no {} generator. Install one that \
+                     does, or narrow the set in {}:\n      \
+                     [generate]\n      only = [...]",
+                        t.language,
+                        t.lang_version,
+                        t.language,
+                        gen_config::FILE_NAME,
+                    ))
+                }
+                Err(e) => return Err(miette!("target `{}`: {e}", t.language)),
+            };
+        match lang_targets::unverified(&context, &t.language, &resolved) {
+            Ok(Some(warning)) => ui::warn(warning),
+            Ok(None) => {}
+            Err(error) => return Err(miette!("target `{}`: {error}", t.language)),
+        }
+        let (generator, ext) = (resolved.generator.generate, resolved.generator.ext);
 
         let versions = expand_versions(&t.versions, work_dir, &live_schemas)?;
         if mode == Mode::Lib && versions.len() > 1 {
@@ -229,11 +230,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
             // schema and a parent of deeper schemas), not source *text* -
             // they carry no span to render a snippet against, so there's
             // nothing for the multi-line branch there to do.
-            warn_ignored(
-                &t.language,
-                &request,
-                registry.support(&t.language, &t.lang_version),
-            );
+            warn_ignored(&t.language, &request, &resolved);
             let files =
                 generator(&request).map_err(|e| miette!("`{}` generator: {e}", t.language))?;
 
@@ -402,17 +399,16 @@ fn gen_version_from_commit(
 /// generates, but without the feature (a TypeScript target with
 /// `@validators` gets the types, not the checks). An unsupported feature
 /// needs nothing here: the generator refuses it, naming every use.
-fn warn_ignored(language: &str, request: &GenRequest, support: Option<features::SupportTable>) {
-    let Some(support) = support else { return };
+fn warn_ignored(language: &str, request: &GenRequest, resolved: &Resolved) {
     let uses = features::used(request.schemas, &features::Options::of(request));
     let mut ignored: BTreeMap<features::Feature, Vec<&features::FeatureUse>> = BTreeMap::new();
     for u in &uses {
-        if features::support_for(support, u.feature).state == features::State::Ignored {
+        if resolved.support(u.feature).state == features::State::Ignored {
             ignored.entry(u.feature).or_default().push(u);
         }
     }
     for (feature, uses) in ignored {
-        let s = features::support_for(support, feature);
+        let s = resolved.support(feature);
         let mut message = format!("`{language}` ignores {}", feature.title());
         if let Some(note) = s.note {
             message.push_str(&format!(": {note}"));
