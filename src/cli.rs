@@ -336,10 +336,12 @@ Examples:
 
     /// Print every language#version this build can generate, to stdout
     #[command(long_about = "\
-Print one `language#version` per line — the exact token syntax `config.idp`'s \
-`code_generation.languages` expects — for every generator this binary of \
-`comline` was compiled with. Ignores `--path`: this reflects the build, not \
-any particular project.
+Print one line per generator this binary of `comline` was compiled with: \
+its `language#version` token, the syntax `config.idp`'s \
+`code_generation.languages` expects, then in parentheses the versions it \
+handles. The version in the token is the lowest; a declared version is a \
+minimum, so any later one it handles works too. Ignores `--path`: this \
+reflects the build, not any particular project.
 
 With `--features`, also what each generator implements, feature by feature: \
 supported, partial, ignored (generated without it) or unsupported (refused), \
@@ -349,6 +351,7 @@ same as JSON.
 Examples:
   comline targets
   comline targets | grep '^rust#'
+  comline targets | cut -d' ' -f1
   comline targets --features
   comline targets --features --json")]
     Targets {
