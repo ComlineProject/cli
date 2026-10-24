@@ -778,3 +778,57 @@ fn an_ignored_feature_is_a_warning() {
         .stderr(predicate::str::contains("`typescript` ignores validators: the types are generated; the checks aren't run yet (core#96)"))
         .stderr(predicate::str::contains("used by schema 'accounts', type alias 'Handle'"));
 }
+
+/// `async = true` in `comline.toml`: a protocol on a connection is generated
+/// for the async driver; without it, the blocking one.
+#[test]
+fn async_generates_connection_protocols_for_the_async_driver() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    fs::write(
+        project.join("src/link.ids"),
+        "protocol Link {\n    function send(n: u32) -> u32;\n}\n",
+    )
+    .unwrap();
+    // On a connection by the package default rather than `@framing`, which
+    // settings forbid by default.
+    fs::write(
+        project.join("comline.toml"),
+        "[generate]\ndefault_framing = \"datagram@2\"\n",
+    )
+    .unwrap();
+    let generate = |project: &std::path::Path| {
+        comline_cmd()
+            .current_dir(project)
+            .args(["generate", "--target", "rust"])
+            .assert()
+            .success();
+        fs::read_to_string(project.join("generated/rust/link.rs")).unwrap()
+    };
+
+    let blocking = generate(&project);
+    assert!(
+        blocking.contains("pub struct LinkDispatcher<S>(pub S);"),
+        "{blocking}"
+    );
+    assert!(!blocking.contains("Async"), "{blocking}");
+
+    fs::write(
+        project.join("comline.toml"),
+        "[generate]\ndefault_framing = \"datagram@2\"\nasync = true\n",
+    )
+    .unwrap();
+    let asynchronous = generate(&project);
+    assert!(
+        asynchronous.contains("pub struct LinkAsyncDispatcher<S>(pub S);"),
+        "{asynchronous}"
+    );
+    assert!(
+        asynchronous.contains("pub struct LinkAsyncSender<'p, P: AsyncPeer>(pub &'p P);"),
+        "{asynchronous}"
+    );
+    assert!(
+        asynchronous.contains("features = [\"async\"]"),
+        "the code-mode note names the runtime feature"
+    );
+}
