@@ -832,3 +832,37 @@ fn async_generates_connection_protocols_for_the_async_driver() {
         "the code-mode note names the runtime feature"
     );
 }
+
+/// `async = true` with no protocol on a connection changes nothing, so
+/// generate says so; with one, it doesn't.
+#[test]
+fn async_without_a_connection_protocol_warns() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    fs::write(
+        project.join("src/link.ids"),
+        "protocol Link {\n    function send(n: u32) -> u32;\n}\n",
+    )
+    .unwrap();
+    let warning = "`async = true`, but no protocol runs on a connection";
+
+    fs::write(project.join("comline.toml"), "[generate]\nasync = true\n").unwrap();
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(warning));
+
+    fs::write(
+        project.join("comline.toml"),
+        "[generate]\ndefault_framing = \"datagram@2\"\nasync = true\n",
+    )
+    .unwrap();
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(warning).not());
+}

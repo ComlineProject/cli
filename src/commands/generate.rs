@@ -232,6 +232,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
             // they carry no span to render a snippet against, so there's
             // nothing for the multi-line branch there to do.
             warn_ignored(&t.language, &request, &resolved);
+            warn_async_unused(&t.language, &request);
             let files =
                 generator(&request).map_err(|e| miette!("`{}` generator: {e}", t.language))?;
 
@@ -394,6 +395,24 @@ fn gen_version_from_commit(
         package_version: version.to_owned(),
         schemas,
     })
+}
+
+/// `async = true` changes only protocols on a connection; with none, the
+/// output is the same as without it, which looks like the setting did nothing.
+fn warn_async_unused(language: &str, request: &GenRequest) {
+    if !request.async_api {
+        return;
+    }
+    let uses = features::used(request.schemas, &features::Options::of(request));
+    if uses.iter().any(|u| u.feature == features::Feature::Async) {
+        return;
+    }
+    ui::warn(format!(
+        "`{language}`: `async = true`, but no protocol runs on a connection, so the output \
+         is the same as without it - a protocol is on one with `@provider = Client` or \
+         `Multiple`, a `datagram@2` framing, or JSON-RPC once any of the package's JSON-RPC \
+         protocols is client-provided"
+    ));
 }
 
 /// A warning per feature `request` uses that this generator ignores - it
