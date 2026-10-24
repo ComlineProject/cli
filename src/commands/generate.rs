@@ -12,7 +12,9 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use comline_codegen::{features, GenRequest, Mode, PackageMeta, Registry, Resolved, Unresolved};
+use comline_codegen::{
+    connections, features, GenRequest, Mode, PackageMeta, Registry, Resolved, Unresolved,
+};
 use comline_core::package::build::{self, cas::ObjectStore};
 use comline_core::package::config::ir::frozen::{self, FrozenUnit as ConfigUnit};
 use comline_core::schema::idl::constants::SCHEMA_EXTENSION;
@@ -236,6 +238,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
             // nothing for the multi-line branch there to do.
             warn_ignored(&t.language, &request, &resolved);
             warn_async_unused(&t.language, &request);
+            warn_no_package_connection(&t.language, &request);
             let files =
                 generator(&request).map_err(|e| miette!("`{}` generator: {e}", t.language))?;
 
@@ -423,6 +426,18 @@ fn warn_async_unused(language: &str, request: &GenRequest) {
          framing (the default, `datagram@2`, is a connection), or on JSON-RPC with none of \
          the package's JSON-RPC protocols client-provided"
     ));
+}
+
+/// The package's `serve` / `connect` need its protocols on one connection;
+/// when they disagree on the framing or handshake, the generators leave them
+/// out, which would otherwise look like they forgot.
+fn warn_no_package_connection(language: &str, request: &GenRequest) {
+    if let Err(reason) = connections::package_connection(request.schemas) {
+        ui::warn(format!(
+            "`{language}`: no package `serve` / `connect` - {reason}; each protocol still has \
+             its own"
+        ));
+    }
 }
 
 /// A warning per feature `request` uses that this generator ignores - it
