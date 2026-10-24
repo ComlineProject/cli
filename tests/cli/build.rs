@@ -129,3 +129,31 @@ fn refuses_a_declaration_below_a_dependencys() {
         "`rust#1.85.0` is older than dependency `shared` allows: it declares `rust#1.90.0`",
     ));
 }
+
+#[test]
+fn refuses_bare_jsonrpc_names_that_would_clash_on_a_connection() {
+    let allow_framing = "\nsettings = {\n    annotations = {\n        framing = {\n            allowed = true\n        }\n    }\n}\n";
+    let schema = |admin_framing: &str| {
+        format!(
+            "@framing = \"jsonrpc\"\nprotocol Chat {{\n    function send(text: string) -> u64;\n}}\n\n\
+             @framing = {admin_framing}\nprotocol Admin {{\n    function send(text: string) -> u64;\n}}\n\n\
+             @provider = Client\n@framing = \"jsonrpc\"\nprotocol Events {{\n    function ping();\n}}\n"
+        )
+    };
+
+    let temp = tempfile::tempdir().unwrap();
+    let project = declaring(temp.path(), "rust#1.85.0 = {}", allow_framing);
+    std::fs::write(project.join("src/link.ids"), schema("\"jsonrpc\"")).unwrap();
+    build(&project).failure().stderr(predicate::str::contains(
+        "every target: protocols `link::Chat` and `link::Admin` both have a function `send`",
+    ));
+    assert!(!project.join(".comline").exists(), "nothing was frozen");
+
+    // Qualified, the two `send`s are told apart.
+    std::fs::write(
+        project.join("src/link.ids"),
+        schema("{ name = \"jsonrpc\", method_names = qualified }"),
+    )
+    .unwrap();
+    build(&project).success();
+}
