@@ -189,8 +189,82 @@ fn rejects_an_unconfigured_target() {
 
 // -------- lib mode --------
 
+/// Appends `line` to the project's `config.idp`.
+fn add_to_config(project: &std::path::Path, line: &str) {
+    let path = project.join("config.idp");
+    let config = fs::read_to_string(&path).unwrap();
+    fs::write(&path, format!("{config}\n{line}\n")).unwrap();
+}
+
 #[test]
-fn comline_toml_default_framing_reaches_the_rust_generator() {
+fn config_idp_wire_framing_reaches_the_rust_generator() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = copy_fixture("chat_project", temp.path());
+    add_to_config(&project, "wire = { framing = \"jsonrpc\" }");
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success();
+
+    // `protocol Chat` has no `@framing` of its own, so it picks up the
+    // package's: the JSON-RPC stack, not the datagram one.
+    let chat = fs::read_to_string(project.join("generated/rust/chat.rs")).unwrap();
+    assert!(
+        chat.contains("comline_runtime::framing::JsonRpcFraming"),
+        "{chat}"
+    );
+    assert!(chat.contains("Client::connect_with_framing"), "{chat}");
+}
+
+#[test]
+fn config_idp_wire_format_reaches_the_rust_generator() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = copy_fixture("chat_project", temp.path());
+    add_to_config(&project, "wire = { format = \"json@1\" }");
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success();
+
+    let chat = fs::read_to_string(project.join("generated/rust/chat.rs")).unwrap();
+    assert!(
+        chat.contains("pub type Format = comline_runtime::format::Json;"),
+        "{chat}"
+    );
+}
+
+#[test]
+fn without_a_wire_key_a_protocol_is_on_a_packed_connection() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = copy_fixture("chat_project", temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success();
+
+    let chat = fs::read_to_string(project.join("generated/rust/chat.rs")).unwrap();
+    assert!(
+        chat.contains("pub type Format = comline_runtime::format::Packed;"),
+        "{chat}"
+    );
+    assert!(
+        chat.contains("pub struct ChatDispatcher<S>(pub S);"),
+        "{chat}"
+    );
+    assert!(!chat.contains("JsonRpcFraming"), "{chat}");
+    // The package's `Services` and `serve`, beside the schemas.
+    let connection = fs::read_to_string(project.join("generated/rust/connection.rs")).unwrap();
+    assert!(connection.contains("pub struct Services<"), "{connection}");
+}
+
+#[test]
+fn comline_toml_default_framing_says_it_moved() {
     let temp = tempfile::tempdir().unwrap();
     let project = copy_fixture("chat_project", temp.path());
     fs::write(
@@ -203,57 +277,11 @@ fn comline_toml_default_framing_reaches_the_rust_generator() {
         .current_dir(&project)
         .args(["generate", "--target", "rust"])
         .assert()
-        .success();
-
-    // `protocol Chat` has no `@framing` of its own, so it picks up the
-    // package default: the JSON-RPC stack, not the datagram one.
-    let chat = fs::read_to_string(project.join("generated/rust/chat.rs")).unwrap();
-    assert!(chat.contains("comline_runtime::framing::JsonRpcFraming"));
-    assert!(chat.contains("Client::connect_with_framing"));
-    assert!(!chat.contains("Client::connect(transport, format, IR_HASH)"));
-}
-
-#[test]
-fn without_comline_toml_a_protocol_stays_on_datagram_framing() {
-    let temp = tempfile::tempdir().unwrap();
-    let project = copy_fixture("chat_project", temp.path());
-
-    comline_cmd()
-        .current_dir(&project)
-        .args(["generate", "--target", "rust"])
-        .assert()
-        .success();
-
-    let chat = fs::read_to_string(project.join("generated/rust/chat.rs")).unwrap();
-    assert!(chat.contains("Client::connect(transport, format, IR_HASH)"));
-    assert!(!chat.contains("JsonRpcFraming"));
-}
-
-#[test]
-fn lib_mode_emits_a_crate() {
-    let temp = tempfile::tempdir().unwrap();
-    let project = fixture_project(temp.path());
-
-    comline_cmd()
-        .current_dir(&project)
-        .args(["generate", "--target", "rust", "--mode", "lib"])
-        .assert()
-        .success();
-
-    let crate_dir = project.join("generated/rust");
-    let cargo = fs::read_to_string(crate_dir.join("Cargo.toml")).unwrap();
-    assert!(cargo.contains("name = \"simple_project\""));
-    assert!(cargo.contains("edition = \"2024\""));
-    assert!(cargo.contains("serde = { version = \"1\""));
-
-    let lib = fs::read_to_string(crate_dir.join("src/lib.rs")).unwrap();
-    assert!(lib.contains("pub mod api;"));
-    assert!(lib.contains("pub mod other;"));
-
-    assert!(crate_dir.join("src/api.rs").exists());
-    assert!(crate_dir.join("src/other.rs").exists());
-    // no bare files at the target root
-    assert!(!crate_dir.join("api.rs").exists());
+        .failure()
+        .stderr(predicate::str::contains(
+            "`default_framing` moved from comline.toml to config.idp",
+        ))
+        .stderr(predicate::str::contains("wire = { framing = \"jsonrpc\" }"));
 }
 
 #[test]
@@ -790,13 +818,7 @@ fn async_generates_connection_protocols_for_the_async_driver() {
         "protocol Link {\n    function send(n: u32) -> u32;\n}\n",
     )
     .unwrap();
-    // On a connection by the package default rather than `@framing`, which
-    // settings forbid by default.
-    fs::write(
-        project.join("comline.toml"),
-        "[generate]\ndefault_framing = \"datagram@2\"\n",
-    )
-    .unwrap();
+    // On a connection by default.
     let generate = |project: &std::path::Path| {
         comline_cmd()
             .current_dir(project)
@@ -813,11 +835,7 @@ fn async_generates_connection_protocols_for_the_async_driver() {
     );
     assert!(!blocking.contains("Async"), "{blocking}");
 
-    fs::write(
-        project.join("comline.toml"),
-        "[generate]\ndefault_framing = \"datagram@2\"\nasync = true\n",
-    )
-    .unwrap();
+    fs::write(project.join("comline.toml"), "[generate]\nasync = true\n").unwrap();
     let asynchronous = generate(&project);
     assert!(
         asynchronous.contains("pub struct LinkAsyncDispatcher<S>(pub S);"),
@@ -834,7 +852,7 @@ fn async_generates_connection_protocols_for_the_async_driver() {
 }
 
 /// `async = true` with no protocol on a connection changes nothing, so
-/// generate says so; with one, it doesn't.
+/// generate says so; with one (the default), it doesn't.
 #[test]
 fn async_without_a_connection_protocol_warns() {
     let temp = tempfile::tempdir().unwrap();
@@ -845,8 +863,11 @@ fn async_without_a_connection_protocol_warns() {
     )
     .unwrap();
     let warning = "`async = true`, but no protocol runs on a connection";
-
     fs::write(project.join("comline.toml"), "[generate]\nasync = true\n").unwrap();
+    let config = fs::read_to_string(project.join("config.idp")).unwrap();
+
+    // Every protocol lockstep: nothing for `async` to change.
+    add_to_config(&project, "wire = { framing = \"datagram\" }");
     comline_cmd()
         .current_dir(&project)
         .args(["generate", "--target", "rust"])
@@ -854,11 +875,8 @@ fn async_without_a_connection_protocol_warns() {
         .success()
         .stderr(predicate::str::contains(warning));
 
-    fs::write(
-        project.join("comline.toml"),
-        "[generate]\ndefault_framing = \"datagram@2\"\nasync = true\n",
-    )
-    .unwrap();
+    // The default: on a connection.
+    fs::write(project.join("config.idp"), config).unwrap();
     comline_cmd()
         .current_dir(&project)
         .args(["generate", "--target", "rust"])

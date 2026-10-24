@@ -23,7 +23,7 @@ use comline_codegen::versions::LangVersion;
 use comline_codegen::{Registry, Resolved, Unresolved};
 use comline_core::diagnostics::{Diagnostic, DiagnosticCode};
 use comline_core::package::config::ir::context::ProjectContext;
-use comline_core::package::config::ir::frozen::FrozenUnit as ConfigUnit;
+use comline_core::package::config::ir::frozen::{self, FrozenUnit as ConfigUnit};
 use comline_core::schema::ir::compiler::settings::severity::resolve_diagnostic_overrides;
 use comline_core::schema::ir::frozen::unit::FrozenUnit;
 use comline_core::settings::effective::package_settings;
@@ -201,8 +201,12 @@ pub fn check_declared(context: &ProjectContext, registry: &Registry) -> eyre::Re
             }
         };
         // Options a consumer picks in `comline.toml` aren't the package's
-        // promise, so only what the schemas themselves use is checked.
-        if let Some(refusal) = unsupported(&d.language, &resolved, &schemas, &Options::default()) {
+        // promise, so only what the schemas and config.idp use is checked.
+        let options = Options {
+            wire_format: Some(frozen::wire_format(config).to_string()),
+            ..Options::default()
+        };
+        if let Some(refusal) = unsupported(&d.language, &resolved, &schemas, &options) {
             problems.push(format!("`{}#{}`: {refusal}", d.language, d.lang_version));
         }
         match unverified(context, &d.language, &resolved) {
@@ -214,7 +218,7 @@ pub fn check_declared(context: &ProjectContext, registry: &Registry) -> eyre::Re
 
     // JSON-RPC protocols on one connection whose bare method names a side
     // couldn't tell apart: no generator can emit them.
-    for clash in comline_codegen::connections::bare_name_clashes(&schemas, None) {
+    for clash in comline_codegen::connections::bare_name_clashes(&schemas) {
         problems.push(format!("every target: {clash}"));
     }
 

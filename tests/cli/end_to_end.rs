@@ -1,7 +1,8 @@
 //! The whole pipeline, for real: a `.comline` schema with a `protocol` →
 //! `comline generate --mode lib` → the emitted crate is compiled against
 //! `comline-runtime` and a hand-written driver runs a client ⇆ provider
-//! round-trip over an in-memory transport (a request/response call, a raised
+//! round-trip over an in-memory transport, through the package's `serve` and
+//! `connect` (a request/response call, a raised
 //! typed error, the *second* of two declared errors, a provider fault, a
 //! one-way notify).
 //!
@@ -18,11 +19,9 @@ const DRIVER: &str = r#"
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use chat_e2e::chat::{
-    Chat, ChatClient, ChatDispatcher, ChatSendError, Message, Rejected, TooLong,
-};
-use comline_runtime::contract::{CallError, Fault, RuntimeError};
-use comline_runtime::format::MsgPack;
+use chat_e2e::chat::{Chat, ChatSendError, ChatSender, Message, Rejected, TooLong};
+use chat_e2e::{connect, serve, Services};
+use comline_runtime::contract::{CallError, Fault, Peer, RuntimeError};
 use comline_runtime::transport::duplex;
 
 struct Svc {
@@ -30,7 +29,7 @@ struct Svc {
 }
 
 impl Chat for Svc {
-    fn send(&self, text: &str) -> Result<Message, Fault<ChatSendError>> {
+    fn send(&self, _peer: &mut impl Peer, text: &str) -> Result<Message, Fault<ChatSendError>> {
         if text.is_empty() {
             // A declared error: `From<E> for Fault<E>` means `?`/`.into()`
             // works, but spell it out here so the test pins the shape.
@@ -49,7 +48,7 @@ impl Chat for Svc {
         }
         Ok(Message { body: format!("echo: {text}"), seq: 1 })
     }
-    fn note(&self, text: &str) {
+    fn note(&self, _peer: &mut impl Peer, text: &str) {
         self.notes.lock().unwrap().push(text.to_string());
     }
 }
@@ -60,17 +59,16 @@ fn client_and_provider_over_duplex() {
     let notes = Arc::new(Mutex::new(Vec::new()));
     let notes_for_svc = notes.clone();
 
-    // Provider: the generated `serve` helper runs the connection handshake
-    // (IR_HASH + format and framing names) before serving.
+    // Provider: the package's `serve` runs the connection handshake
+    // (the connection hash + format and framing names), then serves every
+    // protocol in `Services`, over the package format (`packed@1`).
     let provider = thread::spawn(move || {
-        let mut provider_side = provider_side;
-        ChatDispatcher(Svc { notes: notes_for_svc })
-            .serve(&mut provider_side, MsgPack)
-            .unwrap();
+        serve(provider_side, Services { chat: Svc { notes: notes_for_svc } }).unwrap();
     });
 
-    // Client: the generated `connect` helper does the matching handshake.
-    let mut client = ChatClient::connect(client_side, MsgPack).expect("handshake");
+    // Client: the package's `connect` does the matching handshake.
+    let mut conn = connect(client_side).expect("handshake");
+    let mut client = ChatSender::new(&mut conn);
 
     assert_eq!(client.send("hi").unwrap().body, "echo: hi");
 
@@ -108,7 +106,7 @@ fn client_and_provider_over_duplex() {
 
     client.note("saved").unwrap(); // one-way
 
-    drop(client);
+    drop(conn);
     provider.join().unwrap();
 
     assert_eq!(&*notes.lock().unwrap(), &["saved".to_string()]);
@@ -157,16 +155,16 @@ fn a_generated_protocol_crate_runs_a_real_round_trip() {
 const VALIDATED_DRIVER: &str = r#"
 use std::thread;
 
-use comline_runtime::contract::{CallError, Fault, RuntimeError};
-use comline_runtime::format::MsgPack;
+use comline_runtime::contract::{CallError, Fault, Peer, RuntimeError};
 use comline_runtime::transport::duplex;
 use comline_runtime::validation::Validate;
-use validated_e2e::accounts::{Account, Accounts, AccountsClient, AccountsDispatcher, AccountsRenameError};
+use validated_e2e::accounts::{Account, Accounts, AccountsRenameError, AccountsSender};
+use validated_e2e::{connect, serve, Services};
 
 struct Svc;
 
 impl Accounts for Svc {
-    fn rename(&self, to: String) -> Result<Account, Fault<AccountsRenameError>> {
+    fn rename(&self, _peer: &mut impl Peer, to: String) -> Result<Account, Fault<AccountsRenameError>> {
         Ok(Account { handle: to, nickname: None, friends: vec![] })
     }
 }
@@ -194,10 +192,10 @@ fn std_validators_run_through_an_alias() {
 fn a_call_with_arguments_failing_their_checks_is_refused() {
     let (client_side, provider_side) = duplex();
     let provider = thread::spawn(move || {
-        let mut provider_side = provider_side;
-        AccountsDispatcher(Svc).serve(&mut provider_side, MsgPack).unwrap();
+        serve(provider_side, Services { accounts: Svc }).unwrap();
     });
-    let mut client = AccountsClient::connect(client_side, MsgPack).expect("handshake");
+    let mut conn = connect(client_side).expect("handshake");
+    let mut client = AccountsSender::new(&mut conn);
 
     assert_eq!(client.rename("ada".into()).unwrap().handle, "ada");
     match client.rename("x".into()).unwrap_err() {
@@ -207,7 +205,7 @@ fn a_call_with_arguments_failing_their_checks_is_refused() {
     // and the connection survives it
     assert_eq!(client.rename("bob".into()).unwrap().handle, "bob");
 
-    drop(client);
+    drop(conn);
     provider.join().unwrap();
 }
 "#;

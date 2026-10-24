@@ -15,7 +15,6 @@ use comline_codegen::validation::ValidateOnDecode;
 use comline_codegen::versions::LangVersion;
 use comline_core::schema::idl::annotations;
 use comline_core::utils::templating::recurse_render;
-use comline_core::utils::text::closest;
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
 use serde::{Deserialize, Serialize};
 
@@ -105,10 +104,8 @@ pub struct Generate {
     pub mode: Option<String>,
     /// Version selection shared by every target unless overridden.
     pub package_versions: Option<VersionSpec>,
-    /// Fallback wire framing for protocols that do not pick one with `@framing`,
-    /// shared by every target unless overridden. One of `@framing`'s accepted
-    /// spellings (`"jsonrpc"`, `"datagram"`, …), folded onto its canonical
-    /// form; an unknown one is an error.
+    /// Moved to config.idp's `wire = { framing = "..." }`: the framing is part
+    /// of the schema, which both ends must agree on. Read only to say so.
     pub default_framing: Option<String>,
     /// `true`: reference `comline_std` as its own crate instead of inlining
     /// it, shared by every target unless overridden. Only a generator that
@@ -221,8 +218,6 @@ pub struct ResolvedTarget {
     pub layout: String,
     pub mode: String,
     pub versions: VersionSpec,
-    /// Fallback framing handed to the generator; `None` ⇒ its built-in default.
-    pub default_framing: Option<String>,
     /// `lib` mode only — see [`Target::flatten`].
     pub flatten: bool,
     /// See [`Generate::external_std`].
@@ -304,6 +299,12 @@ pub fn resolve(
     work_dir: &Path,
     ov: &Overrides,
 ) -> Result<Vec<ResolvedTarget>> {
+    let moved = std::iter::once(&cfg.generate.default_framing)
+        .chain(cfg.generate.targets.iter().map(|t| &t.default_framing));
+    if let Some(written) = moved.flatten().next() {
+        return Err(moved_default_framing(written));
+    }
+
     let declares = |language: &str| {
         declared
             .iter()
@@ -527,16 +528,6 @@ pub fn resolve(
             .or_else(|| cfg.generate.package_versions.clone())
             .unwrap_or_default();
 
-        // `[[target]]` wins over `[generate]`; `None` at both ⇒ the generator's
-        // built-in default. No flag / env override — schema-shaping config, not
-        // a per-run knob.
-        let default_framing = t
-            .default_framing
-            .as_deref()
-            .or(cfg.generate.default_framing.as_deref())
-            .map(|written| canonical_framing(written, &t.language))
-            .transpose()?;
-
         resolved.push(ResolvedTarget {
             language: t.language.clone(),
             lang_version,
@@ -544,7 +535,6 @@ pub fn resolve(
             layout,
             mode,
             versions,
-            default_framing,
             flatten: t.flatten,
             external_std,
             validate_on_decode,
@@ -555,27 +545,16 @@ pub fn resolve(
     Ok(resolved)
 }
 
-/// Fold a `default_framing` onto the canonical spelling `@framing` uses, the
-/// same table core checks `@framing` against. An unknown name is an error:
-/// each generator falls back to datagram for a name it doesn't recognise, so
-/// a typo would otherwise generate the wrong framing and only surface as a
-/// refused handshake.
-fn canonical_framing(written: &str, language: &str) -> Result<String> {
-    if let Some(canonical) = annotations::canonical_value("framing", written) {
-        return Ok(canonical.to_string());
-    }
-    let spellings = annotations::value_spellings("framing");
-    let hint = closest(written, spellings.iter().copied())
-        .map(|s| format!(" - did you mean `{s}`?"))
-        .unwrap_or_default();
-    Err(miette!(
-        "`default_framing = \"{written}\"` for target `{language}` - expected one of {}{hint}",
-        spellings
-            .iter()
-            .map(|n| format!("`{n}`"))
-            .collect::<Vec<_>>()
-            .join(", ")
-    ))
+/// `default_framing` left `comline.toml`: the framing is part of the schema,
+/// which both ends of a connection must agree on, so the package declares it.
+fn moved_default_framing(written: &str) -> miette::Report {
+    let framing = annotations::canonical_value("framing", written).unwrap_or(written);
+    miette!(
+        "`default_framing` moved from {FILE_NAME} to config.idp\n  \
+         help: drop it here, and declare the package's framing in config.idp:\n      \
+         wire = {{ framing = \"{framing}\" }}\n  \
+         Protocols with no `@framing` default to `datagram@2` without it."
+    )
 }
 
 #[cfg(test)]
@@ -745,29 +724,6 @@ mod tests {
         assert_eq!(resolved[0].out, Path::new("/x/here"));
     }
 
-    #[test]
-    fn default_framing_section_reaches_a_declared_target() {
-        let cfg = parse("[generate]\ndefault_framing = \"jsonrpc\"\n");
-        let declared = [DeclaredLang {
-            language: "rust".into(),
-            lang_version: "1.80".into(),
-        }];
-        let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
-        assert_eq!(resolved[0].default_framing.as_deref(), Some("jsonrpc"));
-    }
-
-    #[test]
-    fn target_default_framing_wins_over_section() {
-        let cfg = parse(
-            "[generate]\ndefault_framing = \"jsonrpc\"\n\n\
-             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n\
-             default_framing = \"datagram\"\n",
-        );
-        let declared = [];
-        let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
-        assert_eq!(resolved[0].default_framing.as_deref(), Some("datagram"));
-    }
-
     /// `lib` writes the package manifest, so the generator can add
     /// `comline_std` to it; `code` emits loose files with nowhere to put a
     /// dependency, so inlining stays the honest default there.
@@ -848,17 +804,6 @@ mod tests {
             "{message}"
         );
         assert!(message.contains("never lower it"), "{message}");
-    }
-
-    #[test]
-    fn default_framing_absent_is_none() {
-        let cfg = parse("[generate]\n");
-        let declared = [DeclaredLang {
-            language: "rust".into(),
-            lang_version: "1.80".into(),
-        }];
-        let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
-        assert_eq!(resolved[0].default_framing, None);
     }
 
     #[test]
@@ -990,26 +935,37 @@ mod tests {
     }
 
     #[test]
-    fn default_framing_is_folded_onto_its_canonical_spelling() {
-        let cfg = parse(
-            "[generate]\ndefault_framing = \"json-rpc\"\n\n\
-             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n",
+    fn default_framing_says_it_moved_to_config_idp() {
+        let cfg = parse("[generate]\ndefault_framing = \"json-rpc\"\n");
+        let declared = [DeclaredLang {
+            language: "rust".into(),
+            lang_version: "1.80".into(),
+        }];
+        let error = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap_err();
+        let message = error.to_string();
+        assert!(
+            message.contains("moved from comline.toml to config.idp"),
+            "{message}"
         );
-        let resolved = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap();
-        assert_eq!(resolved[0].default_framing.as_deref(), Some("jsonrpc"));
+        // The hint is ready to paste, in the canonical spelling.
+        assert!(
+            message.contains("wire = { framing = \"jsonrpc\" }"),
+            "{message}"
+        );
     }
 
     #[test]
-    fn an_unknown_default_framing_names_the_accepted_values_and_a_near_miss() {
+    fn a_target_default_framing_says_it_moved_too() {
         let cfg = parse(
-            "[generate]\ndefault_framing = \"jsonrcp\"\n\n\
-             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n",
+            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n\
+             default_framing = \"datagram\"\n",
         );
         let error = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap_err();
-        assert_eq!(
-            error.to_string(),
-            "`default_framing = \"jsonrcp\"` for target `rust` - expected one of `jsonrpc`, \
-             `datagram`, `datagram@2` - did you mean `jsonrpc`?"
+        assert!(
+            error
+                .to_string()
+                .contains("wire = { framing = \"datagram\" }"),
+            "{error}"
         );
     }
 

@@ -45,7 +45,6 @@ const COMLINE_TOML: &str = "\
 # mode = \"code\"                                    # code (loose source) | lib (a buildable package); dylib not built yet
 # external_std = false                             # reference `comline_std` rather than inlining std; defaults on in `lib`
 # package_versions = \"latest\"                      # latest | all | [\"0.3.0\", \"0.4.0\"]
-# default_framing = \"jsonrpc\"                      # wire framing for protocols with no `@framing` (else datagram)
 # validate_on_decode = \"off\"                      # run `@validators` while decoding: off | collect | first
 # async = false                                    # protocols on a connection get async handlers and senders
 #
@@ -137,6 +136,9 @@ code_generation = {{
         {language} = {{}}
     }}
 }}
+
+// The wire both ends speak; these are the defaults.
+// wire = {{ format = \"packed@1\" framing = \"datagram@2\" }}
 "
     )
 }
