@@ -12,6 +12,7 @@
 use std::path::{Path, PathBuf};
 
 use comline_codegen::validation::ValidateOnDecode;
+use comline_codegen::versions::LangVersion;
 use comline_core::schema::idl::annotations;
 use comline_core::utils::templating::recurse_render;
 use comline_core::utils::text::closest;
@@ -129,8 +130,9 @@ pub struct Target {
     /// Must match a language the congregation declared under
     /// `code_generation.languages`.
     pub language: String,
-    /// Language/toolchain version selecting the generator (e.g. `1.70.0`).
-    /// Falls back to the version the congregation declared for this language.
+    /// Language/toolchain version selecting the generator (e.g. `1.88.0`).
+    /// Falls back to the version the congregation declared for this language,
+    /// and may raise it but never lower it.
     pub lang_version: Option<String>,
     pub out: Option<String>,
     pub layout: Option<String>,
@@ -477,22 +479,37 @@ pub fn resolve(
             )
         })?;
 
-        let lang_version = t
-            .lang_version
-            .clone()
-            .or_else(|| {
-                declared
-                    .iter()
-                    .find(|d| d.language.eq_ignore_ascii_case(&t.language))
-                    .map(|d| d.lang_version.clone())
-            })
-            .ok_or_else(|| {
-                miette!(
-                    "target `{}` sets no `lang_version` and config.idp does not \
+        let declared_version = declared
+            .iter()
+            .find(|d| d.language.eq_ignore_ascii_case(&t.language))
+            .map(|d| d.lang_version.clone());
+        // `comline.toml` may raise the version, never lower it: config.idp's
+        // is the oldest toolchain the package was proven against. A version
+        // that doesn't parse is left for the registry to name.
+        if let (Some(raised), Some(declared_version)) = (&t.lang_version, &declared_version) {
+            if let (Some(r), Some(d)) = (
+                LangVersion::parse(raised),
+                LangVersion::parse(declared_version),
+            ) {
+                if r < d {
+                    return Err(miette!(
+                        "target `{}` sets `lang_version = \"{raised}\"`, below config.idp's `{}#{declared_version}` \
+                         - {} can raise a target's version, never lower it: the package is only proven \
+                         from `{declared_version}` on",
+                        t.language,
+                        t.language,
+                        FILE_NAME
+                    ));
+                }
+            }
+        }
+        let lang_version = t.lang_version.clone().or(declared_version).ok_or_else(|| {
+            miette!(
+                "target `{}` sets no `lang_version` and config.idp does not \
                      declare that language under `code_generation.languages`",
-                    t.language
-                )
-            })?;
+                t.language
+            )
+        })?;
 
         let versions = t
             .package_versions
@@ -591,7 +608,7 @@ mod tests {
     fn target_package_versions_wins_over_section() {
         let cfg = parse(
             "[generate]\npackage_versions = \"all\"\n\n\
-             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
+             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n\
              package_versions = \"latest\"\n",
         );
         let declared = [];
@@ -603,7 +620,7 @@ mod tests {
         [
             DeclaredLang {
                 language: "rust".into(),
-                lang_version: "1.70.0".into(),
+                lang_version: "1.85.0".into(),
             },
             DeclaredLang {
                 language: "typescript".into(),
@@ -653,7 +670,7 @@ mod tests {
         );
         let declared = [DeclaredLang {
             language: "rust".into(),
-            lang_version: "1.70.0".into(),
+            lang_version: "1.85.0".into(),
         }];
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
         assert_eq!(resolved.len(), 2);
@@ -668,7 +685,7 @@ mod tests {
         let cfg = parse("[[generate.target]]\nlanguage = \"python\"\nlang_version = \"3.11\"\n");
         let declared = [DeclaredLang {
             language: "rust".into(),
-            lang_version: "1.70.0".into(),
+            lang_version: "1.85.0".into(),
         }];
         let err = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default())
             .unwrap_err()
@@ -681,7 +698,7 @@ mod tests {
     /// there is, as they always were.
     #[test]
     fn blocks_stand_alone_when_nothing_is_declared() {
-        let cfg = parse("[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n");
+        let cfg = parse("[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n");
         let resolved = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap();
         assert_eq!(resolved.len(), 1);
         assert_eq!(resolved[0].language, "rust");
@@ -722,7 +739,7 @@ mod tests {
         let cfg = parse("[generate]\ndefault_framing = \"jsonrpc\"\n");
         let declared = [DeclaredLang {
             language: "rust".into(),
-            lang_version: "1.75".into(),
+            lang_version: "1.80".into(),
         }];
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
         assert_eq!(resolved[0].default_framing.as_deref(), Some("jsonrpc"));
@@ -732,7 +749,7 @@ mod tests {
     fn target_default_framing_wins_over_section() {
         let cfg = parse(
             "[generate]\ndefault_framing = \"jsonrpc\"\n\n\
-             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
+             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n\
              default_framing = \"datagram\"\n",
         );
         let declared = [];
@@ -747,7 +764,7 @@ mod tests {
     fn external_std_follows_the_mode() {
         for (mode, expected) in [("code", false), ("lib", true)] {
             let cfg = parse(&format!(
-                "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
+                "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n\
                  mode = \"{mode}\"\n",
             ));
             let resolved = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap();
@@ -760,7 +777,7 @@ mod tests {
     #[test]
     fn an_explicit_false_still_inlines_std_in_lib_mode() {
         let cfg = parse(
-            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
+            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n\
              mode = \"lib\"\nexternal_std = false\n",
         );
         let resolved = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap();
@@ -771,7 +788,7 @@ mod tests {
     fn the_section_default_applies_to_a_code_target_too() {
         let cfg = parse(
             "[generate]\nexternal_std = true\n\n\
-             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n",
+             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n",
         );
         let resolved = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap();
         assert!(resolved[0].external_std, "`code`, but asked for explicitly");
@@ -782,7 +799,7 @@ mod tests {
     #[test]
     fn either_flag_spelling_overrides_the_mode_default() {
         let cfg = parse(
-            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
+            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n\
              mode = \"lib\"\n",
         );
         let off = Overrides {
@@ -792,7 +809,7 @@ mod tests {
         let resolved = resolve(&cfg, &[], Path::new("/x"), &off).unwrap();
         assert!(!resolved[0].external_std, "--no-external-std");
 
-        let cfg = parse("[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n");
+        let cfg = parse("[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n");
         let on = Overrides {
             external_std: Some(true),
             ..Default::default()
@@ -802,11 +819,32 @@ mod tests {
     }
 
     #[test]
+    fn a_target_may_raise_the_declared_version_but_not_lower_it() {
+        let declared = [DeclaredLang {
+            language: "rust".into(),
+            lang_version: "1.88.0".into(),
+        }];
+        let raised = parse("[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.90\"\n");
+        let resolved = resolve(&raised, &declared, Path::new("/x"), &Overrides::default()).unwrap();
+        assert_eq!(resolved[0].lang_version, "1.90");
+
+        let lowered =
+            parse("[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n");
+        let err = resolve(&lowered, &declared, Path::new("/x"), &Overrides::default()).unwrap_err();
+        let message = err.to_string();
+        assert!(
+            message.contains("below config.idp's `rust#1.88.0`"),
+            "{message}"
+        );
+        assert!(message.contains("never lower it"), "{message}");
+    }
+
+    #[test]
     fn default_framing_absent_is_none() {
         let cfg = parse("[generate]\n");
         let declared = [DeclaredLang {
             language: "rust".into(),
-            lang_version: "1.75".into(),
+            lang_version: "1.80".into(),
         }];
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
         assert_eq!(resolved[0].default_framing, None);
@@ -815,7 +853,7 @@ mod tests {
     #[test]
     fn flatten_defaults_to_false_and_is_target_only() {
         let cfg = parse(
-            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
+            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n\
              mode = \"lib\"\nflatten = true\n",
         );
         let declared = [];
@@ -823,7 +861,7 @@ mod tests {
         assert!(resolved[0].flatten);
 
         let cfg = parse(
-            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\nmode = \"lib\"\n",
+            "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\nmode = \"lib\"\n",
         );
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
         assert!(!resolved[0].flatten);
@@ -834,7 +872,7 @@ mod tests {
         let cfg = parse("[generate]\n");
         let declared = [DeclaredLang {
             language: "rust".into(),
-            lang_version: "1.75".into(),
+            lang_version: "1.80".into(),
         }];
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
         assert!(!resolved[0].external_std);
@@ -845,7 +883,7 @@ mod tests {
         let cfg = parse("[generate]\nexternal_std = true\n");
         let declared = [DeclaredLang {
             language: "rust".into(),
-            lang_version: "1.75".into(),
+            lang_version: "1.80".into(),
         }];
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
         assert!(resolved[0].external_std);
@@ -855,7 +893,7 @@ mod tests {
     fn target_external_std_wins_over_section() {
         let cfg = parse(
             "[generate]\nexternal_std = true\n\n\
-             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
+             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n\
              external_std = false\n",
         );
         let declared = [];
@@ -868,7 +906,7 @@ mod tests {
         let cfg = parse("[generate]\nexternal_std = false\n");
         let declared = [DeclaredLang {
             language: "rust".into(),
-            lang_version: "1.75".into(),
+            lang_version: "1.80".into(),
         }];
         let ov = Overrides {
             external_std: Some(true),
@@ -880,7 +918,7 @@ mod tests {
 
     #[test]
     fn validate_on_decode_defaults_to_off() {
-        let cfg = parse("[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n");
+        let cfg = parse("[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n");
         let resolved = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap();
         assert_eq!(resolved[0].validate_on_decode, ValidateOnDecode::Off);
     }
@@ -889,7 +927,7 @@ mod tests {
     fn validate_on_decode_target_wins_over_section_and_the_flag_over_both() {
         let cfg = parse(
             "[generate]\nvalidate_on_decode = \"collect\"\n\n\
-             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\
+             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n\
              validate_on_decode = \"first\"\n",
         );
         let resolved = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap();
@@ -907,7 +945,7 @@ mod tests {
     fn default_framing_is_folded_onto_its_canonical_spelling() {
         let cfg = parse(
             "[generate]\ndefault_framing = \"json-rpc\"\n\n\
-             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n",
+             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n",
         );
         let resolved = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap();
         assert_eq!(resolved[0].default_framing.as_deref(), Some("jsonrpc"));
@@ -917,7 +955,7 @@ mod tests {
     fn an_unknown_default_framing_names_the_accepted_values_and_a_near_miss() {
         let cfg = parse(
             "[generate]\ndefault_framing = \"jsonrcp\"\n\n\
-             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n",
+             [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n",
         );
         let error = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap_err();
         assert_eq!(
@@ -931,7 +969,7 @@ mod tests {
     fn an_unknown_validate_on_decode_names_the_accepted_values() {
         let cfg = parse(
             "[generate]\nvalidate_on_decode = \"always\"\n\n\
-                         [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n",
+                         [[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n",
         );
         let error = resolve(&cfg, &[], Path::new("/x"), &Overrides::default()).unwrap_err();
         assert_eq!(

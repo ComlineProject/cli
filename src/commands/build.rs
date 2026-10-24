@@ -1,4 +1,9 @@
 //! `comline build` — compile, validate and freeze a new immutable version.
+//!
+//! Before freezing, every target declared under `code_generation.languages`
+//! is proven against the generators this binary was built with
+//! ([`lang_targets::check_declared`]): a declaration is a promise consumers
+//! rely on.
 
 use std::path::Path;
 
@@ -6,7 +11,9 @@ use comline_core::package::build::{self, VersionBump};
 use miette::Result;
 
 use crate::changes;
+use crate::commands::generate::generator_registry;
 use crate::commands::{core_err, ensure_project};
+use crate::lang_targets;
 use crate::ui;
 use crate::watch;
 
@@ -23,11 +30,21 @@ pub fn run(work_dir: &Path, watching: bool) -> Result<()> {
 fn build_once(work_dir: &Path) -> Result<()> {
     ui::step(format!("Building project{}", ui::at_path(work_dir)));
     let spinner = ui::spinner("compiling schemas");
-    let result = build::build(work_dir);
+    let registry = generator_registry();
+    let mut target_warnings = Vec::new();
+    let result = build::build_with(work_dir, |context| {
+        target_warnings = lang_targets::check_declared(context, &registry)?;
+        Ok(())
+    });
     ui::finish_spinner(spinner);
 
     let result = result.map_err(|e| core_err("build failed", e))?;
-    for warning in result.context.rendered_warnings() {
+    for warning in result
+        .context
+        .rendered_warnings()
+        .into_iter()
+        .chain(target_warnings)
+    {
         ui::warn(warning);
     }
 

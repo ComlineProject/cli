@@ -5,6 +5,7 @@ use std::process::Command;
 
 use miette::{IntoDiagnostic, Result, WrapErr};
 
+use crate::commands::generate::generator_registry;
 use crate::ui;
 
 const GREETING_IDS: &str = "\
@@ -108,7 +109,23 @@ fn package_ident(name: &str) -> String {
     ident
 }
 
+/// The language a new project declares: Rust at its generator's floor, the
+/// oldest toolchain it generates for. That's the widest promise, and a
+/// consumer can raise a version but never lower it, so a higher one would
+/// shut older toolchains out for good. A binary built without Rust
+/// scaffolds the first language it has.
+fn scaffold_language() -> String {
+    let targets = generator_registry().targets();
+    targets
+        .iter()
+        .find(|t| t.name == "rust")
+        .or(targets.first())
+        .map(|t| format!("{}#{}", t.name, t.version))
+        .unwrap_or_else(|| "rust#1.85.0".to_string())
+}
+
 fn config_idp(name: &str) -> String {
+    let language = scaffold_language();
     format!(
         "\
 congregation {name}
@@ -116,7 +133,7 @@ specification_version = 1
 
 code_generation = {{
     languages = {{
-        rust#1.70.0 = {{}}
+        {language} = {{}}
     }}
 }}
 "

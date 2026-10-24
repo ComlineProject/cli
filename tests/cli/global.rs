@@ -48,6 +48,20 @@ fn targets_are_written_to_stdout_as_language_hash_version() {
         .stderr(predicate::str::is_empty());
 }
 
+/// Each line starts with the token `config.idp` takes, the generator's floor,
+/// then the range it handles.
+#[test]
+fn targets_name_each_generators_floor_and_verified_range() {
+    comline_cmd()
+        .args(["targets"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "rust#1.85.0  (1.85.0 or later; verified up to 1.99, and newer toolchains build its output)",
+        ))
+        .stdout(predicate::str::contains("typescript#5.0  (5.0 or later; verified up to 5.9)"));
+}
+
 #[test]
 fn targets_features_lists_each_generators_support() {
     comline_cmd()

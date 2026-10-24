@@ -110,7 +110,7 @@ fn env_out_applies_in_a_multi_target_config() {
     declare_two_languages(&project);
     fs::write(
         project.join("comline.toml"),
-        "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\n\
+        "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n\n\
          [[generate.target]]\nlanguage = \"python\"\nlang_version = \"3.11.0\"\n",
     )
     .unwrap();
@@ -157,7 +157,7 @@ fn out_flag_needs_target_when_several_are_configured() {
     declare_two_languages(&project);
     fs::write(
         project.join("comline.toml"),
-        "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.70.0\"\n\n\
+        "[[generate.target]]\nlanguage = \"rust\"\nlang_version = \"1.85.0\"\n\n\
          [[generate.target]]\nlanguage = \"python\"\nlang_version = \"3.11.0\"\n",
     )
     .unwrap();
@@ -243,7 +243,7 @@ fn lib_mode_emits_a_crate() {
     let crate_dir = project.join("generated/rust");
     let cargo = fs::read_to_string(crate_dir.join("Cargo.toml")).unwrap();
     assert!(cargo.contains("name = \"simple_project\""));
-    assert!(cargo.contains("edition = \"2021\""));
+    assert!(cargo.contains("edition = \"2024\""));
     assert!(cargo.contains("serde = { version = \"1\""));
 
     let lib = fs::read_to_string(crate_dir.join("src/lib.rs")).unwrap();
@@ -513,7 +513,7 @@ fn declare_two_languages(project: &std::path::Path) {
     fs::write(
         project.join("config.idp"),
         "congregation simple_project\nspecification_version = 1\n\n\
-         code_generation = {\n    languages = {\n        rust#1.70.0 = {}\n\
+         code_generation = {\n    languages = {\n        rust#1.85.0 = {}\n\
          \x20       python#3.11.0 = {}\n    }\n}\n",
     )
     .unwrap();
@@ -652,7 +652,7 @@ fn the_target_line_names_the_mode() {
         .assert()
         .success()
         .stderr(predicate::str::contains(
-            "language: rust, version: 1.70.0, mode: code",
+            "language: rust, version: 1.85.0, mode: code",
         ));
 
     comline_cmd()
@@ -706,7 +706,7 @@ fn lib_mode_links_comline_std_instead_of_inlining_it() {
     let crate_dir = project.join("generated/rust");
     let cargo = fs::read_to_string(crate_dir.join("Cargo.toml")).unwrap();
     assert!(cargo.contains("comline_std = { git"), "{cargo}");
-    assert!(cargo.contains("rust-version = \"1.70.0\""), "{cargo}");
+    assert!(cargo.contains("rust-version = \"1.85.0\""), "{cargo}");
     assert!(
         !crate_dir.join("src/std.rs").exists(),
         "std should not be inlined"
@@ -764,8 +764,8 @@ fn an_ignored_feature_is_a_warning() {
     std::fs::write(
         &config,
         idp.replace(
-            "rust#1.70.0 = {}",
-            "rust#1.70.0 = {}\n        typescript#5.0 = {}",
+            "rust#1.85.0 = {}",
+            "rust#1.85.0 = {}\n        typescript#5.0 = {}",
         ),
     )
     .unwrap();

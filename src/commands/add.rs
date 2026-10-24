@@ -489,7 +489,7 @@ mod tests {
 
     #[test]
     fn a_manifest_without_dependencies_gets_a_block_at_the_end() {
-        let manifest = format!("{HEAD}\ncode_generation = {{\n    languages = {{\n        rust#1.70.0 = {{}}\n    }}\n}}\n");
+        let manifest = format!("{HEAD}\ncode_generation = {{\n    languages = {{\n        rust#1.85.0 = {{}}\n    }}\n}}\n");
         assert_eq!(
             with_dependency(&manifest, "shared", &fields()),
             format!(
