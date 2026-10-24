@@ -47,6 +47,7 @@ const COMLINE_TOML: &str = "\
 # package_versions = \"latest\"                      # latest | all | [\"0.3.0\", \"0.4.0\"]
 # default_framing = \"jsonrpc\"                      # wire framing for protocols with no `@framing` (else datagram)
 # validate_on_decode = \"off\"                      # run `@validators` while decoding: off | collect | first
+# async = false                                    # protocols on a connection get async handlers and senders
 #
 # One block per declared language you want to configure. A block sets that
 # language's output; it does not decide which languages are generated, and

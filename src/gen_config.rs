@@ -118,6 +118,11 @@ pub struct Generate {
     /// default), `collect` (fail with every failure) or `first` (fail with
     /// the first). Shared by every target unless overridden.
     pub validate_on_decode: Option<String>,
+    /// `true`: protocols on a connection get async handlers and senders
+    /// (Rust's `AsyncConnection`), shared by every target unless overridden.
+    /// A generator whose output is async anyway ignores it. Default `false`.
+    #[serde(rename = "async")]
+    pub async_api: Option<bool>,
     /// `[[generate.target]]` blocks.
     #[serde(rename = "target")]
     pub targets: Vec<Target>,
@@ -141,6 +146,8 @@ pub struct Target {
     pub default_framing: Option<String>,
     pub external_std: Option<bool>,
     pub validate_on_decode: Option<String>,
+    #[serde(rename = "async")]
+    pub async_api: Option<bool>,
     /// `lib` mode only: write the crate straight into `out` instead of
     /// `<out>/<language>/`. Target-only (no `[generate]` default, no flag/env)
     /// — a shared `out` across several `lib` targets needs the per-language
@@ -222,6 +229,8 @@ pub struct ResolvedTarget {
     pub external_std: bool,
     /// See [`Generate::validate_on_decode`].
     pub validate_on_decode: ValidateOnDecode,
+    /// See [`Generate::async_api`].
+    pub async_api: bool,
 }
 
 /// Variables a `layout` template can reference.
@@ -359,6 +368,7 @@ pub fn resolve(
                         default_framing: None,
                         external_std: None,
                         validate_on_decode: None,
+                        async_api: None,
                         flatten: false,
                     }]
                 } else {
@@ -538,6 +548,7 @@ pub fn resolve(
             flatten: t.flatten,
             external_std,
             validate_on_decode,
+            async_api: t.async_api.or(cfg.generate.async_api).unwrap_or(false),
         });
     }
 
@@ -865,6 +876,43 @@ mod tests {
         );
         let resolved = resolve(&cfg, &declared, Path::new("/x"), &Overrides::default()).unwrap();
         assert!(!resolved[0].flatten);
+    }
+
+    #[test]
+    fn async_is_off_unless_asked_for_and_a_target_overrides_the_section() {
+        let declared = [DeclaredLang {
+            language: "rust".into(),
+            lang_version: "1.85.0".into(),
+        }];
+        let off = resolve(
+            &parse("[generate]\n"),
+            &declared,
+            Path::new("/x"),
+            &Overrides::default(),
+        )
+        .unwrap();
+        assert!(!off[0].async_api);
+
+        let on = resolve(
+            &parse("[generate]\nasync = true\n"),
+            &declared,
+            Path::new("/x"),
+            &Overrides::default(),
+        )
+        .unwrap();
+        assert!(on[0].async_api);
+
+        let overridden = parse(
+            "[generate]\nasync = true\n\n[[generate.target]]\nlanguage = \"rust\"\nasync = false\n",
+        );
+        let resolved = resolve(
+            &overridden,
+            &declared,
+            Path::new("/x"),
+            &Overrides::default(),
+        )
+        .unwrap();
+        assert!(!resolved[0].async_api);
     }
 
     #[test]
