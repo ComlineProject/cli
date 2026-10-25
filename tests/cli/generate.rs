@@ -263,6 +263,35 @@ fn without_a_wire_key_a_protocol_is_on_a_packed_connection() {
     assert!(connection.contains("pub struct Services<"), "{connection}");
 }
 
+/// Two protocols on connections of different framings can't share one, so
+/// the package `serve` is left out, and generate says why.
+#[test]
+fn protocols_on_different_framings_get_no_package_serve() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    add_to_config(
+        &project,
+        "settings = {\n    annotations = {\n        framing = {\n            allowed = true\n        }\n    }\n}",
+    );
+    fs::write(
+        project.join("src/link.ids"),
+        "protocol Link {\n    function send(n: u32) -> u32;\n}\n\n\
+         @provider = Client\n@framing = \"jsonrpc\"\nprotocol Push {\n    function ping();\n}\n",
+    )
+    .unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("no package `serve` / `connect`"))
+        .stderr(predicate::str::contains(
+            "`link::Link` is on a `datagram@2` connection",
+        ));
+    assert!(!project.join("generated/rust/connection.rs").exists());
+}
+
 #[test]
 fn comline_toml_default_framing_says_it_moved() {
     let temp = tempfile::tempdir().unwrap();
