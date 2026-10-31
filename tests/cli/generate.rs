@@ -1085,7 +1085,10 @@ fn an_unsupported_format_gives_the_support_tables_message() {
     let idp = fs::read_to_string(&config).unwrap();
     fs::write(
         &config,
-        idp.replace("rust#1.85.0 = {}", "rust#1.85.0 = {}\n        typescript#5.0 = {}"),
+        idp.replace(
+            "rust#1.85.0 = {}",
+            "rust#1.85.0 = {}\n        typescript#5.0 = {}",
+        ),
     )
     .unwrap();
     add_to_config(&project, "wire = { format = \"msgpack@1\" }");
