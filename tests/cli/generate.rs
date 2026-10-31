@@ -913,3 +913,195 @@ fn async_without_a_connection_protocol_warns() {
         .success()
         .stderr(predicate::str::contains(warning).not());
 }
+
+/// The profile `acme` ships for its framing.
+const LINES_PROFILE: &str = r#"{
+  "name": "com.acme.lines@1",
+  "kind": "framing",
+  "facts": {
+    "calls": { "value": "by_name", "proven_by": ["lines/request"] },
+    "errors": { "value": "by_name", "proven_by": ["lines/error"] }
+  }
+}"#;
+
+/// `acme`, declaring the framing `com.acme.lines@1` with `map` as its
+/// suggested mappings, and `app`, depending on it with a protocol over that
+/// framing. Returns `app`'s directory.
+fn acme_and_app(root: &std::path::Path, map: &str) -> std::path::PathBuf {
+    let acme = root.join("acme");
+    fs::create_dir_all(acme.join("src")).unwrap();
+    fs::write(
+        acme.join("config.idp"),
+        format!(
+            "congregation acme\nspecification_version = 1\n\n\
+             encodings = {{\n    \"com.acme.lines@1\" = {{\n        kind = \"framing\"\n        \
+             profile = \"lines.json\"\n        map = {{ {map} }}\n    }}\n}}\n"
+        ),
+    )
+    .unwrap();
+    fs::write(acme.join("lines.json"), LINES_PROFILE).unwrap();
+    fs::write(
+        acme.join("src/models.ids"),
+        "struct Line {\n    text: string\n}\n",
+    )
+    .unwrap();
+
+    let app = root.join("app");
+    fs::create_dir_all(app.join("src")).unwrap();
+    fs::write(
+        app.join("config.idp"),
+        "congregation app\nspecification_version = 1\n\n\
+         code_generation = {\n    languages = {\n        rust#1.85.0 = {}\n    }\n}\n\n\
+         settings = { annotations = { framing = { allowed = true } } }\n\n\
+         dependencies = {\n    acme = { path = \"../acme\" }\n}\n",
+    )
+    .unwrap();
+    fs::write(
+        app.join("src/api.ids"),
+        "@framing = \"com.acme.lines@1\"\nprotocol Echo {\n    function echo(text: string) -> string;\n}\n",
+    )
+    .unwrap();
+    app
+}
+
+fn generated_api(app: &std::path::Path) -> String {
+    fs::read_to_string(app.join("generated/rust/api.rs")).unwrap()
+}
+
+/// A dependency's framing: the declaring package's suggested mapping when
+/// comline.toml says nothing, and comline.toml's (the target's over
+/// `[generate]`'s) when it does.
+#[test]
+fn a_dependencys_framing_generates_its_mapped_type() {
+    let temp = tempfile::tempdir().unwrap();
+    let app = acme_and_app(
+        temp.path(),
+        "rust = { type = \"acme::LinesFraming\" package = \"acme\" }",
+    );
+    let generate = || {
+        comline_cmd()
+            .current_dir(&app)
+            .args(["generate", "--target", "rust"])
+            .assert()
+    };
+
+    generate().success();
+    assert!(
+        generated_api(&app).contains("let framing = acme::LinesFraming;"),
+        "{}",
+        generated_api(&app)
+    );
+
+    fs::write(
+        app.join("comline.toml"),
+        "[generate]\nencodings = { \"com.acme.lines@1\" = \"section::Lines\" }\n",
+    )
+    .unwrap();
+    generate().success();
+    assert!(generated_api(&app).contains("let framing = section::Lines;"));
+
+    fs::write(
+        app.join("comline.toml"),
+        "[generate]\nencodings = { \"com.acme.lines@1\" = \"section::Lines\" }\n\n\
+         [[generate.target]]\nlanguage = \"rust\"\n\
+         encodings = { \"com.acme.lines@1\" = { type = \"mine::Lines\", package = \"mine\", version = \"1\" } }\n",
+    )
+    .unwrap();
+    generate().success();
+    let api = generated_api(&app);
+    assert!(api.contains("let framing = mine::Lines;"), "{api}");
+    assert!(!api.contains("section::Lines"), "{api}");
+}
+
+#[test]
+fn an_unmapped_dependency_framing_is_an_error_naming_it() {
+    let temp = tempfile::tempdir().unwrap();
+    // A suggestion for TypeScript only: nothing for Rust.
+    let app = acme_and_app(temp.path(), "typescript = { type = \"LinesFraming\" }");
+    comline_cmd()
+        .current_dir(&app)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "encoding `com.acme.lines@1` has no rust mapping",
+        ))
+        .stderr(predicate::str::contains(
+            "encodings = { \"com.acme.lines@1\" = \"<type>\" }",
+        ));
+    assert!(!app.join("generated").exists(), "nothing was written");
+}
+
+#[test]
+fn a_bad_comline_toml_encoding_entry_is_refused() {
+    let temp = tempfile::tempdir().unwrap();
+    let app = acme_and_app(temp.path(), "rust = { type = \"acme::LinesFraming\" }");
+    fs::write(
+        app.join("comline.toml"),
+        "[generate]\nencodings = { \"com.acme.lines@1\" = { ty = \"x::Lines\" } }\n",
+    )
+    .unwrap();
+    comline_cmd()
+        .current_dir(&app)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .failure();
+}
+
+/// cli#81: a framing nothing declares used to generate as the datagram
+/// framing. It's an error, before anything is generated.
+#[test]
+fn an_unknown_framing_is_an_error() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    let config = fs::read_to_string(project.join("config.idp")).unwrap();
+    fs::write(
+        project.join("config.idp"),
+        format!("{config}\nsettings = {{ annotations = {{ framing = {{ allowed = true }} }} }}\n"),
+    )
+    .unwrap();
+    fs::write(
+        project.join("src/pigeon.ids"),
+        "@framing = \"com.acme.pigeon@1\"\nprotocol Coo {\n    function coo();\n}\n",
+    )
+    .unwrap();
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("com.acme.pigeon@1"));
+    assert!(!project.join("generated").exists());
+}
+
+/// A format a built-in generator doesn't support is refused with its support
+/// table's message and tracking link, not the encoding resolution's "no
+/// typescript mapping" (which is true, but not the reason or the way out).
+#[test]
+fn an_unsupported_format_gives_the_support_tables_message() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = copy_fixture("chat_project", temp.path());
+    let config = project.join("config.idp");
+    let idp = fs::read_to_string(&config).unwrap();
+    fs::write(
+        &config,
+        idp.replace(
+            "rust#1.85.0 = {}",
+            "rust#1.85.0 = {}\n        typescript#5.0 = {}",
+        ),
+    )
+    .unwrap();
+    add_to_config(&project, "wire = { format = \"msgpack@1\" }");
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "typescript"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "the typescript generator doesn't support the `msgpack@1` format (format-msgpack): \
+             `@comline/runtime` has no MessagePack codec yet",
+        ))
+        .stderr(predicate::str::contains("no typescript mapping").not());
+    assert!(!project.join("generated").exists(), "nothing was written");
+}

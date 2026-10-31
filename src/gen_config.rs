@@ -120,9 +120,70 @@ pub struct Generate {
     /// A generator whose output is async anyway ignores it. Default `false`.
     #[serde(rename = "async")]
     pub async_api: Option<bool>,
+    /// Which type implements each encoding (format, framing, handshake) in
+    /// the generated code, by encoding name:
+    /// `encodings = { "com.acme.lines@1" = "acme::LinesFraming" }`, or with
+    /// the package it comes from, `{ type = "...", package = "...", version
+    /// = "..." }`. Overrides the declaring package's suggested mapping, and
+    /// maps an encoding that has none. A target's own `encodings` override
+    /// these, name by name.
+    pub encodings: EncodingMap,
     /// `[[generate.target]]` blocks.
     #[serde(rename = "target")]
     pub targets: Vec<Target>,
+}
+
+/// `encodings = { ... }`, by encoding name as written.
+pub type EncodingMap = std::collections::BTreeMap<String, EncodingEntry>;
+
+/// One entry of `encodings`: the type alone, or with its package.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(untagged)]
+pub enum EncodingEntry {
+    /// `"acme::LinesFraming"`.
+    Type(String),
+    /// `{ type = "LinesFraming", package = "acme-encodings", version = "^0.2" }`.
+    Full(EncodingTable),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EncodingTable {
+    #[serde(rename = "type")]
+    pub ty: String,
+    pub package: Option<String>,
+    pub version: Option<String>,
+}
+
+impl EncodingEntry {
+    pub fn mapping(&self) -> comline_codegen::protocol::EncodingMapping {
+        match self {
+            EncodingEntry::Type(ty) => comline_codegen::protocol::EncodingMapping {
+                type_path: ty.clone(),
+                package: None,
+                version: None,
+            },
+            EncodingEntry::Full(t) => comline_codegen::protocol::EncodingMapping {
+                type_path: t.ty.clone(),
+                package: t.package.clone(),
+                version: t.version.clone(),
+            },
+        }
+    }
+}
+
+/// `[generate]`'s `encodings` with a target's over them, by canonical
+/// name, so `jsonrpc@1` in one and `json-rpc` in the other are the same
+/// entry and the target's wins.
+fn merge_encodings(
+    section: &EncodingMap,
+    target: &EncodingMap,
+) -> std::collections::BTreeMap<String, comline_codegen::protocol::EncodingMapping> {
+    let mut merged = std::collections::BTreeMap::new();
+    for (name, entry) in section.iter().chain(target) {
+        merged.insert(comline_codegen::encodings::canonical(name), entry.mapping());
+    }
+    merged
 }
 
 /// One `[[generate.target]]` block.
@@ -155,6 +216,9 @@ pub struct Target {
     pub validate_on_decode: Option<String>,
     #[serde(rename = "async")]
     pub async_api: Option<bool>,
+    /// See [`Generate::encodings`]; these override those, name by name.
+    #[serde(default)]
+    pub encodings: EncodingMap,
     /// `lib` mode only: write the crate straight into `out` instead of
     /// `<out>/<language>/`. Target-only (no `[generate]` default, no flag/env)
     /// — a shared `out` across several `lib` targets needs the per-language
@@ -240,6 +304,9 @@ pub struct ResolvedTarget {
     pub validate_on_decode: ValidateOnDecode,
     /// See [`Generate::async_api`].
     pub async_api: bool,
+    /// [`Generate::encodings`] with the target's over them, by canonical
+    /// encoding name.
+    pub encodings: std::collections::BTreeMap<String, comline_codegen::protocol::EncodingMapping>,
 }
 
 /// Variables a `layout` template can reference.
@@ -393,6 +460,7 @@ pub fn resolve(
                         external_std: None,
                         validate_on_decode: None,
                         async_api: None,
+                        encodings: Default::default(),
                         flatten: false,
                     }]
                 } else {
@@ -580,6 +648,7 @@ pub fn resolve(
             external_std,
             validate_on_decode,
             async_api: t.async_api.or(cfg.generate.async_api).unwrap_or(false),
+            encodings: merge_encodings(&cfg.generate.encodings, &t.encodings),
         });
     }
 
@@ -1021,5 +1090,24 @@ mod tests {
             error.to_string(),
             "`validate_on_decode = \"always\"` for target `rust` - expected one of `off`, `collect`, `first`"
         );
+    }
+
+    #[test]
+    fn a_targets_encodings_override_the_sections_by_canonical_name() {
+        let cfg: ComlineToml = toml::from_str(
+            "[generate]\n\
+             encodings = { \"jsonrpc@1\" = \"section::Rpc\", \"com.acme.cbor@1\" = \"section::Cbor\" }\n\
+             [[generate.target]]\n\
+             language = \"rust\"\n\
+             encodings = { \"json-rpc\" = { type = \"mine::Rpc\", package = \"mine\", version = \"1\" } }\n",
+        )
+        .unwrap();
+        let merged = merge_encodings(&cfg.generate.encodings, &cfg.generate.targets[0].encodings);
+        let keys: Vec<&str> = merged.keys().map(String::as_str).collect();
+        assert_eq!(keys, ["com.acme.cbor@1", "jsonrpc"]);
+        assert_eq!(merged["jsonrpc"].type_path, "mine::Rpc");
+        assert_eq!(merged["jsonrpc"].package.as_deref(), Some("mine"));
+        assert_eq!(merged["com.acme.cbor@1"].type_path, "section::Cbor");
+        assert_eq!(merged["com.acme.cbor@1"].package, None);
     }
 }

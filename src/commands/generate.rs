@@ -108,6 +108,21 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
         })
         .unwrap_or_default();
 
+    // The encodings the package and its dependencies declare, each with its
+    // suggested mappings: what a target's `encodings` in comline.toml
+    // override, beside the official ones every package sees.
+    let declared_encodings: Vec<ConfigUnit> = config_units
+        .iter()
+        .chain(
+            context
+                .dependency_configs
+                .iter()
+                .flat_map(|(_, units)| units),
+        )
+        .filter(|u| matches!(u, ConfigUnit::Encoding { .. }))
+        .cloned()
+        .collect();
+
     // Crate / package name for a `lib`-mode manifest — the congregation name,
     // `::` flattened to `-` so it is a valid crate name.
     let package_name = context.config.name.value.replace("::", "-");
@@ -260,7 +275,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
         });
 
         for gv in &versions {
-            let request = GenerateRequest {
+            let mut request = GenerateRequest {
                 mode,
                 schemas: gv.schemas.clone(),
                 package: PackageMeta {
@@ -281,10 +296,33 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
                 external_std: t.external_std,
                 async_api: t.async_api,
                 validate_on_decode: t.validate_on_decode,
-                // Filled from the encodings the package declares once
-                // `comline.toml` maps them (core#120, B3).
+                // Filled just below.
                 encodings: Default::default(),
             };
+            // The type each encoding the package uses maps to in this
+            // language: comline.toml's mapping, else the declaring package's
+            // suggestion. One left with neither is refused here, by name.
+            if let Err(e) = comline_codegen::encodings::fill(
+                &mut request,
+                comline_core::encodings::official::units(),
+                &declared_encodings,
+                &t.encodings,
+            ) {
+                // A built-in generator's support table is what says why it
+                // can't take this package (TypeScript has no MessagePack
+                // codec, and a tracking link for it); an encoding it has no
+                // mapping for is that same fact, so the table's refusal comes
+                // first, worded as the generator's own.
+                if let Source::Builtin(resolved) = &source {
+                    let options = features::Options::of(&request);
+                    if let Some(refusal) =
+                        lang_targets::unsupported(&t.language, resolved, &request.schemas, &options)
+                    {
+                        return Err(miette!("`{}` generator: {refusal}", t.language));
+                    }
+                }
+                return Err(miette!("target `{}`: {e}", t.language));
+            }
             // Deliberately not `core_err`: a generator's errors are about
             // schema/package *structure* (e.g. a namespace that's both a
             // schema and a parent of deeper schemas), not source *text* -
