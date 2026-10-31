@@ -76,7 +76,10 @@ protocol api::Legacy (shop)
 ";
     assert_eq!(out, expected);
     assert!(out.lines().all(|l| l.chars().count() <= 80), "{out}");
-    assert!(!shop.join(".comline").exists(), "inspect must not create the CAS store");
+    assert!(
+        !shop.join(".comline").exists(),
+        "inspect must not create the CAS store"
+    );
 }
 
 #[test]
@@ -106,7 +109,10 @@ fn json_carries_the_same() {
     assert_eq!(row["causes"], serde_json::json!(["handshake `none`"]));
     assert_eq!(row["reason"], "the 2009 gateway can't run a handshake");
     assert_eq!(row["acceptance"], serde_json::json!({ "state": "unknown" }));
-    assert_eq!(legacy["guarantees"][3]["acceptance"], serde_json::json!({ "state": "not_needed" }));
+    assert_eq!(
+        legacy["guarantees"][3]["acceptance"],
+        serde_json::json!({ "state": "not_needed" })
+    );
 }
 
 #[test]
@@ -130,9 +136,15 @@ fn a_dependencys_protocol_shows_who_accepted_it() {
         .args(["--plain", "inspect"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("protocol billing::api::Billing (dependency billing)"))
-        .stdout(predicate::str::contains("handshake  none                     from config.idp `handshake`"))
-        .stdout(predicate::str::contains("      because handshake `none`\n      accepted by app\n"));
+        .stdout(predicate::str::contains(
+            "protocol billing::api::Billing (dependency billing)",
+        ))
+        .stdout(predicate::str::contains(
+            "handshake  none                     from config.idp `handshake`",
+        ))
+        .stdout(predicate::str::contains(
+            "      because handshake `none`\n      accepted by app\n",
+        ));
 }
 
 #[test]

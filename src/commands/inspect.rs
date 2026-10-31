@@ -33,8 +33,12 @@ pub fn run(work_dir: &Path, json: bool) -> Result<()> {
     let mut out = anstream::stdout().lock();
     if json {
         let report = serde_json::json!({ "protocols": protocols });
-        writeln!(out, "{}", serde_json::to_string_pretty(&report).into_diagnostic()?)
-            .into_diagnostic()?;
+        writeln!(
+            out,
+            "{}",
+            serde_json::to_string_pretty(&report).into_diagnostic()?
+        )
+        .into_diagnostic()?;
         return Ok(());
     }
 
@@ -42,7 +46,11 @@ pub fn run(work_dir: &Path, json: bool) -> Result<()> {
         ui::note("No protocols to inspect");
         return Ok(());
     }
-    let text = protocols.iter().map(|p| render(p, ui::plain())).collect::<Vec<_>>().join("\n");
+    let text = protocols
+        .iter()
+        .map(|p| render(p, ui::plain()))
+        .collect::<Vec<_>>()
+        .join("\n");
     write!(out, "{text}").into_diagnostic()?;
     Ok(())
 }
@@ -50,16 +58,30 @@ pub fn run(work_dir: &Path, json: bool) -> Result<()> {
 /// One protocol: a header of choices, then a row per guarantee. Fits 80
 /// columns: anything long goes on its own indented line.
 pub fn render(p: &ProtocolSummary, plain: bool) -> String {
-    let style = |s: Style, text: &str| if plain { text.to_string() } else { format!("{s}{text}{s:#}") };
+    let style = |s: Style, text: &str| {
+        if plain {
+            text.to_string()
+        } else {
+            format!("{s}{text}{s:#}")
+        }
+    };
     let mut out = String::new();
 
-    let whose = if p.dependency { format!("dependency {}", p.package) } else { p.package.clone() };
+    let whose = if p.dependency {
+        format!("dependency {}", p.package)
+    } else {
+        p.package.clone()
+    };
     out += &format!(
         "{} {}\n",
         style(BOLD, &format!("protocol {}::{}", p.schema, p.name)),
         style(DIM, &format!("({whose})"))
     );
-    for (key, choice) in [("format", &p.format), ("framing", &p.framing), ("handshake", &p.handshake)] {
+    for (key, choice) in [
+        ("format", &p.format),
+        ("framing", &p.framing),
+        ("handshake", &p.handshake),
+    ] {
         out += &format!(
             "  {key:<10} {:<24} {}\n",
             choice_value(choice),
@@ -89,10 +111,15 @@ pub fn render(p: &ProtocolSummary, plain: bool) -> String {
         match &row.acceptance {
             Acceptance::NotNeeded => {}
             Acceptance::Unknown => {
-                out += &format!("      {}\n", style(DIM, "acceptance: up to each consumer's config.idp"));
+                out += &format!(
+                    "      {}\n",
+                    style(DIM, "acceptance: up to each consumer's config.idp")
+                );
             }
             Acceptance::Accepted(by) => out += &format!("      accepted by {by}\n"),
-            Acceptance::NotAccepted => out += &format!("      {}\n", style(GIVEN_UP, "not accepted")),
+            Acceptance::NotAccepted => {
+                out += &format!("      {}\n", style(GIVEN_UP, "not accepted"))
+            }
         }
     }
     out
@@ -103,7 +130,11 @@ fn choice_value(choice: &Choice) -> String {
     if choice.params.is_empty() {
         return choice.value.clone();
     }
-    let params: Vec<String> = choice.params.iter().map(|(k, v)| format!("{k} = {v}")).collect();
+    let params: Vec<String> = choice
+        .params
+        .iter()
+        .map(|(k, v)| format!("{k} = {v}"))
+        .collect();
     format!("{} ({})", choice.value, params.join(", "))
 }
 
