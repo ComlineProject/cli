@@ -13,6 +13,7 @@ mod check;
 mod clean;
 mod diff;
 mod end_to_end;
+mod external;
 mod generate;
 mod global;
 mod new;

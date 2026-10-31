@@ -1,0 +1,16 @@
+# Generators the integration tests run as external generators
+# (tests/cli/external.rs), built there natively and for wasm32-wasip1. Its own
+# workspace: not part of the CLI's build.
+[package]
+name = "comline-test-generators"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+# The same revs the CLI pins, so the real generator's output is comparable
+# byte for byte with the CLI's built-in one.
+comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "2d922cebb347ea1939d90c713ccf77a7ec82db65" }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "8bbce6dbe7f872550f4300025e5c139ff5ec304c" }

@@ -130,8 +130,18 @@ pub struct Generate {
 #[serde(deny_unknown_fields)]
 pub struct Target {
     /// Must match a language the congregation declared under
-    /// `code_generation.languages`.
+    /// `code_generation.languages`. With `generator`, it also picks among the
+    /// languages that generator offers, and may be left out when it offers
+    /// one; [`crate::commands::generate`] fills it in before [`resolve`].
+    #[serde(default)]
     pub language: String,
+    /// A generator outside this binary: a path to a `.wasm` (run sandboxed
+    /// under wasmtime) or to an executable, relative to `comline.toml`'s
+    /// directory. Unset, the built-in generator for `language` is used.
+    pub generator: Option<String>,
+    /// The wall-time limit for each call to `generator`, in seconds.
+    /// Default 60.
+    pub timeout: Option<u64>,
     /// Language/toolchain version selecting the generator (e.g. `1.88.0`).
     /// Falls back to the version the congregation declared for this language,
     /// and may raise it but never lower it.
@@ -213,6 +223,10 @@ pub struct Overrides<'a> {
 #[derive(Debug)]
 pub struct ResolvedTarget {
     pub language: String,
+    /// See [`Target::generator`], made absolute.
+    pub generator: Option<PathBuf>,
+    /// See [`Target::timeout`].
+    pub timeout: std::time::Duration,
     pub lang_version: String,
     pub out: PathBuf,
     pub layout: String,
@@ -305,6 +319,13 @@ pub fn resolve(
         return Err(moved_default_framing(written));
     }
 
+    if let Some(t) = cfg.generate.targets.iter().find(|t| t.language.is_empty()) {
+        return Err(match &t.generator {
+            Some(g) => miette!("`[[generate.target]]` with `generator = \"{g}\"` needs `language`"),
+            None => miette!("a `[[generate.target]]` sets no `language`"),
+        });
+    }
+
     let declares = |language: &str| {
         declared
             .iter()
@@ -361,6 +382,8 @@ pub fn resolve(
                     // Declared but unconfigured: the `[generate]` defaults.
                     vec![Target {
                         language: d.language.clone(),
+                        generator: None,
+                        timeout: None,
                         lang_version: Some(d.lang_version.clone()),
                         out: None,
                         layout: None,
@@ -528,8 +551,26 @@ pub fn resolve(
             .or_else(|| cfg.generate.package_versions.clone())
             .unwrap_or_default();
 
+        if t.timeout == Some(0) {
+            return Err(miette!(
+                "target `{}`: `timeout = 0` - it's in seconds, and must be at least 1",
+                t.language
+            ));
+        }
+        if t.timeout.is_some() && t.generator.is_none() {
+            return Err(miette!(
+                "target `{}`: `timeout` limits an external `generator`, and this target uses the \
+                 built-in one",
+                t.language
+            ));
+        }
         resolved.push(ResolvedTarget {
             language: t.language.clone(),
+            generator: t.generator.as_ref().map(|g| work_dir.join(g)),
+            timeout: t
+                .timeout
+                .map(std::time::Duration::from_secs)
+                .unwrap_or(crate::external::DEFAULT_TIMEOUT),
             lang_version,
             out: work_dir.join(out),
             layout,

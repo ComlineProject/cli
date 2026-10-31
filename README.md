@@ -69,10 +69,16 @@ demand.
 ## Development
 
 ```bash
+rustup target add wasm32-wasip1   # the external-generator tests build a .wasm generator
 cargo test
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 ```
+
+Cargo features: `gen-rust` and `gen-typescript` compile in the built-in
+generators, and `gen-wasm` runs external `.wasm` generators under wasmtime
+(`generator = "<path>"` on a `[[generate.target]]`, see [docs/cli.md](docs/cli.md)).
+All three are on by default.
 
 Man pages and completion scripts for all shells are generated into `OUT_DIR`
 (`target/.../build/comline-*/out/{man,completions}/`) on every build.

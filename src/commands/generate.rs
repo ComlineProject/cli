@@ -11,9 +11,12 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
+use comline_codegen::protocol::{Description, TargetLanguage};
+use comline_codegen::versions::LangVersion;
 use comline_codegen::{
-    connections, features, GenRequest, Mode, PackageMeta, Registry, Resolved, Unresolved,
+    connections, features, GenerateRequest, Mode, PackageMeta, Registry, Resolved, Unresolved,
 };
 use comline_core::package::build::{self, cas::ObjectStore};
 use comline_core::package::config::ir::frozen::{self, FrozenUnit as ConfigUnit};
@@ -22,6 +25,7 @@ use comline_core::schema::ir::frozen::unit::{schema_namespace_as_path, FrozenUni
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
 
 use crate::commands::{core_err, ensure_project};
+use crate::external::{self, External};
 use crate::gen_config::{self, ComlineToml, DeclaredLang, Overrides, VersionSpec};
 use crate::lang_targets::{self, TargetError};
 use crate::{history, ui, watch};
@@ -78,7 +82,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
         },
     ));
 
-    let cfg = ComlineToml::load(work_dir)?;
+    let mut cfg = ComlineToml::load(work_dir)?;
 
     let spinner = ui::spinner("validating schemas");
     let context = build::compile_package(work_dir);
@@ -119,6 +123,20 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
         })
         .collect();
 
+    // External generators, described once each. A target that names one
+    // and no `language` takes the one language it offers.
+    let mut externals = Externals::default();
+    for t in &mut cfg.generate.targets {
+        if let (Some(generator), true) = (&t.generator, t.language.is_empty()) {
+            let timeout = t
+                .timeout
+                .map(Duration::from_secs)
+                .unwrap_or(external::DEFAULT_TIMEOUT);
+            let (generator, description) = externals.get(&work_dir.join(generator), timeout)?;
+            t.language = external::only_language(&generator.name, description)?;
+        }
+    }
+
     let targets = gen_config::resolve(&cfg, &declared, work_dir, overrides)?;
 
     let registry = generator_registry();
@@ -156,33 +174,63 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
             ));
         }
 
-        // Reached for every language the congregation declares now, not only
-        // for one named by a `[[generate.target]]`, so it says what to do
-        // about it: `only` is how a consumer whose binary can't produce a
-        // language says so on purpose.
-        let resolved: Resolved =
-            match lang_targets::resolve(&registry, &context, &t.language, &t.lang_version) {
-                Ok(resolved) => resolved,
-                Err(TargetError::Unresolved(Unresolved::UnknownLanguage { .. })) => {
-                    return Err(miette!(
-                        "no generator for `{}` (version `{}`)\n  \
+        let (source, ext) = match &t.generator {
+            Some(path) => {
+                let (generator, description) = externals.get(path, t.timeout)?;
+                let info =
+                    external::select(&generator.name, description, &t.language, &t.lang_version)?;
+                if let Some((dependency, written, minimum)) =
+                    lang_targets::dependency_minimum(&context, &t.language)
+                {
+                    if LangVersion::parse(&t.lang_version).is_some_and(|v| v < minimum) {
+                        return Err(miette!(
+                            "target `{}`: `{}#{}` is older than dependency `{dependency}` allows: \
+                             it declares `{}#{written}`",
+                            t.language,
+                            t.language,
+                            t.lang_version,
+                            t.language,
+                        ));
+                    }
+                }
+                let ext = info.ext.clone();
+                (Source::External(generator), ext)
+            }
+            None => {
+                // Reached for every language the congregation declares now, not only
+                // for one named by a `[[generate.target]]`, so it says what to do
+                // about it: `only` is how a consumer whose binary can't produce a
+                // language says so on purpose.
+                let resolved: Resolved = match lang_targets::resolve(
+                    &registry,
+                    &context,
+                    &t.language,
+                    &t.lang_version,
+                ) {
+                    Ok(resolved) => resolved,
+                    Err(TargetError::Unresolved(Unresolved::UnknownLanguage { .. })) => {
+                        return Err(miette!(
+                            "no generator for `{}` (version `{}`)\n  \
                      help: this build of comline has no {} generator. Install one that \
                      does, or narrow the set in {}:\n      \
                      [generate]\n      only = [...]",
-                        t.language,
-                        t.lang_version,
-                        t.language,
-                        gen_config::FILE_NAME,
-                    ))
+                            t.language,
+                            t.lang_version,
+                            t.language,
+                            gen_config::FILE_NAME,
+                        ))
+                    }
+                    Err(e) => return Err(miette!("target `{}`: {e}", t.language)),
+                };
+                match lang_targets::unverified(&context, &t.language, &resolved) {
+                    Ok(Some(warning)) => ui::warn(warning),
+                    Ok(None) => {}
+                    Err(error) => return Err(miette!("target `{}`: {error}", t.language)),
                 }
-                Err(e) => return Err(miette!("target `{}`: {e}", t.language)),
-            };
-        match lang_targets::unverified(&context, &t.language, &resolved) {
-            Ok(Some(warning)) => ui::warn(warning),
-            Ok(None) => {}
-            Err(error) => return Err(miette!("target `{}`: {error}", t.language)),
-        }
-        let (generator, ext) = (resolved.generator.generate, resolved.generator.ext);
+                let ext = resolved.generator.ext.to_string();
+                (Source::Builtin(resolved), ext)
+            }
+        };
 
         let versions = expand_versions(&t.versions, work_dir, &live_schemas, config_units)?;
         if mode == Mode::Lib && versions.len() > 1 {
@@ -212,9 +260,9 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
         });
 
         for gv in &versions {
-            let request = GenRequest {
+            let request = GenerateRequest {
                 mode,
-                schemas: &gv.schemas,
+                schemas: gv.schemas.clone(),
                 package: PackageMeta {
                     name: package_name.clone(),
                     // An unbuilt working tree has no version yet; `0.0.0` keeps
@@ -225,22 +273,35 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
                         gv.package_version.clone()
                     },
                 },
-                lang_version: t.lang_version.clone(),
+                target: TargetLanguage {
+                    language: t.language.clone(),
+                    version: t.lang_version.clone(),
+                },
                 wire_format: gv.wire_format.clone(),
                 external_std: t.external_std,
                 async_api: t.async_api,
                 validate_on_decode: t.validate_on_decode,
+                // Filled from the encodings the package declares once
+                // `comline.toml` maps them (core#120, B3).
+                encodings: Default::default(),
             };
             // Deliberately not `core_err`: a generator's errors are about
             // schema/package *structure* (e.g. a namespace that's both a
             // schema and a parent of deeper schemas), not source *text* -
             // they carry no span to render a snippet against, so there's
             // nothing for the multi-line branch there to do.
-            warn_ignored(&t.language, &request, &resolved);
+            if let Source::Builtin(resolved) = &source {
+                warn_ignored(&t.language, &request, resolved);
+            }
             warn_async_unused(&t.language, &request);
             warn_no_package_connection(&t.language, &request);
-            let files =
-                generator(&request).map_err(|e| miette!("`{}` generator: {e}", t.language))?;
+            // Both kinds answer the same protocol request, and either
+            // response is checked whole - every path, the total size -
+            // before anything below writes a file.
+            let files = match &source {
+                Source::Builtin(_) => external::builtin(&registry, &t.language, request)?,
+                Source::External(generator) => generator.generate(request)?,
+            };
 
             // Every destination, whether or not it gets written: the tree
             // is drawn from these once the loop is done. A dry run differs
@@ -257,9 +318,13 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
                 // dependency it doesn't inline).
                 Mode::Code => {
                     for f in &files {
-                        let namespace = f.path.with_extension("").to_string_lossy().into_owned();
+                        let namespace = f
+                            .path_buf()
+                            .with_extension("")
+                            .to_string_lossy()
+                            .into_owned();
                         let dest =
-                            t.dest_for(&namespace, ext, &spec_version, &gv.package_version)?;
+                            t.dest_for(&namespace, &ext, &spec_version, &gv.package_version)?;
                         if !dry_run {
                             write_file(&dest, &f.contents)?;
                         }
@@ -290,17 +355,13 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
                         t.out.join(&t.language)
                     };
                     for f in &files {
-                        let dest = root.join(&f.path);
+                        let dest = root.join(f.path_buf());
                         if !dry_run {
                             write_file(&dest, &f.contents)?;
                         }
                         if list {
                             let shown = dest.strip_prefix(work_dir).unwrap_or(&dest).display();
-                            ui::detail(format!(
-                                "     {} {} {shown}",
-                                f.path.display(),
-                                ui::arrow()
-                            ));
+                            ui::detail(format!("     {} {} {shown}", f.path, ui::arrow()));
                         }
                         destinations.push(dest);
                         written += 1;
@@ -322,7 +383,37 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
     Ok(())
 }
 
-fn write_file(dest: &Path, contents: &str) -> Result<()> {
+/// Which generator a target runs.
+enum Source<'e> {
+    Builtin(Resolved),
+    External(&'e External),
+}
+
+/// External generators by path and timeout, each opened and described once
+/// per run.
+#[derive(Default)]
+struct Externals {
+    described: Vec<((PathBuf, Duration), (External, Description))>,
+}
+
+impl Externals {
+    fn get(&mut self, path: &Path, timeout: Duration) -> Result<(&External, &Description)> {
+        let key = (path.to_owned(), timeout);
+        let at = match self.described.iter().position(|(k, _)| *k == key) {
+            Some(at) => at,
+            None => {
+                let generator = External::open(path, timeout)?;
+                let description = generator.describe()?;
+                self.described.push((key, (generator, description)));
+                self.described.len() - 1
+            }
+        };
+        let (generator, description) = &self.described[at].1;
+        Ok((generator, description))
+    }
+}
+
+fn write_file(dest: &Path, contents: &[u8]) -> Result<()> {
     if let Some(parent) = dest.parent() {
         std::fs::create_dir_all(parent)
             .into_diagnostic()
@@ -412,11 +503,11 @@ fn gen_version_from_commit(
 /// Every protocol is on one by default, so that's a package whose protocols
 /// are all lockstep: on the `datagram` framing, or on JSON-RPC with none of
 /// them client-provided.
-fn warn_async_unused(language: &str, request: &GenRequest) {
+fn warn_async_unused(language: &str, request: &GenerateRequest) {
     if !request.async_api {
         return;
     }
-    let uses = features::used(request.schemas, &features::Options::of(request));
+    let uses = features::used(&request.schemas, &features::Options::of(request));
     if uses.iter().any(|u| u.feature == features::Feature::Async) {
         return;
     }
@@ -431,8 +522,8 @@ fn warn_async_unused(language: &str, request: &GenRequest) {
 /// The package's `serve` / `connect` need its protocols on one connection;
 /// when they disagree on the framing or handshake, the generators leave them
 /// out, which would otherwise look like they forgot.
-fn warn_no_package_connection(language: &str, request: &GenRequest) {
-    if let Err(reason) = connections::package_connection(request.schemas) {
+fn warn_no_package_connection(language: &str, request: &GenerateRequest) {
+    if let Err(reason) = connections::package_connection(&request.schemas) {
         ui::warn(format!(
             "`{language}`: no package `serve` / `connect` - {reason}; each protocol still has \
              its own"
@@ -444,8 +535,8 @@ fn warn_no_package_connection(language: &str, request: &GenRequest) {
 /// generates, but without the feature (a TypeScript target with
 /// `@validators` gets the types, not the checks). An unsupported feature
 /// needs nothing here: the generator refuses it, naming every use.
-fn warn_ignored(language: &str, request: &GenRequest, resolved: &Resolved) {
-    let uses = features::used(request.schemas, &features::Options::of(request));
+fn warn_ignored(language: &str, request: &GenerateRequest, resolved: &Resolved) {
+    let uses = features::used(&request.schemas, &features::Options::of(request));
     let mut ignored: BTreeMap<features::Feature, Vec<&features::FeatureUse>> = BTreeMap::new();
     for u in &uses {
         if resolved.support(u.feature).state == features::State::Ignored {

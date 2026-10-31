@@ -2,6 +2,7 @@ mod changes;
 mod cli;
 mod commands;
 mod error;
+mod external;
 mod gen_config;
 mod history;
 mod lang_targets;
