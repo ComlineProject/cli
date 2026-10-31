@@ -29,7 +29,7 @@ use comline_core::schema::ir::frozen::unit::FrozenUnit;
 use comline_core::settings::effective::package_settings;
 use comline_core::settings::SettingsSpans;
 
-use crate::gen_config::DeclaredLang;
+use comline_codegen::config::DeclaredLang;
 
 /// A target declared or raised past the newest version its generator has
 /// verified. A warning: the wire isn't affected, only whoever compiles the

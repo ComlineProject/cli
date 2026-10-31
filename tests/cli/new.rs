@@ -19,7 +19,13 @@ fn scaffolds_a_buildable_project() {
 
     let root = temp.path().join("my_api");
     assert!(root.join("config.idp").exists());
-    assert!(root.join("comline.toml").exists());
+    // An editor validates comline.toml against its schema from the first line.
+    let comline_toml = fs::read_to_string(root.join("comline.toml")).unwrap();
+    assert_eq!(
+        comline_toml.lines().next(),
+        Some("#:schema https://comlineproject.github.io/docs/schemas/comline-toml/0.x.json"),
+        "{comline_toml}"
+    );
     assert!(root.join("src/greeting.ids").exists());
     // The version history is committed; only fetched dependencies are ignored.
     let gitignore = fs::read_to_string(root.join(".gitignore")).unwrap();

@@ -233,7 +233,7 @@ none, from `code_generation.languages` in `config.idp`.
 [generate]
 out              = "generated"                            # output root, relative to comline.toml
 layout           = "{{language}}/{{namespace}}.{{ext}}"   # path of each file under the root
-mode             = "code"                                 # code | lib | dylib (only `code` today)
+mode             = "code"                                 # code (loose source) | lib (a buildable package)
 external_std     = false                                  # reference comline_std instead of inlining it (rust only)
 package_versions = "latest"                               # latest | all | ["0.3.0", "0.4.0"]
 
@@ -247,6 +247,20 @@ out      = "src/generated"
 `comline.toml` (or an all-commented one), the defaults above apply. Layout
 variables: `{{language}}`, `{{namespace}}` (`/`-joined), `{{ext}}`,
 `{{lang_version}}`, `{{spec_version}}`, `{{package_version}}`.
+
+**Editor support.** `comline.toml` has a JSON Schema, generated from the
+same types `comline generate` parses it with, at
+`https://comlineproject.github.io/docs/schemas/comline-toml/0.x.json`. A
+`comline new` project's `comline.toml` starts with a line naming it:
+
+```toml
+#:schema https://comlineproject.github.io/docs/schemas/comline-toml/0.x.json
+```
+
+It's a TOML comment, so `comline` ignores it; editors using Taplo (Even
+Better TOML in VS Code) read it, and complete keys, describe them, and flag
+an unknown key or a wrong value (`mode = "dylib"`) as you type. Add the line
+to an existing `comline.toml` to get the same.
 
 **`layout` only applies to `code` mode.** A `lib`-mode target ignores it
 entirely (`comline generate` warns if you set one) and always writes the

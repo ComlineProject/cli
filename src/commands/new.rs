@@ -33,6 +33,7 @@ const GITIGNORE: &str = "\
 /// only says where each lands. Everything here is commented by default, so a
 /// new project writes to `generated/{{language}}/{{namespace}}.{{ext}}`.
 const COMLINE_TOML: &str = "\
+#:schema https://comlineproject.github.io/docs/schemas/comline-toml/0.x.json
 # comline.toml — where `comline generate` writes code, and how.
 #
 # Which languages are generated comes from `config.idp`'s

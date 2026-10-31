@@ -26,9 +26,12 @@ use miette::{miette, IntoDiagnostic, Result, WrapErr};
 
 use crate::commands::{core_err, ensure_project};
 use crate::external::{self, External};
-use crate::gen_config::{self, ComlineToml, DeclaredLang, Overrides, VersionSpec};
+use crate::gen_config::Destination;
 use crate::lang_targets::{self, TargetError};
 use crate::{history, ui, watch};
+use comline_codegen::config::{
+    self as gen_config, ComlineToml, DeclaredLang, Overrides, VersionSpec,
+};
 
 /// The generator registry, composed from the per-language `comline-codegen-*`
 /// crates this CLI was built with — one `register()` per crate, each behind its
