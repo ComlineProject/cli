@@ -35,6 +35,7 @@ comline generate            # write generated code for each configured target
 | `comline build [--release] [--watch]` | Compile, validate, and freeze a new immutable version into `.comline/`. Prints the changelog and the version bump. |
 | `comline generate [--target <lang>] [--out <dir>] [--layout <tpl>] [--mode <m>] [--watch]` | Validate (no freeze), then write generated code. Output location/layout come from `comline.toml` `[generate]`; targets from there or `config.idp`. |
 | `comline diff <old> <new>` | Show the schema changes between two built versions. Each argument is a version (`0.2.0`), a commit hash, or `HEAD` (the default for `<new>`). |
+| `comline conformance --impl <cmd> [--encoding <name>] [--corpus <dir>]` | Run an encoding's implementation (a process speaking the conformance ops protocol) against the vectors its package ships beside each profile (`profiles/x.json` → `profiles/x.vectors.json`). Reports proven facts and failed cases with byte diffs; exits `1` on any failure. |
 | `comline clean [--dry-run]` | Remove the `generate` output (the output root, or the individual files). Leaves `.comline/` alone. |
 | `comline reset [--force] [--dry-run]` | Discard the version history: delete `.comline/` and generated code. Asks for confirmation on a terminal; needs `--force` otherwise. No undo — the next build restarts at `0.0.1`. |
 | `comline completions <shell>` | Print a shell completion script to stdout. |

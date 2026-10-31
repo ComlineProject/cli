@@ -1,0 +1,16 @@
+# Implementations the integration tests run under `comline conformance`
+# (tests/cli/conformance.rs), built there. Its own workspace: not part of the
+# CLI's build.
+[package]
+name = "comline-test-conformance"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+# The runtime rev the CLI pins `comline-runtime-conformance` at, so the
+# reference answers as the vectors the CLI reads were blessed.
+comline-reference = { git = "https://github.com/ComlineProject/runtime", rev = "3a9b600ad971fc05ce5a64d00ff1c23a21406659" }
+serde_json = "1.0"

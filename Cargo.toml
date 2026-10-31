@@ -41,6 +41,9 @@ comline-core = { git = "https://github.com/ComlineProject/core", rev = "98d64fae
 comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "b116831182c32e70fb4452ff9fce4b463ce4bd99" }
 comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "0e5c60ebdfab9cd172f23691a18084d651bfb33a", optional = true }
 comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "765fc2d1177d0044498b00160000ac5084540af2", optional = true }
+# `comline conformance`: the conformance runner (corpus loading, judging,
+# profile proofs) and its case format, a public spec. Pinned by git rev.
+comline-runtime-conformance = { git = "https://github.com/ComlineProject/runtime", rev = "3a9b600ad971fc05ce5a64d00ff1c23a21406659" }
 # Runs a `generator = "<path>.wasm"` target (see src/external.rs): no
 # preopened directories, no environment, no network. Exact pins, bumped
 # together.

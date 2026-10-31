@@ -43,3 +43,5 @@ jobs:
         run: cargo clippy --all-targets --no-default-features --features gen-rust,gen-typescript -- -D warnings
       - name: rustfmt (fixture generators)
         run: cargo fmt --check --manifest-path tests/fixtures/generators/Cargo.toml
+      - name: rustfmt (fixture conformance implementations)
+        run: cargo fmt --check --manifest-path tests/fixtures/conformance/Cargo.toml

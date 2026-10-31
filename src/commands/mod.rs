@@ -7,6 +7,7 @@ pub mod build;
 pub mod check;
 pub mod clean;
 pub mod completions;
+pub mod conformance;
 pub mod diff;
 pub mod generate;
 pub mod new;

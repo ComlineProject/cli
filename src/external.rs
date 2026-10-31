@@ -109,7 +109,7 @@ impl External {
     fn call(&self, request: &Request) -> Result<Response> {
         let input = protocol::encode(request).map_err(|e| miette!("{e}"))?;
         let output = match &self.runner {
-            Runner::Native => native::run(&self.path, &self.name, &input, self.timeout),
+            Runner::Native => native::run(&self.path, &[], &self.name, &input, self.timeout),
             #[cfg(feature = "gen-wasm")]
             Runner::Wasm(compiled) => compiled.run(&self.name, &input, self.timeout),
         }
@@ -376,11 +376,11 @@ fn timed_out(timeout: Duration) -> String {
     )
 }
 
-mod native {
+pub(crate) mod native {
     use super::*;
 
-    /// Runs the executable at `path` with `input` on stdin, and returns its
-    /// stdout once it exits successfully.
+    /// Runs the executable at `path` with `args` and `input` on stdin, and
+    /// returns its stdout once it exits successfully.
     ///
     /// The environment is cleared. `PATH` isn't kept: a generator gets its
     /// request on stdin and has no reason to find other programs. On
@@ -388,12 +388,14 @@ mod native {
     /// system libraries every program needs.
     pub fn run(
         path: &Path,
+        args: &[String],
         name: &str,
         input: &[u8],
         timeout: Duration,
     ) -> std::result::Result<Vec<u8>, String> {
         let mut command = Command::new(path);
         command
+            .args(args)
             .env_clear()
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

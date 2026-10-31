@@ -1,0 +1,8 @@
+{
+  "name": "com.acme.lines@1",
+  "kind": "framing",
+  "facts": {
+    "calls": { "value": "by_name", "proven_by": ["lines/request"] },
+    "errors": { "value": "by_ordinal", "proven_by": ["lines/error"] }
+  }
+}

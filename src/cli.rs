@@ -321,6 +321,47 @@ Examples:
         yes: bool,
     },
 
+    /// Run an encoding's implementation against its vectors
+    #[command(long_about = "\
+Run an implementation of the package's encodings against the vectors they \
+ship, the way the official runtimes are proven against the official corpus. \
+Each encoding declared under `encodings` in config.idp ships its vectors \
+beside its profile: `profiles/lines.json` has `profiles/lines.vectors.json`, \
+in the conformance corpus's case format.
+
+The implementation is a process speaking the conformance ops protocol (as \
+`comline-reference` does): request lines on stdin, a reply line each on \
+stdout, exit when stdin ends. It runs once, with a cleared environment, a \
+time limit and an output cap. The report says which profile facts are \
+proven and which cases failed, with byte diffs; the exit code is 1 on any \
+failure.
+
+`--corpus` runs a corpus laid out like ComlineProject/runtime's \
+`runtime/conformance` (`profiles/`, `vectors/`) instead, for the official \
+encodings.
+
+Examples:
+  comline conformance --impl ./target/release/acme-lines-conformance
+  comline conformance --impl \"node conformance.js\" --encoding com.acme.lines@1
+  comline conformance --impl comline-reference --corpus runtime/conformance --encoding packed@1")]
+    Conformance {
+        /// The implementation's command line: a program and its arguments, split on whitespace
+        #[arg(long = "impl", value_name = "COMMAND")]
+        implementation: String,
+
+        /// Only this encoding (repeatable); default: every encoding the package declares
+        #[arg(long, value_name = "NAME")]
+        encoding: Vec<String>,
+
+        /// Run a runtime-style corpus directory (profiles/, vectors/) instead of the package's encodings
+        #[arg(long, value_name = "DIR")]
+        corpus: Option<PathBuf>,
+
+        /// Seconds the implementation may take for every case together [default: 60]
+        #[arg(long, value_name = "SECS")]
+        timeout: Option<u64>,
+    },
+
     /// Print a shell completion script to stdout
     #[command(long_about = "\
 Write a completion script for the given shell to stdout.
