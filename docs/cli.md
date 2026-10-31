@@ -16,6 +16,7 @@ This is the long-form reference. For a two-minute tour see the
   - [`new`](#comline-new)
   - [`add`](#comline-add)
   - [`check`](#comline-check)
+  - [`inspect`](#comline-inspect)
   - [`build`](#comline-build)
   - [`generate`](#comline-generate)
   - [`diff`](#comline-diff)
@@ -194,6 +195,62 @@ comline --path ./services/users check
 
 Exit `0` if valid, `1` if a schema or the config is invalid, `2` if the directory
 is not a Comline project.
+
+### `comline inspect`
+
+```
+comline inspect [--json]
+```
+
+What each protocol speaks on the wire, and which guarantees it keeps. Like
+`check`, it compiles the package and writes nothing to `.comline/`.
+
+For each protocol, a short header names the format, framing and handshake it
+resolves to, with their parameters and where each came from:
+
+| Source | Meaning |
+|---|---|
+| `from @framing` / `from @handshake` | the protocol's own annotation |
+| `from config.idp ...` | the package's `wire.format`, `wire.framing` or `handshake` |
+| `core's default` | nothing named one: `packed@1`, `datagram@2`, `comline@1` |
+| `JSON-RPC's format` | the framing is JSON-RPC and the package names no format |
+
+Then one row per guarantee (schema agreement, encoding agreement, encoding
+conformance, version honesty), held or given up. A given-up row says why, and
+whether it has been accepted. A dependency's protocol is accepted by this
+package's `accept_unverified`. Who accepts this package's own protocols isn't
+known here: each consumer does that in its own `config.idp`. A protocol's
+`@unverified` reason is in its header.
+
+```
+$ comline --plain inspect
+protocol api::Legacy (shop)
+  format     json@1                   JSON-RPC's format
+  framing    jsonrpc (method_names = qualified) from @framing
+  handshake  none                     from @handshake
+  unverified "the 2009 gateway can't run a handshake"
+
+  schema agreement       given up
+      because handshake `none`
+      acceptance: up to each consumer's config.idp
+  encoding agreement     given up
+      because handshake `none`
+      acceptance: up to each consumer's config.idp
+  encoding conformance   held
+  version honesty        held
+```
+
+The report goes to stdout. `--json` prints the same as JSON, as
+`{ "protocols": [...] }`, with each choice's `source` given as `annotation`,
+`package_default`, `core_default` or `framing`. Each guarantee's `acceptance`
+is `{ "state": "not_needed" | "unknown" | "not_accepted" }`, or
+`{ "state": "accepted", "by": "<package>" }`.
+
+A protocol's compatibility facts (its line, version and shape hash) aren't
+shown, because they aren't built yet (core#119).
+
+Exit `0` on success, `1` if a schema or the config is invalid, `2` if the
+directory is not a Comline project.
 
 ### `comline build`
 

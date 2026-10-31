@@ -10,6 +10,7 @@ pub mod completions;
 pub mod conformance;
 pub mod diff;
 pub mod generate;
+pub mod inspect;
 pub mod new;
 pub mod release;
 pub mod reset;

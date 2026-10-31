@@ -16,6 +16,7 @@ mod diff;
 mod end_to_end;
 mod external;
 mod generate;
+mod inspect;
 mod global;
 mod new;
 mod release;

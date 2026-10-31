@@ -32,15 +32,15 @@ eyre = "0.6.8"
 # needs real I/O (git fetch, filesystem), so it's off by default for
 # `comline-core`'s wasm32 consumers (the playground editor, the language
 # server); the CLI is the one consumer that actually runs `comline build`.
-comline-core = { git = "https://github.com/ComlineProject/core", rev = "2ae998634bad418e4a03ce7494e673275dafcc01", features = ["deps"] }
+comline-core = { git = "https://github.com/ComlineProject/core", rev = "47066583002dbca27975827106f9e34761d0dc64", features = ["deps"] }
 # All three pinned to revs that agree on one `comline-codegen`, and bumped
 # together: comline-rust and comline-typescript's codegen crates consume
 # `comline-codegen`'s types, so the rev below must be byte-identical to the
 # one *they* pin - Cargo only unifies a git dependency across identical rev
 # strings, and two copies of `GenRequest` are two incompatible types.
-comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "de7ceb4c266d1fb5d6dc3c918d84cb226003f6b6" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "5346678b82fc275fca741bf5ca0cfad1e8edf075", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "c2096cd500f7cd3a83d495fbbbf5df72bc12ecc7", optional = true }
+comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "0601f004302ebb93e6804732419ccf459902e84a" }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "6e8715ac126ab78316dd6a2712165d716351fab1", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "470dc5bad2f7e36e1cc2f44e3e57fde864a42315", optional = true }
 # `comline conformance`: the conformance runner (corpus loading, judging,
 # profile proofs) and its case format, a public spec. Pinned by git rev.
 comline-runtime-conformance = { git = "https://github.com/ComlineProject/runtime", rev = "6f8f73a247f0aa4ac8b7041b2fdc4b02bce0e0d6" }
