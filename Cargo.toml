@@ -39,7 +39,7 @@ comline-core = { git = "https://github.com/ComlineProject/core", rev = "98d64fae
 # one *they* pin - Cargo only unifies a git dependency across identical rev
 # strings, and two copies of `GenRequest` are two incompatible types.
 comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "b116831182c32e70fb4452ff9fce4b463ce4bd99" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "650c684770b0fa96f60e9fc9e04ad91413c48c68", optional = true }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "0e5c60ebdfab9cd172f23691a18084d651bfb33a", optional = true }
 comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "765fc2d1177d0044498b00160000ac5084540af2", optional = true }
 # Runs a `generator = "<path>.wasm"` target (see src/external.rs): no
 # preopened directories, no environment, no network. Exact pins, bumped

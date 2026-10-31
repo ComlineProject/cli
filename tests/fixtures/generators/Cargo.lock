@@ -84,7 +84,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-rust"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-rust?rev=650c684770b0fa96f60e9fc9e04ad91413c48c68#650c684770b0fa96f60e9fc9e04ad91413c48c68"
+source = "git+https://github.com/ComlineProject/comline-rust?rev=0e5c60ebdfab9cd172f23691a18084d651bfb33a#0e5c60ebdfab9cd172f23691a18084d651bfb33a"
 dependencies = [
  "comline-codegen",
  "comline-core",

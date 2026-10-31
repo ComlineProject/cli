@@ -1073,3 +1073,32 @@ fn an_unknown_framing_is_an_error() {
         .stderr(predicate::str::contains("com.acme.pigeon@1"));
     assert!(!project.join("generated").exists());
 }
+
+/// A format a built-in generator doesn't support is refused with its support
+/// table's message and tracking link, not the encoding resolution's "no
+/// typescript mapping" (which is true, but not the reason or the way out).
+#[test]
+fn an_unsupported_format_gives_the_support_tables_message() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = copy_fixture("chat_project", temp.path());
+    let config = project.join("config.idp");
+    let idp = fs::read_to_string(&config).unwrap();
+    fs::write(
+        &config,
+        idp.replace("rust#1.85.0 = {}", "rust#1.85.0 = {}\n        typescript#5.0 = {}"),
+    )
+    .unwrap();
+    add_to_config(&project, "wire = { format = \"msgpack@1\" }");
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "typescript"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "the typescript generator doesn't support the `msgpack@1` format (format-msgpack): \
+             `@comline/runtime` has no MessagePack codec yet",
+        ))
+        .stderr(predicate::str::contains("no typescript mapping").not());
+    assert!(!project.join("generated").exists(), "nothing was written");
+}
