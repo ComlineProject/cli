@@ -130,7 +130,7 @@ fn run(cli: Cli) -> Result<()> {
             list,
             watch,
         } => {
-            let overrides = gen_config::Overrides {
+            let overrides = comline_codegen::config::Overrides {
                 target: target.as_deref(),
                 out: out.as_deref().map(|p| p.to_str().unwrap_or_default()),
                 layout: layout.as_deref(),

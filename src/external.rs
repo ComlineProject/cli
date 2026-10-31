@@ -35,7 +35,7 @@ use miette::{miette, Result};
 
 /// How long one call to a generator may take, unless the target sets
 /// `timeout` (in seconds).
-pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
+pub const DEFAULT_TIMEOUT: Duration = comline_codegen::config::DEFAULT_TIMEOUT;
 /// The most a generator may write to stdout: one encoded response.
 pub const STDOUT_CAP: usize = 256 * 1024 * 1024;
 /// The most generated file contents one response may carry, all files

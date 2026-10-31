@@ -562,18 +562,21 @@ dependencies = [
 [[package]]
 name = "comline-codegen"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=b116831182c32e70fb4452ff9fce4b463ce4bd99#b116831182c32e70fb4452ff9fce4b463ce4bd99"
+source = "git+https://github.com/ComlineProject/generation?rev=de7ceb4c266d1fb5d6dc3c918d84cb226003f6b6#de7ceb4c266d1fb5d6dc3c918d84cb226003f6b6"
 dependencies = [
  "comline-core",
  "eyre",
+ "miette",
+ "schemars",
  "serde",
  "serde_json",
+ "toml",
 ]
 
 [[package]]
 name = "comline-codegen-rust"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-rust?rev=0e5c60ebdfab9cd172f23691a18084d651bfb33a#0e5c60ebdfab9cd172f23691a18084d651bfb33a"
+source = "git+https://github.com/ComlineProject/comline-rust?rev=5346678b82fc275fca741bf5ca0cfad1e8edf075#5346678b82fc275fca741bf5ca0cfad1e8edf075"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -583,7 +586,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-typescript"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-typescript?rev=765fc2d1177d0044498b00160000ac5084540af2#765fc2d1177d0044498b00160000ac5084540af2"
+source = "git+https://github.com/ComlineProject/comline-typescript?rev=c2096cd500f7cd3a83d495fbbbf5df72bc12ecc7#c2096cd500f7cd3a83d495fbbbf5df72bc12ecc7"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -593,7 +596,7 @@ dependencies = [
 [[package]]
 name = "comline-core"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/core?rev=98d64faedfc48ab4d2c93722e2b099debedd503c#98d64faedfc48ab4d2c93722e2b099debedd503c"
+source = "git+https://github.com/ComlineProject/core?rev=2ae998634bad418e4a03ce7494e673275dafcc01#2ae998634bad418e4a03ce7494e673275dafcc01"
 dependencies = [
  "ariadne",
  "blake3",
@@ -621,7 +624,7 @@ dependencies = [
 [[package]]
 name = "comline-core-stdlib"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/core?rev=98d64faedfc48ab4d2c93722e2b099debedd503c#98d64faedfc48ab4d2c93722e2b099debedd503c"
+source = "git+https://github.com/ComlineProject/core?rev=2ae998634bad418e4a03ce7494e673275dafcc01#2ae998634bad418e4a03ce7494e673275dafcc01"
 
 [[package]]
 name = "comline-runtime"
@@ -967,6 +970,12 @@ name = "downcast-rs"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
+
+[[package]]
+name = "dyn-clone"
+version = "1.0.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
 name = "either"
@@ -2099,6 +2108,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ref-cast"
+version = "1.0.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e440fb4e4b4147295338efb76001ab9e4efc0e5839df2c47fc5ac2381d365c3"
+dependencies = [
+ "ref-cast-impl",
+]
+
+[[package]]
+name = "ref-cast-impl"
+version = "1.0.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92ecd8964f8453721699a1ed72037b0db49ce2f5a5138486ee89bed6f67cdf3a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
+]
+
+[[package]]
 name = "regalloc2"
 version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2285,6 +2314,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "schemars"
+version = "1.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab508826f74a77ca9d5aba6ff19b522583ee3eaf28a19384ff3d0e5835fadf6e"
+dependencies = [
+ "dyn-clone",
+ "ref-cast",
+ "schemars_derive",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "schemars_derive"
+version = "1.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1c3a92094fa7d61aa124645844facb6b554dfc797136d0f5fd1f890e2bffc69"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde_derive_internals",
+ "syn 3.0.9",
+]
+
+[[package]]
 name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2328,6 +2382,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.114",
+]
+
+[[package]]
+name = "serde_derive_internals"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f852137cce035d6a4df67ccce505ff6b3e9fd3a10e3e52b24dc71e650bb1a9bd"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
 ]
 
 [[package]]

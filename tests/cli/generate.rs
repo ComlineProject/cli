@@ -940,6 +940,13 @@ fn acme_and_app(root: &std::path::Path, map: &str) -> std::path::PathBuf {
     )
     .unwrap();
     fs::write(acme.join("lines.json"), LINES_PROFILE).unwrap();
+    // Vectors beside the profile: without them, a protocol over the framing
+    // gives up encoding conformance and needs `@unverified` (core#148).
+    fs::write(
+        acme.join("lines.vectors.json"),
+        include_str!("../fixtures/conformance_package/profiles/lines.vectors.json"),
+    )
+    .unwrap();
     fs::write(
         acme.join("src/models.ids"),
         "struct Line {\n    text: string\n}\n",

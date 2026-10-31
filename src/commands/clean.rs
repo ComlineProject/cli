@@ -10,8 +10,9 @@ use comline_core::package::config::ir::frozen::FrozenUnit as ConfigUnit;
 use miette::{IntoDiagnostic, Result, WrapErr};
 
 use crate::commands::ensure_project;
-use crate::gen_config::{self, ComlineToml, DeclaredLang, Overrides};
+use crate::gen_config::Destination;
 use crate::ui;
+use comline_codegen::config::{self as gen_config, ComlineToml, DeclaredLang, Overrides};
 
 pub fn run(work_dir: &Path, dry_run: bool) -> Result<()> {
     ensure_project(work_dir)?;
