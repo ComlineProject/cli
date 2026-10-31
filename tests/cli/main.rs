@@ -17,6 +17,7 @@ mod end_to_end;
 mod external;
 mod generate;
 mod global;
+mod inspect;
 mod new;
 mod release;
 mod reset;

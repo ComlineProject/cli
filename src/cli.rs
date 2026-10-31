@@ -77,6 +77,29 @@ first error found. Unlike `build`, this never writes to `.comline/` and never \
 bumps the version, so it is safe to run in editors and pre-commit hooks.")]
     Check,
 
+    /// Show what each protocol speaks on the wire and which guarantees it keeps
+    #[command(long_about = "\
+For each protocol, the format, framing and handshake it resolves to, their \
+parameters, and where each came from: the protocol's own `@framing` or \
+`@handshake`, the package's `wire` or `handshake` in `config.idp`, or core's \
+default. Then every guarantee (schema agreement, encoding agreement, encoding \
+conformance, version honesty), held or given up, with the cause, the \
+`@unverified` reason, and whether it has been accepted. A dependency's \
+protocol is accepted by this package's `accept_unverified`; who accepts this \
+package's own protocols isn't known here.
+
+Like `check`, this never writes to `.comline/`. `--json` prints the same as \
+JSON.
+
+Examples:
+  comline inspect
+  comline inspect --json")]
+    Inspect {
+        /// Print the report as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Validate the project and write generated code for each configured target
     #[command(long_about = "\
 Validate the project (no version bump, no `.comline/` write), then write \

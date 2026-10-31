@@ -118,6 +118,7 @@ fn run(cli: Cli) -> Result<()> {
     match cli.command {
         Commands::Build { watch } => commands::build::run(&work_dir, watch),
         Commands::Check => commands::check::run(&work_dir),
+        Commands::Inspect { json } => commands::inspect::run(&work_dir, json),
         Commands::Generate {
             target,
             out,
