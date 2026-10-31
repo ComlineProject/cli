@@ -626,7 +626,7 @@ source = "git+https://github.com/ComlineProject/core?rev=98d64faedfc48ab4d2c9372
 [[package]]
 name = "comline-runtime"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/runtime?rev=3a9b600ad971fc05ce5a64d00ff1c23a21406659#3a9b600ad971fc05ce5a64d00ff1c23a21406659"
+source = "git+https://github.com/ComlineProject/runtime?rev=6f8f73a247f0aa4ac8b7041b2fdc4b02bce0e0d6#6f8f73a247f0aa4ac8b7041b2fdc4b02bce0e0d6"
 dependencies = [
  "abi_stable",
  "bytemuck",
@@ -640,7 +640,7 @@ dependencies = [
 [[package]]
 name = "comline-runtime-conformance"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/runtime?rev=3a9b600ad971fc05ce5a64d00ff1c23a21406659#3a9b600ad971fc05ce5a64d00ff1c23a21406659"
+source = "git+https://github.com/ComlineProject/runtime?rev=6f8f73a247f0aa4ac8b7041b2fdc4b02bce0e0d6#6f8f73a247f0aa4ac8b7041b2fdc4b02bce0e0d6"
 dependencies = [
  "comline-runtime",
  "serde",
