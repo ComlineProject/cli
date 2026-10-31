@@ -1,0 +1,3 @@
+struct Greeting {
+    text: string
+}

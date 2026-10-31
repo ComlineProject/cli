@@ -19,6 +19,7 @@ This is the long-form reference. For a two-minute tour see the
   - [`build`](#comline-build)
   - [`generate`](#comline-generate)
   - [`diff`](#comline-diff)
+  - [`conformance`](#comline-conformance)
   - [`clean`](#comline-clean)
   - [`reset`](#comline-reset)
   - [`completions`](#comline-completions)
@@ -372,6 +373,78 @@ comline diff 0.0.1 HEAD
 
 Fails with exit `2` if the project has never been built, and exit `1` if an
 argument matches no stored version (the error lists the versions that exist).
+
+### `comline conformance`
+
+```
+comline conformance --impl "<command line>" [--encoding <name>]... [--corpus <dir>] [--timeout <secs>]
+```
+
+Run an implementation of an encoding against its vectors, the way the
+official runtimes are proven against the official corpus. A package that
+declares an encoding under `encodings` in `config.idp` ships its vectors
+**beside its profile**: the profile's path with `.json` replaced by
+`.vectors.json`.
+
+```
+encodings = {
+    "com.acme.lines@1" = { kind = "framing" profile = "profiles/lines.json" }
+}
+```
+
+```
+profiles/lines.json           the profile: facts, each naming the cases that prove it
+profiles/lines.vectors.json   the vectors: {"feature": ..., "cases": [...]}
+```
+
+The vectors file and the profile are in the conformance corpus's case
+format, a public spec (version 0.1, early days), documented in
+ComlineProject/runtime's `runtime/conformance/README.md`. Every case in the
+file is run, and each profile fact's `proven_by` names cases in it.
+
+The implementation is a process speaking the conformance **ops protocol**,
+as `comline-reference` does: newline-delimited JSON requests on stdin, one
+reply line each on stdout, exit 0 when stdin ends. Its `version` reply lists
+the encodings it implements under `formats` and `framings`. It runs once,
+with every question sent up front (a case's questions never depend on the
+answers), under the same rules as an external generator: a cleared
+environment, a time limit (`--timeout`, 60 seconds by default) and a capped
+stdout; its stderr is shown, prefixed with its name. The command line is
+split on whitespace (no shell quoting); a bare program name is looked up on
+`PATH`.
+
+The report, on stderr, gives per encoding the cases that pass, each profile
+fact as proven or not (and why), and each failed case, an encode with a
+byte diff:
+
+```
+com.acme.lines@1 (framing): 4/5 case(s) pass
+  proven  calls: by_name
+error unproven  errors: by_ordinal — case `lines/error` failed
+error lines/error failed: encodes wrong:
+      expected: 455252203720322036653666
+           got: 455252203720332036653666
+                            ^^ byte 6 differs
+```
+
+A failed case, a case the implementation reports as not implemented, or an
+unproven fact makes the exit code `1`.
+
+- `--impl <command line>`: the implementation.
+- `--encoding <name>`: only this encoding (repeatable). Default: every
+  encoding the package declares.
+- `--corpus <dir>`: run a corpus laid out like ComlineProject/runtime's
+  `runtime/conformance` (`profiles/<name>.json`, `vectors/*.json`) instead
+  of the package's declarations: the official encodings (`packed@1`,
+  `datagram@2`, ...), whose vectors live there. Each encoding runs every
+  case of the features its profile's facts name.
+- `--timeout <secs>`: how long the implementation may take for all the
+  cases together.
+
+```bash
+comline conformance --impl ./target/release/acme-lines-conformance
+comline conformance --impl comline-reference --corpus ../runtime/runtime/conformance --encoding packed@1
+```
 
 ### `comline clean`
 

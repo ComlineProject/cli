@@ -11,6 +11,7 @@ mod add;
 mod build;
 mod check;
 mod clean;
+mod conformance;
 mod diff;
 mod end_to_end;
 mod external;

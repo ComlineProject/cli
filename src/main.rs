@@ -168,6 +168,18 @@ fn run(cli: Cli) -> Result<()> {
             reason,
             yes,
         } => commands::release::run(&work_dir, version.as_deref(), raise, reason, yes),
+        Commands::Conformance {
+            implementation,
+            encoding,
+            corpus,
+            timeout,
+        } => commands::conformance::run(
+            &work_dir,
+            &implementation,
+            &encoding,
+            corpus.as_deref(),
+            timeout,
+        ),
         Commands::Completions { shell } => commands::completions::run(shell),
         Commands::Targets { features, json } => commands::targets::run(features, json),
     }

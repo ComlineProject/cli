@@ -1,0 +1,9 @@
+congregation acme_lines
+specification_version = 1
+
+encodings = {
+    "com.acme.lines@1" = {
+        kind = "framing"
+        profile = "profiles/lines.json"
+    }
+}

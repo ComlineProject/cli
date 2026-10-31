@@ -1,0 +1,69 @@
+{
+  "feature": "lines",
+  "cases": [
+    {
+      "id": "lines/request",
+      "op": "request",
+      "input": {
+        "call_id": 3,
+        "format": "json@1",
+        "framing": "com.acme.lines@1",
+        "method": "greet",
+        "params": {
+          "array": [
+            {
+              "u32": 7
+            },
+            {
+              "string": "x"
+            }
+          ]
+        },
+        "request_id": "42"
+      },
+      "bytes": "524551203432206772656574207b226172726179223a5b7b22753332223a377d2c7b22737472696e67223a2278227d5d7d"
+    },
+    {
+      "id": "lines/ok",
+      "op": "response",
+      "input": {
+        "framing": "com.acme.lines@1",
+        "kind": "ok",
+        "payload": "6869",
+        "request_id": "7"
+      },
+      "bytes": "4f4b20372036383639"
+    },
+    {
+      "id": "lines/error",
+      "op": "response",
+      "input": {
+        "body": "6e6f",
+        "framing": "com.acme.lines@1",
+        "id": 2,
+        "kind": "err",
+        "request_id": "7"
+      },
+      "bytes": "455252203720322036653666"
+    },
+    {
+      "id": "lines/fault",
+      "op": "response",
+      "input": {
+        "framing": "com.acme.lines@1",
+        "kind": "fault",
+        "request_id": "9"
+      },
+      "bytes": "4641554c542039"
+    },
+    {
+      "id": "lines/reject-unknown-kind",
+      "op": "response",
+      "input": {
+        "framing": "com.acme.lines@1"
+      },
+      "bytes": "4d415942452039",
+      "expect": "reject"
+    }
+  ]
+}
