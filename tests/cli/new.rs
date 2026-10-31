@@ -21,7 +21,13 @@ fn scaffolds_a_buildable_project() {
     assert!(root.join("config.idp").exists());
     assert!(root.join("comline.toml").exists());
     assert!(root.join("src/greeting.ids").exists());
-    assert!(root.join(".gitignore").exists());
+    // The version history is committed; only fetched dependencies are ignored.
+    let gitignore = fs::read_to_string(root.join(".gitignore")).unwrap();
+    assert!(
+        gitignore.lines().any(|l| l == ".comline/deps-cache/"),
+        "{gitignore}"
+    );
+    assert!(!gitignore.lines().any(|l| l == ".comline/"), "{gitignore}");
 
     let config = fs::read_to_string(root.join("config.idp")).unwrap();
     assert!(config.contains("congregation my_api"));

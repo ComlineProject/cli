@@ -23,8 +23,9 @@ struct Greeting {
 ";
 
 const GITIGNORE: &str = "\
-# Comline build artifacts
-.comline/
+# `.comline/` holds the package's version history: commit it.
+# Fetched git dependencies are a local cache.
+.comline/deps-cache/
 ";
 
 /// Consumer-owned code-generation config. Committed. All-commented by default —
