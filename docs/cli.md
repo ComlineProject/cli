@@ -65,7 +65,7 @@ my-api/
 ├── comline.toml      # where `generate` writes code and how (all-commented by default)
 ├── src/
 │   └── main.ids      # a sample enum + struct to build on
-└── .gitignore        # ignores .comline/
+└── .gitignore        # ignores .comline/deps-cache/
 ```
 
 `config.idp` starts as:
@@ -91,8 +91,9 @@ reduced to a valid Comline identifier (letters, digits and `_`), so
 
 After the first `comline build`, a `.comline/` directory appears next to
 `config.idp`. It holds the content-addressable store (`objects/`) and the version
-ref (`refs/heads/main`). It is build output — keep it out of version control (the
-scaffold's `.gitignore` already does).
+ref (`refs/heads/main`). It is the package's version history, so commit it.
+Only `.comline/deps-cache/`, where git dependencies are fetched, is a local cache;
+the scaffold's `.gitignore` ignores that and nothing else.
 
 ## Versioning model
 
