@@ -57,7 +57,7 @@ pub fn declared(config: &[ConfigUnit]) -> Vec<DeclaredLang> {
 /// The highest version any dependency, direct or not, declares for
 /// `language`: (the dependency's name, its declaration as written, parsed).
 /// An unparsable one is that dependency's own build's business.
-fn dependency_minimum(
+pub(crate) fn dependency_minimum(
     context: &ProjectContext,
     language: &str,
 ) -> Option<(String, String, LangVersion)> {

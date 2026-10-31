@@ -264,6 +264,39 @@ flatten  = true   # crate lands at out/ directly, not out/rust/
 — flattening a shared `out` across several `lib` targets would land two
 crates in the same directory.
 
+**External generators.** A target can use a generator outside this binary:
+
+```toml
+[[generate.target]]
+generator = "tools/comline-gen-go.wasm"   # or a native executable
+language  = "go"                          # optional if the generator offers one language
+timeout   = 120                           # seconds per call, default 60
+```
+
+`generator` is a path, relative to `comline.toml`'s directory. The generator
+speaks the generator protocol: one CBOR request on stdin, one CBOR response on
+stdout. `comline` asks it to describe itself first, and refuses one whose
+protocol version or IR format it doesn't share, naming both sides, or one that
+doesn't offer the target's language at its version. `language` picks among the
+languages it offers and must still be one `config.idp` declares; `lang_version`
+applies as for a built-in.
+
+- A **`.wasm`** runs under wasmtime (cargo feature `gen-wasm`, on by default),
+  sandboxed: no preopened directories, no environment variables, no network,
+  no arguments beyond `argv[0]`, and at most 1 GiB of memory.
+- **Anything else** runs as a native process with an empty environment. It isn't
+  sandboxed: run only executables you trust.
+- Either is stopped after `timeout` seconds, and refused if it writes more than
+  256 MiB to stdout or generates more than 256 MiB of files. Its stderr is
+  shown prefixed with its file name, up to 64 KiB.
+- Every path in its response must be relative and normalized: no `..` or `.`
+  components, no absolute paths, no drive or UNC prefixes (`:`, `\`), no empty
+  components, no NUL. A response with any bad path is refused whole, and
+  nothing from it is written.
+
+The built-in generators answer the same protocol in process, so their output
+goes through the same checks.
+
 **Which versions.** `package_versions = "latest"` (the default) generates the
 working tree — no `.comline/` read. `"all"` generates every committed version in
 the CAS chain; `["0.3.0", "0.4.0"]` (versions or commit hashes) generates just
