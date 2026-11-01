@@ -106,7 +106,9 @@ pub fn run(work_dir: &Path, flags: Flags) -> Result<()> {
     let mut seen = std::collections::BTreeSet::new();
     formats.retain(|f| seen.insert(f.clone()));
     if formats.is_empty() {
-        return Err(miette!("`[doc] formats` is empty: name at least one format"));
+        return Err(miette!(
+            "`[doc] formats` is empty: name at least one format"
+        ));
     }
     let changelog_from = flags.changelog_from.or(cfg.changelog_from.clone());
     let renderers = Renderers::new(work_dir, &cfg)?;
@@ -326,7 +328,10 @@ impl Renderers {
             .unwrap_or_default();
         match &self.external {
             Some(external) => format!("{format}@{version} from {}", external.hash),
-            None => format!("{format}@{version} via comline {}", env!("CARGO_PKG_VERSION")),
+            None => format!(
+                "{format}@{version} via comline {}",
+                env!("CARGO_PKG_VERSION")
+            ),
         }
     }
 
@@ -421,10 +426,14 @@ impl Renderers {
 
 /// The newest release, else the newest dev build, else the unreleased state.
 fn latest(versions: &[Version]) -> &Version {
-    [VersionKind::Release, VersionKind::Dev, VersionKind::Unreleased]
-        .into_iter()
-        .find_map(|kind| versions.iter().rev().find(|v| v.kind == kind))
-        .expect("at least one version")
+    [
+        VersionKind::Release,
+        VersionKind::Dev,
+        VersionKind::Unreleased,
+    ]
+    .into_iter()
+    .find_map(|kind| versions.iter().rev().find(|v| v.kind == kind))
+    .expect("at least one version")
 }
 
 /// Every built version, oldest first, then the unreleased state when it

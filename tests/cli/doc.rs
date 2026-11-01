@@ -172,7 +172,10 @@ fn html_writes_a_self_contained_site_per_version() {
     package(
         &shop,
         "//! A shop.\n\n",
-        &API.replace("    total: u64\n", "    total: u64\n    optional note: string\n"),
+        &API.replace(
+            "    total: u64\n",
+            "    total: u64\n    optional note: string\n",
+        ),
     );
 
     comline_cmd()
@@ -187,7 +190,10 @@ fn html_writes_a_self_contained_site_per_version() {
     assert!(root.contains("url=0.1.0-dev.1/index.html"), "{root}");
     assert!(read(&site.join("versions.js")).contains("var LATEST = \"0.1.0-dev.1\";"));
     let compare = read(&site.join("compare.js"));
-    assert!(compare.contains("\"api::Order.note\":\"optional string\""), "{compare}");
+    assert!(
+        compare.contains("\"api::Order.note\":\"optional string\""),
+        "{compare}"
+    );
     assert!(site.join("compare.html").exists());
 
     let out = site.join("unreleased");
@@ -242,15 +248,25 @@ fn html_is_a_doc_format_in_comline_toml() {
 fn three_versions(shop: &Path) {
     package(shop, "//! A shop.\n\n", API);
     let step = |args: &[&str]| {
-        comline_cmd().current_dir(shop).args(args).assert().success();
+        comline_cmd()
+            .current_dir(shop)
+            .args(args)
+            .assert()
+            .success();
     };
     step(&["build"]);
     step(&["release", "--yes"]);
-    let api = API.replace("    total: u64\n", "    total: u64\n    optional note: string\n");
+    let api = API.replace(
+        "    total: u64\n",
+        "    total: u64\n    optional note: string\n",
+    );
     package(shop, "//! A shop.\n\n", &api);
     step(&["build"]);
     step(&["release", "--yes"]);
-    let api = api.replace("    total: u64\n", "    total: u64\n    optional tag: string\n");
+    let api = api.replace(
+        "    total: u64\n",
+        "    total: u64\n    optional tag: string\n",
+    );
     package(shop, "//! A shop.\n\n", &api);
     step(&["build"]);
     package(shop, "//! A shop, changed.\n\n", &api);
@@ -282,11 +298,21 @@ fn every_version_is_documented_and_a_second_run_rerenders_only_unreleased() {
     let site = shop.join("docs/api/html");
     assert_eq!(
         folders(&site),
-        ["0.1.0", "0.1.0-dev.1", "0.2.0", "0.2.0-dev.1", "0.3.0-dev.1", "unreleased"]
+        [
+            "0.1.0",
+            "0.1.0-dev.1",
+            "0.2.0",
+            "0.2.0-dev.1",
+            "0.3.0-dev.1",
+            "unreleased"
+        ]
     );
     assert!(read(&site.join("index.html")).contains("url=0.2.0/index.html"));
     let versions = read(&site.join("versions.js"));
-    assert!(versions.contains("{\"id\":\"0.3.0-dev.1\",\"kind\":\"dev\""), "{versions}");
+    assert!(
+        versions.contains("{\"id\":\"0.3.0-dev.1\",\"kind\":\"dev\""),
+        "{versions}"
+    );
     assert!(versions.contains("\"release\":\"0.3.0\""), "{versions}");
 
     // A marker in a kept folder survives; the unreleased folder is redone.
@@ -314,22 +340,36 @@ fn doc_versions_trims_the_list() {
             format!("[doc]\nformats = [\"markdown\"]\nversions = {versions}\n"),
         )
         .unwrap();
-        comline_cmd().current_dir(&shop).arg("doc").assert().success();
+        comline_cmd()
+            .current_dir(&shop)
+            .arg("doc")
+            .assert()
+            .success();
         folders(&shop.join("docs/api/markdown"))
     };
 
     assert_eq!(run("\"all\"").len(), 6);
     assert_eq!(run("{ last = 2 }"), ["0.3.0-dev.1", "unreleased"]);
     assert_eq!(run("{ releases_only = true }"), ["0.1.0", "0.2.0"]);
-    assert_eq!(run("{ since = \"0.2.0\" }"), ["0.2.0", "0.3.0-dev.1", "unreleased"]);
+    assert_eq!(
+        run("{ since = \"0.2.0\" }"),
+        ["0.2.0", "0.3.0-dev.1", "unreleased"]
+    );
     assert_eq!(
         run("{ since = \"0.1.0\", releases_only = true, last = 1 }"),
         ["0.2.0"]
     );
     let index = read(&shop.join("docs/api/markdown/index.md"));
-    assert!(index.contains("- [0.2.0](0.2.0/index.md): release"), "{index}");
+    assert!(
+        index.contains("- [0.2.0](0.2.0/index.md): release"),
+        "{index}"
+    );
 
-    fs::write(shop.join("comline.toml"), "[doc]\nversions = { since = \"9.9.9\" }\n").unwrap();
+    fs::write(
+        shop.join("comline.toml"),
+        "[doc]\nversions = { since = \"9.9.9\" }\n",
+    )
+    .unwrap();
     comline_cmd()
         .current_dir(&shop)
         .arg("doc")
