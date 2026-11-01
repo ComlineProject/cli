@@ -498,7 +498,10 @@ version carries the changelog from the version before it, computed by core's
 **Caching.** A built version never changes, so its folder is kept between
 runs. `<out>/<format>/.comline-doc.json` records the key each folder was
 rendered with: its commit, the commit of the version before it, the renderer
-and its version, the model version and the links. A run re-renders only the
+and its version, the model version and the links. A built-in renderer's
+version carries a content hash of its sources and assets (`0.1.0+<hash>`),
+so a `comline` with a changed renderer re-renders every folder; an external
+renderer is keyed by its file's hash. A run re-renders only the
 folders whose key changed, which is the unreleased state and new versions,
 and removes the folders of versions no longer listed.
 

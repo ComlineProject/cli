@@ -196,20 +196,12 @@ fn document_site(
     let renderer_key = renderers.key(format);
     let (mut rendered, mut kept) = (0, 0);
     for (i, version) in versions.iter().enumerate() {
-        let key = version.commit.map(|commit| {
-            let previous = i
-                .checked_sub(1)
-                .and_then(|p| versions[p].commit)
-                .map(|c| c.to_hex())
-                .unwrap_or_else(|| "none".into());
-            format!(
-                "commit {} after {previous}; {renderer_key}; model {DOC_MODEL_VERSION}; links {:?}",
-                commit.to_hex(),
-                cfg.links
-            )
-        });
+        let previous = i.checked_sub(1).and_then(|p| versions[p].commit);
+        let key = version
+            .commit
+            .map(|commit| cache_key(&commit, previous.as_ref(), &renderer_key, &cfg.links));
         let target = dir.join(&version.id);
-        if key.is_some() && old.versions.get(&version.id) == Some(&key) && target.is_dir() {
+        if old.reuses(&version.id, &key) && target.is_dir() {
             manifest.versions.insert(version.id.clone(), key);
             kept += 1;
             continue;
@@ -245,7 +237,32 @@ struct Manifest {
     versions: BTreeMap<String, Option<String>>,
 }
 
+/// A built version folder's cache key: everything its pages are rendered
+/// from. `renderer_key` is [`Renderers::key`], which moves whenever the
+/// renderer's output can (a built-in's version carries a content hash of
+/// its sources and assets).
+fn cache_key(
+    commit: &Hash,
+    previous: Option<&Hash>,
+    renderer_key: &str,
+    links: &BTreeMap<String, String>,
+) -> String {
+    let previous = previous
+        .map(|c| c.to_hex())
+        .unwrap_or_else(|| "none".into());
+    format!(
+        "commit {} after {previous}; {renderer_key}; model {DOC_MODEL_VERSION}; links {links:?}",
+        commit.to_hex()
+    )
+}
+
 impl Manifest {
+    /// Whether the folder `id` was rendered with `key`; never for the
+    /// unreleased state, which has none.
+    fn reuses(&self, id: &str, key: &Option<String>) -> bool {
+        key.is_some() && self.versions.get(id) == Some(key)
+    }
+
     /// The manifest in `dir`; empty when there's none or it doesn't parse.
     fn read(dir: &Path) -> Self {
         std::fs::read_to_string(dir.join(MANIFEST))
@@ -630,4 +647,51 @@ fn write_files(dir: &Path, files: &[FileOut]) -> Result<()> {
             .wrap_err_with(|| format!("failed to write `{}`", path.display()))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A built-in renderer's key carries its content-hashed version, so a
+    /// CLI with a changed renderer re-renders every folder.
+    #[test]
+    fn a_changed_renderer_invalidates_every_folder() {
+        let renderers = Renderers {
+            registry: renderer_registry(),
+            external: None,
+        };
+        for (format, version) in [
+            ("html", comline_doc_html::RENDERER.version),
+            ("markdown", comline_doc_markdown::RENDERER.version),
+        ] {
+            assert!(version.contains('+'), "{version}");
+            assert!(renderers
+                .key(format)
+                .contains(&format!("{format}@{version} ")));
+        }
+
+        let links = BTreeMap::new();
+        let commits: Vec<Hash> = (0..3u8).map(|i| Hash::from_bytes(&[i])).collect();
+        let keyed = |renderer: &str| {
+            let mut manifest = Manifest::default();
+            for (i, commit) in commits.iter().enumerate() {
+                let previous = i.checked_sub(1).map(|p| &commits[p]);
+                let key = cache_key(commit, previous, renderer, &links);
+                manifest.versions.insert(format!("v{i}"), Some(key));
+            }
+            manifest
+        };
+        let old = keyed("html@0.1.0+0000000000000000 via comline 0.2.0");
+        let same = keyed("html@0.1.0+0000000000000000 via comline 0.2.0");
+        let changed = keyed("html@0.1.0+0000000000000001 via comline 0.2.0");
+        for (id, key) in &same.versions {
+            assert!(old.reuses(id, key), "{id} should be kept");
+        }
+        for (id, key) in &changed.versions {
+            assert!(!old.reuses(id, key), "{id} should re-render");
+        }
+        // The unreleased state is never reused.
+        assert!(!old.reuses("unreleased", &None));
+    }
 }
