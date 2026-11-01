@@ -102,28 +102,40 @@ Examples:
 
     /// Write the package's documentation: Markdown pages, or the model as JSON
     #[command(long_about = "\
-Write the package's documentation: an index page, one page per module (its \
-`//!` header, every unit with its `///` docs, fields, arguments and each \
-protocol's wire summary), a changelog page with `--changelog-from`, and an \
-mkdocs/zensical `nav.yml`. Read-only: nothing is written to `.comline/`.
+Write the package's documentation for every version: each release, each dev \
+build and the unreleased working state (when it differs from the last build), \
+each into `<out>/<format>/<version>/` (`unreleased/` for the working tree) with \
+the changelog from the version before it. Per version: an index page, one page \
+per module (its `//!` header, every unit with its `///` docs, fields, arguments \
+and each protocol's wire summary) and a changelog page. Read-only: nothing is \
+written to `.comline/`.
 
-The working tree is documented unless `--version` names a built version (a \
-version string, a commit hash or `HEAD`), which is documented from its frozen \
-IR, `//!` headers included. A built version keeps no source, so its protocols \
-have no wire summary.
+`markdown` (the default) writes pages and an mkdocs/zensical `nav.yml` per \
+version, plus an `index.md` listing the versions. `html` writes a \
+self-contained static site per version, with a version picker in its header, \
+and at `<out>/html/` an `index.html` pointing at the latest version and a \
+`compare.html` to compare versions; everything links relatively and opens \
+straight from disk. `json` writes each version's documentation model \
+(`model.json`) and an `index.json`.
 
-`--format html` writes a self-contained static site instead: `index.html`, \
-one page per module, `changelog.html`, a stylesheet and a search script, all \
-linked relatively, so `index.html` opens straight from disk. `--format json` \
-writes the documentation model itself (`model.json`), for other tools. `comline.toml`'s `[doc]` table sets the defaults: `out` \
-(`docs/api`), `format` (`markdown`), `renderer` (an external renderer, run \
-like an external generator), `links` (dependency docs URLs) and \
+A built version's folder is kept between runs while nothing it was rendered \
+from changes (`<out>/<format>/.comline-doc.json` records why), so a run \
+re-renders only the unreleased state and new versions. `--version` documents \
+one built version alone (a version string, a commit hash or `HEAD`), and \
+`--changelog-from` then adds a changelog from an earlier one. A built version \
+keeps no source, so its protocols have no wire summary, and one built before \
+headers were frozen has no `//!` headers; its pages say so.
+
+`comline.toml`'s `[doc]` table sets the defaults: `out` (`docs/api`), \
+`formats` (`[\"markdown\"]`), `versions` (`\"all\"`, or `{ last = N }`, \
+`{ since = \"0.3.0\" }`, `{ releases_only = true }`), `renderer` (an external \
+renderer, run like an external generator), `links` (dependency docs URLs) and \
 `changelog_from`.
 
 Examples:
   comline doc
-  comline doc --out site/api --changelog-from 0.1.0
-  comline doc --version 0.2.0
+  comline doc --format html,markdown
+  comline doc --version 0.2.0 --changelog-from 0.1.0
   comline doc --format html --out site
   comline doc --format json")]
     Doc {
@@ -131,17 +143,17 @@ Examples:
         #[arg(long, value_name = "DIR")]
         out: Option<std::path::PathBuf>,
 
-        /// Document this built version instead of the working tree
+        /// Document only this built version, into `<out>/<format>/<VERSION>/`
         #[arg(long = "version", value_name = "VERSION")]
         doc_version: Option<String>,
 
-        /// Add a changelog from this built version to the documented one
+        /// With `--version`: add a changelog from this built version
         #[arg(long, value_name = "VERSION")]
         changelog_from: Option<String>,
 
-        /// `markdown` (pages), `html` (a static site) or `json` (the model); default from `[doc] format`
-        #[arg(long, value_name = "FORMAT")]
-        format: Option<String>,
+        /// `markdown` (pages), `html` (a static site) or `json` (the model), repeatable or comma-separated; default from `[doc] formats`
+        #[arg(long = "format", value_name = "FORMAT", value_delimiter = ',')]
+        format: Vec<String>,
     },
 
     /// Validate the project and write generated code for each configured target

@@ -34,6 +34,10 @@ fn scaffolds_a_buildable_project() {
         "{gitignore}"
     );
     assert!(!gitignore.lines().any(|l| l == ".comline/"), "{gitignore}");
+    assert!(
+        gitignore.lines().any(|l| l == "docs/api/html/"),
+        "{gitignore}"
+    );
 
     let config = fs::read_to_string(root.join("config.idp")).unwrap();
     assert!(config.contains("congregation my_api"));
