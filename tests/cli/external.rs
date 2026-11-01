@@ -300,7 +300,7 @@ fn renderer_matches_builtin(kind: Kind, bin: &str, format: &str) {
     let file = install(&project, kind, bin, &format!("comline-doc-{format}"));
     fs::write(
         project.join("comline.toml"),
-        format!("[doc]\nrenderer = \"{file}\"\nout = \"external\"\nformat = \"{format}\"\n"),
+        format!("[doc]\nrenderer = \"{file}\"\nout = \"external\"\nformats = [\"{format}\"]\n"),
     )
     .unwrap();
     comline_cmd()
@@ -308,6 +308,10 @@ fn renderer_matches_builtin(kind: Kind, bin: &str, format: &str) {
         .arg("doc")
         .assert()
         .success();
+    // The cache manifests differ by design: each names its renderer.
+    for out in ["builtin", "external"] {
+        fs::remove_file(project.join(out).join(format).join(".comline-doc.json")).unwrap();
+    }
     let external = tree(&project.join("external"));
     assert!(!external.is_empty());
     assert!(

@@ -130,7 +130,7 @@ fn run(cli: Cli) -> Result<()> {
                 out,
                 version: doc_version,
                 changelog_from,
-                format,
+                formats: format,
             },
         ),
         Commands::Generate {
