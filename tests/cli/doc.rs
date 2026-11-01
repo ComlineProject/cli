@@ -113,7 +113,9 @@ fn documents_a_built_version_with_its_frozen_headers_and_a_changelog() {
         changelog.contains("## 0.1.0-dev.1 to 0.1.0-dev.2"),
         "{changelog}"
     );
-    assert!(changelog.contains("field name: `note`"), "{changelog}");
+    // The entry names the field, then shows its new IDL line.
+    assert!(changelog.contains(".note`"), "{changelog}");
+    assert!(changelog.contains("```diff\n+"), "{changelog}");
 }
 
 #[test]
