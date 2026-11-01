@@ -286,3 +286,63 @@ fn a_language_the_generator_does_not_offer_is_refused() {
             "generator `{file}` handles `rust` from `9.0.0` on, not `1.85.0`"
         )));
 }
+
+/// `[doc] renderer`: the official Markdown renderer run as an external one
+/// writes what the built-in writes.
+fn renderer_matches_builtin(kind: Kind) {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    comline_cmd()
+        .current_dir(&project)
+        .args(["doc", "--out", "builtin"])
+        .assert()
+        .success();
+    let file = install(&project, kind, "renderer", "comline-doc-markdown");
+    fs::write(
+        project.join("comline.toml"),
+        format!("[doc]\nrenderer = \"{file}\"\nout = \"external\"\n"),
+    )
+    .unwrap();
+    comline_cmd()
+        .current_dir(&project)
+        .arg("doc")
+        .assert()
+        .success();
+    let external = tree(&project.join("external"));
+    assert!(!external.is_empty());
+    assert!(
+        external == tree(&project.join("builtin")),
+        "{kind:?}: the external renderer's pages differ from the built-in's"
+    );
+}
+
+#[cfg(feature = "gen-wasm")]
+#[test]
+fn a_wasm_renderer_writes_what_the_builtin_does() {
+    renderer_matches_builtin(Kind::Wasm);
+}
+
+#[test]
+fn a_native_renderer_writes_what_the_builtin_does() {
+    renderer_matches_builtin(Kind::Native);
+}
+
+#[test]
+fn a_generator_that_offers_no_renderer_is_refused_as_one() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    let file = install(&project, Kind::Native, "real", "comline-gen-rust");
+    fs::write(
+        project.join("comline.toml"),
+        format!("[doc]\nrenderer = \"{file}\"\n"),
+    )
+    .unwrap();
+    comline_cmd()
+        .current_dir(&project)
+        .arg("doc")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "doesn't render `markdown`; it offers none",
+        ));
+}

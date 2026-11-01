@@ -9,6 +9,7 @@ pub mod clean;
 pub mod completions;
 pub mod conformance;
 pub mod diff;
+pub mod doc;
 pub mod generate;
 pub mod inspect;
 pub mod new;

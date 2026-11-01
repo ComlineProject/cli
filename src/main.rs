@@ -119,6 +119,20 @@ fn run(cli: Cli) -> Result<()> {
         Commands::Build { watch } => commands::build::run(&work_dir, watch),
         Commands::Check => commands::check::run(&work_dir),
         Commands::Inspect { json } => commands::inspect::run(&work_dir, json),
+        Commands::Doc {
+            out,
+            doc_version,
+            changelog_from,
+            format,
+        } => commands::doc::run(
+            &work_dir,
+            commands::doc::Flags {
+                out,
+                version: doc_version,
+                changelog_from,
+                format,
+            },
+        ),
         Commands::Generate {
             target,
             out,
