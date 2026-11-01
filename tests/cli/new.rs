@@ -37,6 +37,12 @@ fn scaffolds_a_buildable_project() {
 
     let config = fs::read_to_string(root.join("config.idp")).unwrap();
     assert!(config.contains("congregation my_api"));
+    // The package's identity, random, on the line after its name.
+    let id = config.lines().nth(1).unwrap();
+    assert!(
+        id.starts_with("id = \"") && id.len() == "id = \"\"".len() + 32,
+        "{config}"
+    );
     assert!(config.contains("code_generation"));
     // The widest promise: the Rust generator's floor.
     assert!(config.contains("rust#1.85.0 = {}"), "{config}");

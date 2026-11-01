@@ -10,6 +10,7 @@ use std::io::Write as _;
 use std::path::Path;
 
 use anstyle::{AnsiColor, Color, Style};
+use comline_core::compat::{self, PackageFacts};
 use comline_core::inspect::{self, Acceptance, Choice, ProtocolSummary, Source};
 use miette::{IntoDiagnostic, Result};
 
@@ -30,9 +31,12 @@ pub fn run(work_dir: &Path, json: bool) -> Result<()> {
     let context = outcome.map_err(|e| core_err("validation failed", e))?;
 
     let protocols = inspect::protocols(&context);
+    // What the latest build records for `comline@2`: each protocol's line,
+    // shape hash and functions' "since". None before the first build.
+    let facts = latest_facts(work_dir);
     let mut out = anstream::stdout().lock();
     if json {
-        let report = serde_json::json!({ "protocols": protocols });
+        let report = serde_json::json!({ "protocols": protocols, "facts": facts });
         writeln!(
             out,
             "{}",
@@ -48,11 +52,59 @@ pub fn run(work_dir: &Path, json: bool) -> Result<()> {
     }
     let text = protocols
         .iter()
-        .map(|p| render(p, ui::plain()))
+        .map(|p| {
+            let mut text = render(p, ui::plain());
+            if !p.dependency {
+                if let Some(facts) = &facts {
+                    text += &render_facts(
+                        facts,
+                        &compat::protocol_path(&p.schema, &p.name),
+                        ui::plain(),
+                    );
+                }
+            }
+            text
+        })
         .collect::<Vec<_>>()
         .join("\n");
     write!(out, "{text}").into_diagnostic()?;
     Ok(())
+}
+
+/// The latest build's facts, if the package was built. Read-only: the
+/// store is never created here.
+fn latest_facts(work_dir: &Path) -> Option<PackageFacts> {
+    use comline_core::package::build::cas::{main_ref, ref_exists};
+    if !ref_exists(work_dir, main_ref()) {
+        return None;
+    }
+    compat::facts(work_dir, None).ok()
+}
+
+/// A protocol's line, shape hash and functions' "since", as the latest
+/// build records them. `path` is its `namespace::Protocol`: facts are kept
+/// per qualified path, so two protocols of one name stay apart.
+pub fn render_facts(facts: &PackageFacts, path: &str, plain: bool) -> String {
+    let Some(p) = facts.protocols.iter().find(|p| p.path == path) else {
+        return String::new();
+    };
+    let dim = |text: &str| {
+        if plain {
+            text.to_string()
+        } else {
+            format!("{DIM}{text}{DIM:#}")
+        }
+    };
+    let mut out = format!(
+        "\n  {}\n",
+        dim(&format!("{} as of build {}", p.path, facts.version))
+    );
+    out += &format!("  {:<10} {}\n", "line", p.line);
+    out += &format!("  {:<10} {}\n", "shape", p.shape_hash);
+    for f in &p.functions {
+        out += &format!("  {:<10} {:<24} {}\n", "since", f.name, f.since);
+    }
+    out
 }
 
 /// One protocol: a header of choices, then a row per guarantee. Fits 80

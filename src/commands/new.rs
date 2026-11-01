@@ -129,9 +129,12 @@ fn scaffold_language() -> String {
 
 fn config_idp(name: &str) -> String {
     let language = scaffold_language();
+    // The package's identity: kept by a rename, changed by a copy.
+    let id = comline_core::package::id::config_line(&comline_core::package::id::generate());
     format!(
         "\
 congregation {name}
+{id}
 specification_version = 1
 
 code_generation = {{

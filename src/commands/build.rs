@@ -29,6 +29,16 @@ pub fn run(work_dir: &Path, watching: bool) -> Result<()> {
 
 fn build_once(work_dir: &Path) -> Result<()> {
     ui::step(format!("Building project{}", ui::at_path(work_dir)));
+    // Every package has an id (its identity for `comline@2`); one without
+    // gets it here, as one line in config.idp.
+    match comline_core::package::id::ensure_in_config(work_dir) {
+        Ok(Some(id)) => ui::note(format!(
+            "config.idp had no `id`: added `id = \"{id}\"`. Keep it when renaming the \
+             package, and change it in a copy"
+        )),
+        Ok(None) => {}
+        Err(e) => return Err(core_err("couldn't add an id to config.idp", e)),
+    }
     let spinner = ui::spinner("compiling schemas");
     let registry = generator_registry();
     let mut target_warnings = Vec::new();

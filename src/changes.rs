@@ -79,6 +79,11 @@ fn config_line(change: &ConfigChange) -> String {
             "~",
             format!("Changed `wire.framing`: {old} {arrow} {new}"),
         ),
+        ConfigChange::PackageIdChanged { old, new } => mark(
+            "🔄",
+            "~",
+            format!("Changed the package `id` (a different package): {old} {arrow} {new}"),
+        ),
     }
 }
 
