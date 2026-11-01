@@ -454,13 +454,16 @@ fn dependencies_are_listed_apart_by_reach() {
         .arg("build")
         .assert()
         .success();
+    package(&shop, "//! A shop, changed.\n\n", &api);
     comline_cmd()
         .current_dir(&shop)
         .args(["doc", "--format", "html", "--format", "json"])
         .assert()
         .success();
     let site = shop.join("docs/api");
-    for version in ["0.1.0-dev.1"] {
+    // The built version's model (from its frozen tree) and the working
+    // tree's agree.
+    for version in ["0.1.0-dev.1", "unreleased"] {
         let model: serde_json::Value =
             serde_json::from_str(&read(&site.join(format!("json/{version}/model.json")))).unwrap();
         let modules: Vec<&str> = model["modules"]
