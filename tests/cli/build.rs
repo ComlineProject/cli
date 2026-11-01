@@ -23,6 +23,38 @@ fn freezes_an_initial_version() {
     assert!(project.join(".comline").is_dir());
 }
 
+#[test]
+fn adds_a_missing_id_with_a_note_and_keeps_one_there_is() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    let before = std::fs::read_to_string(project.join("config.idp")).unwrap();
+    assert!(!before.contains("\nid = "), "{before}");
+
+    build(&project)
+        .success()
+        .stderr(predicate::str::contains("config.idp had no `id`: added"));
+    let after = std::fs::read_to_string(project.join("config.idp")).unwrap();
+    // One line added after `congregation`, nothing else touched.
+    let added: Vec<&str> = after
+        .lines()
+        .filter(|l| !before.lines().any(|b| b == *l))
+        .collect();
+    assert_eq!(added.len(), 1, "{after}");
+    assert!(
+        added[0].starts_with("id = \"") && added[0].len() == "id = \"\"".len() + 32,
+        "{after}"
+    );
+    assert_eq!(after.replace(&format!("{}\n", added[0]), ""), before);
+
+    build(&project)
+        .success()
+        .stderr(predicate::str::contains("had no `id`").not());
+    assert_eq!(
+        std::fs::read_to_string(project.join("config.idp")).unwrap(),
+        after
+    );
+}
+
 /// `fixture_project`, declaring `languages` (and anything after) instead.
 fn declaring(temp: &std::path::Path, languages: &str, rest: &str) -> std::path::PathBuf {
     let project = fixture_project(temp);
