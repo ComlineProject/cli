@@ -100,6 +100,47 @@ Examples:
         json: bool,
     },
 
+    /// Write the package's documentation: Markdown pages, or the model as JSON
+    #[command(long_about = "\
+Write the package's documentation: an index page, one page per module (its \
+`//!` header, every unit with its `///` docs, fields, arguments and each \
+protocol's wire summary), a changelog page with `--changelog-from`, and an \
+mkdocs/zensical `nav.yml`. Read-only: nothing is written to `.comline/`.
+
+The working tree is documented unless `--version` names a built version (a \
+version string, a commit hash or `HEAD`), which is documented from its frozen \
+IR, `//!` headers included. A built version keeps no source, so its protocols \
+have no wire summary.
+
+`--format json` writes the documentation model itself (`model.json`), for \
+other tools. `comline.toml`'s `[doc]` table sets the defaults: `out` \
+(`docs/api`), `format` (`markdown`), `renderer` (an external renderer, run \
+like an external generator), `links` (dependency docs URLs) and \
+`changelog_from`.
+
+Examples:
+  comline doc
+  comline doc --out site/api --changelog-from 0.1.0
+  comline doc --version 0.2.0
+  comline doc --format json")]
+    Doc {
+        /// Output directory; default from `[doc] out`, else `docs/api`
+        #[arg(long, value_name = "DIR")]
+        out: Option<std::path::PathBuf>,
+
+        /// Document this built version instead of the working tree
+        #[arg(long = "version", value_name = "VERSION")]
+        doc_version: Option<String>,
+
+        /// Add a changelog from this built version to the documented one
+        #[arg(long, value_name = "VERSION")]
+        changelog_from: Option<String>,
+
+        /// `markdown` (pages) or `json` (the model); default from `[doc] format`
+        #[arg(long, value_name = "FORMAT")]
+        format: Option<String>,
+    },
+
     /// Validate the project and write generated code for each configured target
     #[command(long_about = "\
 Validate the project (no version bump, no `.comline/` write), then write \

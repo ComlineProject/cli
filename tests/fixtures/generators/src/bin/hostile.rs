@@ -20,7 +20,7 @@ fn main() {
     let request: Request = decode(&input).unwrap();
     let response = match request.body {
         RequestBody::Describe => describe(&mode),
-        RequestBody::Generate(_) => generate(&mode),
+        RequestBody::Generate(_) | RequestBody::Render(_) => generate(&mode),
     };
     let mut out = std::io::stdout().lock();
     out.write_all(&encode(&response).unwrap()).unwrap();
@@ -47,6 +47,7 @@ fn describe(mode: &str) -> Response {
         }],
         protocols: (protocol, protocol),
         ir_formats: vec![IR_FORMAT],
+        renderers: vec![],
     })
 }
 

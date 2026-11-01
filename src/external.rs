@@ -26,8 +26,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use comline_codegen::protocol::{
-    self, Description, FileOut, GenerateRequest, LanguageInfo, Request, Response, IR_FORMAT,
-    PROTOCOL_VERSION,
+    self, Description, FileOut, GenerateRequest, LanguageInfo, RenderRequest, Request, Response,
+    IR_FORMAT, PROTOCOL_VERSION,
 };
 use comline_codegen::versions::LangVersion;
 use comline_codegen::Registry;
@@ -133,7 +133,7 @@ impl External {
                     self.name
                 ))
             }
-            Response::Generate(_) => {
+            Response::Generate(_) | Response::Render(_) => {
                 return Err(miette!(
                     "generator `{}` answered `Describe` with generated files",
                     self.name
@@ -168,6 +168,61 @@ impl External {
     pub fn generate(&self, request: GenerateRequest) -> Result<Vec<FileOut>> {
         let response = self.call(&Request::generate(request))?;
         files(&format!("generator `{}`", self.name), response)
+    }
+
+    /// Renders documentation with the renderer `request` names, which its
+    /// description must list. Checked like [`External::generate`]'s files.
+    pub fn render(
+        &self,
+        description: &Description,
+        request: RenderRequest,
+    ) -> Result<Vec<FileOut>> {
+        let who = format!("renderer `{}`", self.name);
+        check_renderer(&who, description, &request)?;
+        let response = self.call(&Request::render(request))?;
+        rendered(&who, response)
+    }
+}
+
+/// Refuses `request` before it's sent when `description` doesn't offer its
+/// renderer at its model version.
+fn check_renderer(who: &str, description: &Description, request: &RenderRequest) -> Result<()> {
+    let Some(info) = description
+        .renderers
+        .iter()
+        .find(|r| r.id == request.renderer)
+    else {
+        return Err(miette!(
+            "{who} doesn't render `{}`; it offers {}",
+            request.renderer,
+            list(description.renderers.iter().map(|r| format!("`{}`", r.id)))
+        ));
+    };
+    if !info.model_versions.contains(&request.model_version) {
+        return Err(miette!(
+            "{who} reads documentation model {}, and this comline writes model {}",
+            list(info.model_versions.iter()),
+            request.model_version
+        ));
+    }
+    Ok(())
+}
+
+/// A built-in renderer's answer to `request`, through the protocol in
+/// process, like [`builtin`].
+pub fn builtin_render(registry: &Registry, request: RenderRequest) -> Result<Vec<FileOut>> {
+    let who = format!("`{}` renderer", request.renderer);
+    check_renderer(&who, &protocol::describe(registry), &request)?;
+    let bytes = protocol::encode(&Request::render(request)).map_err(|e| miette!("{e}"))?;
+    rendered(&who, protocol::respond(registry, &bytes))
+}
+
+/// [`files`] for a `Render` answer.
+fn rendered(who: &str, response: Response) -> Result<Vec<FileOut>> {
+    match response {
+        Response::Render(generated) => files(who, Response::Generate(generated)),
+        Response::Generate(_) => Err(miette!("{who} answered `Render` with generated code")),
+        other => files(who, other),
     }
 }
 
@@ -260,6 +315,11 @@ fn files(who: &str, response: Response) -> Result<Vec<FileOut>> {
         Response::Error { message } => return Err(miette!("{who}: {message}")),
         Response::Describe(_) => {
             return Err(miette!("{who} answered `Generate` with a description"))
+        }
+        Response::Render(_) => {
+            return Err(miette!(
+                "{who} answered `Generate` with rendered documentation"
+            ))
         }
     };
     for diagnostic in &generated.diagnostics {

@@ -13,6 +13,7 @@ mod check;
 mod clean;
 mod conformance;
 mod diff;
+mod doc;
 mod end_to_end;
 mod external;
 mod generate;

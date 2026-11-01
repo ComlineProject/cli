@@ -20,6 +20,7 @@ This is the long-form reference. For a two-minute tour see the
   - [`build`](#comline-build)
   - [`generate`](#comline-generate)
   - [`diff`](#comline-diff)
+  - [`doc`](#comline-doc)
   - [`conformance`](#comline-conformance)
   - [`clean`](#comline-clean)
   - [`reset`](#comline-reset)
@@ -444,6 +445,60 @@ comline diff 0.0.1 HEAD
 
 Fails with exit `2` if the project has never been built, and exit `1` if an
 argument matches no stored version (the error lists the versions that exist).
+
+### `comline doc`
+
+```
+comline doc [--out <dir>] [--version <v>] [--changelog-from <v>] [--format markdown|json]
+```
+
+Write the package's documentation. Nothing is written to `.comline/`.
+
+- **Pages** (`markdown`, the default, rendered by the official renderer linked
+  into `comline`): `index.md` (the package, its `//!` header, its modules), one
+  page per module (`types::user` is `types/user.md`) with its `//!` header and
+  every unit with its `///` docs, fields, arguments and each protocol's wire
+  summary, `changelog.md` with `--changelog-from`, and `nav.yml`, a `nav` for
+  mkdocs or zensical.
+- **`json`** writes the documentation model itself, `model.json`, in the shape
+  of core's `schemas/doc-model.json`.
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--out <dir>` | `[doc] out`, else `docs/api` | where to write, relative to the project |
+| `--version <v>` | the working tree | document a built version (a version string, a commit hash, or `HEAD`) from its frozen IR, `//!` headers included |
+| `--changelog-from <v>` | `[doc] changelog_from` | add what changed from built version `<v>` to the documented one |
+| `--format <f>` | `[doc] format`, else `markdown` | `markdown`, `json`, or another id the `[doc] renderer` offers |
+
+A built version keeps no source, so with `--version` its protocols have no wire
+summary. A version built before headers were stored has none.
+
+`comline.toml`'s `[doc]` table:
+
+```toml
+[doc]
+out = "docs/api"
+format = "markdown"
+renderer = "renderers/my-renderer.wasm"  # optional: an external renderer
+timeout = 60                             # seconds per call to `renderer`
+links = { std = "https://comlineproject.github.io/docs/std/" }
+changelog_from = "0.1.0"
+```
+
+- `renderer` is run exactly like an external `generator`: a `.wasm` under
+  wasmtime with no filesystem, environment or network, a native executable with
+  an empty environment, the same limits and path checks. It must list the
+  format in its `Describe` answer's `renderers`.
+- `links` maps a dependency (or `std`) to the base URL of its documentation. A
+  type from it links to `<base>/<module>/#<anchor>`; a dependency not listed is
+  plain text.
+
+```bash
+comline doc
+comline doc --out site/api --changelog-from 0.1.0
+comline doc --version 0.2.0
+comline doc --format json
+```
 
 ### `comline conformance`
 

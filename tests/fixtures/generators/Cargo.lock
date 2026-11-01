@@ -73,7 +73,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=0601f004302ebb93e6804732419ccf459902e84a#0601f004302ebb93e6804732419ccf459902e84a"
+source = "git+https://github.com/ComlineProject/generation?rev=7b51264b216ef4c5e2afbe36897a5b35dafe7e06#7b51264b216ef4c5e2afbe36897a5b35dafe7e06"
 dependencies = [
  "comline-core",
  "eyre",
@@ -87,7 +87,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-rust"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-rust?rev=6e8715ac126ab78316dd6a2712165d716351fab1#6e8715ac126ab78316dd6a2712165d716351fab1"
+source = "git+https://github.com/ComlineProject/comline-rust?rev=bef9a74c028d7a44b4dc13ed677d300e061b2147#bef9a74c028d7a44b4dc13ed677d300e061b2147"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -97,7 +97,7 @@ dependencies = [
 [[package]]
 name = "comline-core"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/core?rev=47066583002dbca27975827106f9e34761d0dc64#47066583002dbca27975827106f9e34761d0dc64"
+source = "git+https://github.com/ComlineProject/core?rev=076cae0c3a0639b0c083b61a94f9d4913e853b3f#076cae0c3a0639b0c083b61a94f9d4913e853b3f"
 dependencies = [
  "blake3",
  "ciborium",
@@ -114,7 +114,19 @@ dependencies = [
 [[package]]
 name = "comline-core-stdlib"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/core?rev=47066583002dbca27975827106f9e34761d0dc64#47066583002dbca27975827106f9e34761d0dc64"
+source = "git+https://github.com/ComlineProject/core?rev=076cae0c3a0639b0c083b61a94f9d4913e853b3f#076cae0c3a0639b0c083b61a94f9d4913e853b3f"
+
+[[package]]
+name = "comline-doc-markdown"
+version = "0.1.0"
+source = "git+https://github.com/ComlineProject/generation?rev=7b51264b216ef4c5e2afbe36897a5b35dafe7e06#7b51264b216ef4c5e2afbe36897a5b35dafe7e06"
+dependencies = [
+ "comline-codegen",
+ "comline-core",
+ "eyre",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "comline-test-generators"
@@ -122,6 +134,7 @@ version = "0.0.0"
 dependencies = [
  "comline-codegen",
  "comline-codegen-rust",
+ "comline-doc-markdown",
 ]
 
 [[package]]
