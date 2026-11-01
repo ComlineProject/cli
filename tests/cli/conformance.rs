@@ -81,6 +81,9 @@ fn the_reference_passes_every_official_encoding() {
         .assert()
         .success()
         .stderr(predicate::str::contains("packed@1 (format): "))
+        // Spec 0.2: the `comline@1` handshake profile's `handshake_check`
+        // cases load, and the reference answers them.
+        .stderr(predicate::str::contains("comline@1 (handshake): "))
         .stderr(predicate::str::contains("failed").not())
         .stderr(predicate::str::contains("unproven").not())
         .stderr(predicate::str::contains(
