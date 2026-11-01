@@ -1,5 +1,7 @@
 //! Rendering for `comline_core`'s [`SchemaChanges`], shared by `build` and `diff`.
 
+use comline_core::package::build::VersionBump;
+use comline_core::package::config::ir::diff::{ConfigChange, ConfigChanges};
 use comline_core::schema::ir::diff::{BreakingChange, Modification, NewFeature, SchemaChanges};
 use comline_core::schema::ir::unverified;
 
@@ -34,6 +36,64 @@ pub fn render(changes: &SchemaChanges) {
 
     if changes.is_empty() {
         ui::detail("no schema changes");
+    }
+}
+
+/// Print the config changes that move the version, if any.
+pub fn render_config(changes: &ConfigChanges) {
+    if changes.is_empty() {
+        return;
+    }
+    ui::group(heading("⚙️", "Config changes", changes.0.len()));
+    for change in &changes.0 {
+        ui::detail(config_line(change));
+    }
+}
+
+fn config_line(change: &ConfigChange) -> String {
+    let arrow = ui::arrow();
+    match change {
+        ConfigChange::SpecificationVersionChanged { old, new } => mark(
+            "🔄",
+            "~",
+            format!("Changed `specification_version`: {old} {arrow} {new}"),
+        ),
+        ConfigChange::DependencyRemoved { project } => {
+            mark("❌", "-", format!("Removed dependency `{project}`"))
+        }
+        ConfigChange::DependencyVersionChanged { project, old, new } => mark(
+            "🔄",
+            "~",
+            format!("Changed dependency `{project}`: {old} {arrow} {new}"),
+        ),
+        ConfigChange::DependencyAdded { project, version } => {
+            mark("➕", "+", format!("Added dependency `{project}` {version}"))
+        }
+        ConfigChange::WireFormatChanged { old, new } => mark(
+            "🔄",
+            "~",
+            format!("Changed `wire.format`: {old} {arrow} {new}"),
+        ),
+        ConfigChange::WireFramingChanged { old, new } => mark(
+            "🔄",
+            "~",
+            format!("Changed `wire.framing`: {old} {arrow} {new}"),
+        ),
+    }
+}
+
+/// The bump a set of changes calls for, in words.
+pub fn bump_line(bump: VersionBump) -> String {
+    let text = match bump {
+        VersionBump::Major => "major version bump (breaking changes)",
+        VersionBump::Minor => "minor version bump (new features)",
+        VersionBump::Patch => "patch version bump (modifications)",
+        VersionBump::None => "no version bump",
+    };
+    if ui::plain() {
+        text.to_string()
+    } else {
+        format!("⬆️  {text}")
     }
 }
 
@@ -94,6 +154,42 @@ fn breaking_line(change: &BreakingChange) -> String {
             "⚠️",
             "!",
             format!("Added required field `{type_name}.{field_name}`: {field_type}"),
+        ),
+        BreakingChange::AddedOptionalField {
+            type_name,
+            field_name,
+            field_type,
+        } => mark(
+            "⚠️",
+            "!",
+            format!(
+                "Added optional field `{type_name}.{field_name}`: {field_type} (the format can't skip it)"
+            ),
+        ),
+        BreakingChange::ReorderedFields { type_name } => mark(
+            "🔄",
+            "~",
+            format!("Moved fields of `{type_name}` (the format keys them by position)"),
+        ),
+        BreakingChange::ReorderedEnumVariants { enum_name } => mark(
+            "🔄",
+            "~",
+            format!("Moved variants of `{enum_name}` (the format encodes them by index)"),
+        ),
+        BreakingChange::ReorderedFunctions { protocol_name } => mark(
+            "🔄",
+            "~",
+            format!("Moved functions of `{protocol_name}` (the framing calls them by index)"),
+        ),
+        BreakingChange::RenamedProtocol { old_name, new_name } => mark(
+            "🔄",
+            "~",
+            format!("Renamed protocol `{old_name}` {} `{new_name}`", ui::arrow()),
+        ),
+        BreakingChange::RenamedNamespace { old_name, new_name } => mark(
+            "🔄",
+            "~",
+            format!("Renamed namespace `{old_name}` {} `{new_name}`", ui::arrow()),
         ),
         BreakingChange::RemovedEnumVariant { enum_name, variant } => {
             mark("❌", "-", format!("Removed `{enum_name}::{variant}`"))
@@ -348,6 +444,30 @@ fn modification_line(modification: &Modification) -> String {
             "🔧",
             "~",
             format!("Changed the default of `{type_name}.{field_name}`"),
+        ),
+        Modification::TypeRespelled {
+            target,
+            old_type,
+            new_type,
+        } => mark(
+            "📝",
+            "~",
+            format!(
+                "Respelled the type of `{target}`: {old_type} {} {new_type} (same type)",
+                ui::arrow()
+            ),
+        ),
+        Modification::ChangedConstantValue {
+            name,
+            old_value,
+            new_value,
+        } => mark(
+            "🔧",
+            "~",
+            format!(
+                "Changed constant `{name}`'s value (used only by defaults): {}",
+                value_change(old_value, new_value)
+            ),
         ),
         Modification::ChangedErrorMessage { name } => {
             mark("📝", "~", format!("Changed error `{name}`'s message"))

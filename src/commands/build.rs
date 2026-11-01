@@ -61,7 +61,8 @@ fn build_once(work_dir: &Path) -> Result<()> {
         .as_ref()
         .map(|c| !c.is_empty())
         .unwrap_or(false)
-        || !result.dependency_changes.is_empty();
+        || !result.dependency_changes.is_empty()
+        || !result.config_changes.is_empty();
 
     if !has_changes {
         ui::detail(pkg(format!(
@@ -82,7 +83,8 @@ fn build_once(work_dir: &Path) -> Result<()> {
         ui::group(format!("In dependency `{}`:", dependency.name));
         changes::render(&dependency.changes);
     }
-    ui::detail(bump_line(result.version_bump));
+    changes::render_config(&result.config_changes);
+    ui::detail(changes::bump_line(result.version_bump));
     next_release_line(&result);
 
     Ok(())
@@ -119,19 +121,5 @@ fn pkg(body: String) -> String {
         body.replace(" → ", " -> ")
     } else {
         format!("📦 {body}")
-    }
-}
-
-fn bump_line(bump: VersionBump) -> String {
-    let text = match bump {
-        VersionBump::Major => "major version bump (breaking changes)",
-        VersionBump::Minor => "minor version bump (new features)",
-        VersionBump::Patch => "patch version bump (modifications)",
-        VersionBump::None => "no version bump",
-    };
-    if ui::plain() {
-        text.to_string()
-    } else {
-        format!("⬆️  {text}")
     }
 }
