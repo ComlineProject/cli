@@ -1,10 +1,13 @@
-//! `comline diff <old> <new>` — schema changelog between two frozen versions.
+//! `comline diff <old> <new>` — changelog between two frozen versions: the
+//! package's own schema changes, those within its reach of each dependency,
+//! its config changes, and the bump they call for (core's comparison, the
+//! same one `build` uses).
 
 use std::path::Path;
 
-use comline_core::package::build::cas::objects::Commit;
+use comline_core::package::build::cas::build::compare;
+use comline_core::package::build::cas::objects::{Commit, Tree};
 use comline_core::package::build::cas::ObjectStore;
-use comline_core::schema::ir::diff::analyze_package_changes;
 use miette::Result;
 
 use crate::commands::ensure_project;
@@ -31,9 +34,21 @@ pub fn run(work_dir: &Path, old: &str, new: &str) -> Result<()> {
         return Ok(());
     }
 
-    let old_schemas = history::load_schemas(&store, old_commit)?;
-    let new_schemas = history::load_schemas(&store, new_commit)?;
-    changes::render(&analyze_package_changes(&old_schemas, &new_schemas));
+    let tree = |commit: &Commit| -> Result<Tree> {
+        let bytes = store
+            .read(&commit.tree)
+            .map_err(|e| miette::miette!("failed to read root tree: {e:#}"))?;
+        Tree::from_bytes(&bytes).map_err(|e| miette::miette!("corrupt root tree: {e:#}"))
+    };
+    let comparison = compare(&store, &tree(old_commit)?, &tree(new_commit)?)
+        .map_err(|e| miette::miette!("failed to compare the versions: {e:#}"))?;
+    changes::render(&comparison.schema_changes);
+    for dependency in &comparison.dependency_changes {
+        ui::group(format!("In dependency `{}`:", dependency.name));
+        changes::render(&dependency.changes);
+    }
+    changes::render_config(&comparison.config_changes);
+    ui::detail(changes::bump_line(comparison.bump));
     Ok(())
 }
 
