@@ -4,8 +4,8 @@
 //! compiled working tree, or from a built version's frozen IR and `//!`
 //! headers with `--version`. `--changelog-from` adds what changed since an
 //! earlier built version. `--format json` writes the model itself; any other
-//! format is a renderer's id, `markdown` being the official one, linked in
-//! like the official generators. `[doc] renderer` in `comline.toml` names an
+//! format is a renderer's id: `markdown` and `html` are the official ones,
+//! linked in like the official generators. `[doc] renderer` in `comline.toml` names an
 //! external renderer instead, run exactly like an external generator
 //! ([`crate::external`]: the same sandbox, limits and path checks).
 //!
@@ -39,6 +39,7 @@ pub struct Flags {
 pub(crate) fn renderer_registry() -> Registry {
     let mut registry = Registry::new();
     comline_doc_markdown::register(&mut registry);
+    comline_doc_html::register(&mut registry);
     registry
 }
 

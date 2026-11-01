@@ -38,12 +38,14 @@ comline-core = { git = "https://github.com/ComlineProject/core", rev = "076cae0c
 # `comline-codegen`'s types, so the rev below must be byte-identical to the
 # one *they* pin - Cargo only unifies a git dependency across identical rev
 # strings, and two copies of `GenRequest` are two incompatible types.
-comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "7b51264b216ef4c5e2afbe36897a5b35dafe7e06" }
-# The official Markdown documentation renderer (`comline doc`), linked in
-# like the official generators. Same generation rev as `comline-codegen`.
-comline-doc-markdown = { git = "https://github.com/ComlineProject/generation", rev = "7b51264b216ef4c5e2afbe36897a5b35dafe7e06" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "bef9a74c028d7a44b4dc13ed677d300e061b2147", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "47b54cc75b05bc52586d431d26ed4def316cf0c4", optional = true }
+comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "58ff61b4a72a2bcdba6685809e615ffb614e1d8e" }
+# The official Markdown and HTML documentation renderers (`comline doc`),
+# linked in like the official generators. Same generation rev as
+# `comline-codegen`.
+comline-doc-markdown = { git = "https://github.com/ComlineProject/generation", rev = "58ff61b4a72a2bcdba6685809e615ffb614e1d8e" }
+comline-doc-html = { git = "https://github.com/ComlineProject/generation", rev = "58ff61b4a72a2bcdba6685809e615ffb614e1d8e" }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "52e0eadf1c424f9486ee97d75d74cf59bbc1f191", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "932edaad1fd0a0dba47f8fff132149e03c0340dc", optional = true }
 # `comline conformance`: the conformance runner (corpus loading, judging,
 # profile proofs) and its case format, a public spec. Pinned by git rev.
 comline-runtime-conformance = { git = "https://github.com/ComlineProject/runtime", rev = "6f8f73a247f0aa4ac8b7041b2fdc4b02bce0e0d6" }

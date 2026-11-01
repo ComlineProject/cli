@@ -449,7 +449,7 @@ argument matches no stored version (the error lists the versions that exist).
 ### `comline doc`
 
 ```
-comline doc [--out <dir>] [--version <v>] [--changelog-from <v>] [--format markdown|json]
+comline doc [--out <dir>] [--version <v>] [--changelog-from <v>] [--format markdown|html|json]
 ```
 
 Write the package's documentation. Nothing is written to `.comline/`.
@@ -460,6 +460,14 @@ Write the package's documentation. Nothing is written to `.comline/`.
   every unit with its `///` docs, fields, arguments and each protocol's wire
   summary, `changelog.md` with `--changelog-from`, and `nav.yml`, a `nav` for
   mkdocs or zensical.
+- **`html`** writes a self-contained static site, rendered by the official HTML
+  renderer, also linked in: `index.html`, one page per module
+  (`types/user.html`), `changelog.html` with `--changelog-from`, `style.css`
+  and `search.js`. It has the same content as the Markdown pages, plus a
+  sidebar of modules and units, a search box over the units (the index is
+  inlined in `search.js`), and light and dark themes that follow the OS
+  setting. Nothing loads from the network and every link is relative, so
+  `index.html` opens straight from disk or from any static host.
 - **`json`** writes the documentation model itself, `model.json`, in the shape
   of core's `schemas/doc-model.json`.
 
@@ -468,7 +476,7 @@ Write the package's documentation. Nothing is written to `.comline/`.
 | `--out <dir>` | `[doc] out`, else `docs/api` | where to write, relative to the project |
 | `--version <v>` | the working tree | document a built version (a version string, a commit hash, or `HEAD`) from its frozen IR, `//!` headers included |
 | `--changelog-from <v>` | `[doc] changelog_from` | add what changed from built version `<v>` to the documented one |
-| `--format <f>` | `[doc] format`, else `markdown` | `markdown`, `json`, or another id the `[doc] renderer` offers |
+| `--format <f>` | `[doc] format`, else `markdown` | `markdown`, `html`, `json`, or another id the `[doc] renderer` offers |
 
 A built version keeps no source, so with `--version` its protocols have no wire
 summary. A version built before headers were stored has none.
@@ -497,6 +505,7 @@ changelog_from = "0.1.0"
 comline doc
 comline doc --out site/api --changelog-from 0.1.0
 comline doc --version 0.2.0
+comline doc --format html --out site
 comline doc --format json
 ```
 

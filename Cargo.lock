@@ -540,6 +540,7 @@ dependencies = [
  "comline-codegen-rust",
  "comline-codegen-typescript",
  "comline-core",
+ "comline-doc-html",
  "comline-doc-markdown",
  "comline-runtime-conformance",
  "eyre",
@@ -563,7 +564,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=7b51264b216ef4c5e2afbe36897a5b35dafe7e06#7b51264b216ef4c5e2afbe36897a5b35dafe7e06"
+source = "git+https://github.com/ComlineProject/generation?rev=58ff61b4a72a2bcdba6685809e615ffb614e1d8e#58ff61b4a72a2bcdba6685809e615ffb614e1d8e"
 dependencies = [
  "comline-core",
  "eyre",
@@ -577,7 +578,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-rust"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-rust?rev=bef9a74c028d7a44b4dc13ed677d300e061b2147#bef9a74c028d7a44b4dc13ed677d300e061b2147"
+source = "git+https://github.com/ComlineProject/comline-rust?rev=52e0eadf1c424f9486ee97d75d74cf59bbc1f191#52e0eadf1c424f9486ee97d75d74cf59bbc1f191"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -587,7 +588,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-typescript"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-typescript?rev=47b54cc75b05bc52586d431d26ed4def316cf0c4#47b54cc75b05bc52586d431d26ed4def316cf0c4"
+source = "git+https://github.com/ComlineProject/comline-typescript?rev=932edaad1fd0a0dba47f8fff132149e03c0340dc#932edaad1fd0a0dba47f8fff132149e03c0340dc"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -629,12 +630,22 @@ version = "0.1.0"
 source = "git+https://github.com/ComlineProject/core?rev=076cae0c3a0639b0c083b61a94f9d4913e853b3f#076cae0c3a0639b0c083b61a94f9d4913e853b3f"
 
 [[package]]
-name = "comline-doc-markdown"
+name = "comline-doc-html"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=7b51264b216ef4c5e2afbe36897a5b35dafe7e06#7b51264b216ef4c5e2afbe36897a5b35dafe7e06"
+source = "git+https://github.com/ComlineProject/generation?rev=58ff61b4a72a2bcdba6685809e615ffb614e1d8e#58ff61b4a72a2bcdba6685809e615ffb614e1d8e"
 dependencies = [
  "comline-codegen",
- "comline-core",
+ "eyre",
+ "pulldown-cmark",
+ "serde_json",
+]
+
+[[package]]
+name = "comline-doc-markdown"
+version = "0.1.0"
+source = "git+https://github.com/ComlineProject/generation?rev=58ff61b4a72a2bcdba6685809e615ffb614e1d8e#58ff61b4a72a2bcdba6685809e615ffb614e1d8e"
+dependencies = [
+ "comline-codegen",
  "eyre",
  "serde",
  "serde_json",
@@ -2052,6 +2063,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pulldown-cmark"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9f068eba8e7071c5f9511831b44f32c740d5adf574e990f946ddb53db2f314e"
+dependencies = [
+ "bitflags 2.13.1",
+ "memchr",
+ "pulldown-cmark-escape",
+ "unicase",
+]
+
+[[package]]
+name = "pulldown-cmark-escape"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "007d8adb5ddab6f8e3f491ac63566a7d5002cc7ed73901f72057943fa71ae1ae"
+
+[[package]]
 name = "pulley-interpreter"
 version = "49.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2971,6 +3000,12 @@ name = "ucd-trie"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2896d95c02a80c6d6a5d6e953d479f5ddf2dfdb6a244441010e373ac0fb88971"
+
+[[package]]
+name = "unicase"
+version = "2.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "357cc3acc6a036009fd6c973ed009037c732d60d0b4f6c673e9041497482a28f"
 
 [[package]]
 name = "unicode-ident"

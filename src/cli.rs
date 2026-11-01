@@ -112,8 +112,10 @@ version string, a commit hash or `HEAD`), which is documented from its frozen \
 IR, `//!` headers included. A built version keeps no source, so its protocols \
 have no wire summary.
 
-`--format json` writes the documentation model itself (`model.json`), for \
-other tools. `comline.toml`'s `[doc]` table sets the defaults: `out` \
+`--format html` writes a self-contained static site instead: `index.html`, \
+one page per module, `changelog.html`, a stylesheet and a search script, all \
+linked relatively, so `index.html` opens straight from disk. `--format json` \
+writes the documentation model itself (`model.json`), for other tools. `comline.toml`'s `[doc]` table sets the defaults: `out` \
 (`docs/api`), `format` (`markdown`), `renderer` (an external renderer, run \
 like an external generator), `links` (dependency docs URLs) and \
 `changelog_from`.
@@ -122,6 +124,7 @@ Examples:
   comline doc
   comline doc --out site/api --changelog-from 0.1.0
   comline doc --version 0.2.0
+  comline doc --format html --out site
   comline doc --format json")]
     Doc {
         /// Output directory; default from `[doc] out`, else `docs/api`
@@ -136,7 +139,7 @@ Examples:
         #[arg(long, value_name = "VERSION")]
         changelog_from: Option<String>,
 
-        /// `markdown` (pages) or `json` (the model); default from `[doc] format`
+        /// `markdown` (pages), `html` (a static site) or `json` (the model); default from `[doc] format`
         #[arg(long, value_name = "FORMAT")]
         format: Option<String>,
     },
