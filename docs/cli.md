@@ -449,62 +449,97 @@ argument matches no stored version (the error lists the versions that exist).
 ### `comline doc`
 
 ```
-comline doc [--out <dir>] [--version <v>] [--changelog-from <v>] [--format markdown|html|json]
+comline doc [--out <dir>] [--version <v>] [--changelog-from <v>] [--format <f>[,<f>...]]
 ```
 
-Write the package's documentation. Nothing is written to `.comline/`.
+Write the package's documentation for every version: each release, each dev
+build and the unreleased working state (when it differs from the last build).
+Nothing is written to `.comline/`.
+
+Each format lands in `<out>/<format>/`, with one folder per version:
+`0.2.0/`, `0.3.0-dev.2/`, and `unreleased/` for the working tree. Each
+version carries the changelog from the version before it, computed by core's
+`comline diff` rules.
 
 - **Pages** (`markdown`, the default, rendered by the official renderer linked
-  into `comline`): `index.md` (the package, its `//!` header, its modules), one
-  page per module (`types::user` is `types/user.md`) with its `//!` header and
-  every unit with its `///` docs, fields, arguments and each protocol's wire
-  summary, `changelog.md` with `--changelog-from`, and `nav.yml`, a `nav` for
-  mkdocs or zensical.
-- **`html`** writes a self-contained static site, rendered by the official HTML
-  renderer, also linked in: `index.html`, one page per module
-  (`types/user.html`), `changelog.html` with `--changelog-from`, `style.css`
-  and `search.js`. It has the same content as the Markdown pages, plus a
-  sidebar of modules and units, a search box over the units (the index is
-  inlined in `search.js`), and light and dark themes that follow the OS
-  setting. Nothing loads from the network and every link is relative, so
-  `index.html` opens straight from disk or from any static host.
-- **`json`** writes the documentation model itself, `model.json`, in the shape
-  of core's `schemas/doc-model.json`.
+  into `comline`): per version, `index.md` (the package, its `//!` header, its
+  modules), one page per module (`types::user` is `types/user.md`) with its
+  `//!` header and every unit with its `///` docs, fields, arguments and each
+  protocol's wire summary, `changelog.md`, and `nav.yml`, a `nav` for mkdocs
+  or zensical. `<out>/markdown/index.md` lists the versions. Switching
+  versions on a published site is left to site tooling, such as
+  [mike](https://github.com/jimporter/mike) for mkdocs.
+- **`html`** writes a self-contained static site per version, rendered by the
+  official HTML renderer, also linked in: `index.html`, one page per module
+  (`types/user.html`), `changelog.html`, `style.css` and `search.js`. It has
+  the same content as the Markdown pages, plus a sidebar of modules and units,
+  a search box over the units, a version picker in the header, and light and
+  dark themes that follow the OS setting. The picker opens the same page and
+  unit in the chosen version, or that version's index with a note when it has
+  no such page. At `<out>/html/`, `index.html` points at the latest version
+  (the newest release, else the newest dev build), and `compare.html`
+  compares versions: two show what changed between them, grouped by unit and
+  labelled major, minor or patch; more show a grid of every unit and member
+  per version. The labels come from the changelogs core computed between each
+  version and the one before it; the page never judges a change itself.
+  Nothing loads from the network and every link is relative, so the site opens
+  straight from disk or from any static host.
+- **`json`** writes each version's documentation model, `model.json`, in the
+  shape of core's `schemas/doc-model.json`, and `<out>/json/index.json`
+  listing the versions.
 
 | Flag | Default | Meaning |
 |---|---|---|
 | `--out <dir>` | `[doc] out`, else `docs/api` | where to write, relative to the project |
-| `--version <v>` | the working tree | document a built version (a version string, a commit hash, or `HEAD`) from its frozen IR, `//!` headers included |
-| `--changelog-from <v>` | `[doc] changelog_from` | add what changed from built version `<v>` to the documented one |
-| `--format <f>` | `[doc] format`, else `markdown` | `markdown`, `html`, `json`, or another id the `[doc] renderer` offers |
+| `--version <v>` | every version | document only this built version (a version string, a commit hash, or `HEAD`), into `<out>/<format>/<v>/` |
+| `--changelog-from <v>` | `[doc] changelog_from` | with `--version`: add what changed from built version `<v>` |
+| `--format <f>` | `[doc] formats`, else `markdown` | `markdown`, `html`, `json`, or another id the `[doc] renderer` offers; repeat it or separate with commas |
 
-A built version keeps no source, so with `--version` its protocols have no wire
-summary. A version built before headers were stored has none.
+**Caching.** A built version never changes, so its folder is kept between
+runs. `<out>/<format>/.comline-doc.json` records the key each folder was
+rendered with: its commit, the commit of the version before it, the renderer
+and its version, the model version and the links. A run re-renders only the
+folders whose key changed, which is the unreleased state and new versions,
+and removes the folders of versions no longer listed.
+
+A built version keeps no source, so its protocols have no wire summary, and a
+version built before headers were stored has no `//!` headers. Its pages say
+so in a note.
 
 `comline.toml`'s `[doc]` table:
 
 ```toml
 [doc]
 out = "docs/api"
-format = "markdown"
+formats = ["html", "markdown", "json"]
+versions = { last = 5 }                  # or "all" (the default), { since = "0.3.0" }, { releases_only = true }
 renderer = "renderers/my-renderer.wasm"  # optional: an external renderer
 timeout = 60                             # seconds per call to `renderer`
 links = { std = "https://comlineproject.github.io/docs/std/" }
-changelog_from = "0.1.0"
+changelog_from = "0.1.0"                 # with --version only
 ```
 
+- `versions` trims the list. `last = N` keeps the newest N (the unreleased
+  state counts as one), `since` keeps that version and newer, and
+  `releases_only` keeps releases alone (no dev builds and no unreleased
+  state). They combine, applied in that reverse order: `releases_only`, then
+  `since`, then `last`.
 - `renderer` is run exactly like an external `generator`: a `.wasm` under
   wasmtime with no filesystem, environment or network, a native executable with
   an empty environment, the same limits and path checks. It must list the
-  format in its `Describe` answer's `renderers`.
+  format in its `Describe` answer's `renderers`. One that doesn't render a
+  site index (`sites` in its `Describe` answer) still renders every version's
+  folder.
 - `links` maps a dependency (or `std`) to the base URL of its documentation. A
   type from it links to `<base>/<module>/#<anchor>`; a dependency not listed is
   plain text.
 
+`comline new` adds `docs/api/html/` to `.gitignore`.
+
 ```bash
 comline doc
-comline doc --out site/api --changelog-from 0.1.0
-comline doc --version 0.2.0
+comline doc --format html,markdown
+comline doc --version 0.2.0 --changelog-from 0.1.0
 comline doc --format html --out site
 comline doc --format json
 ```
