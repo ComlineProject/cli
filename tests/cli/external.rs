@@ -287,20 +287,20 @@ fn a_language_the_generator_does_not_offer_is_refused() {
         )));
 }
 
-/// `[doc] renderer`: the official Markdown renderer run as an external one
-/// writes what the built-in writes.
-fn renderer_matches_builtin(kind: Kind) {
+/// `[doc] renderer`: an official renderer (`bin`, rendering `format`) run as
+/// an external one writes what the built-in writes, byte for byte.
+fn renderer_matches_builtin(kind: Kind, bin: &str, format: &str) {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
     comline_cmd()
         .current_dir(&project)
-        .args(["doc", "--out", "builtin"])
+        .args(["doc", "--out", "builtin", "--format", format])
         .assert()
         .success();
-    let file = install(&project, kind, "renderer", "comline-doc-markdown");
+    let file = install(&project, kind, bin, &format!("comline-doc-{format}"));
     fs::write(
         project.join("comline.toml"),
-        format!("[doc]\nrenderer = \"{file}\"\nout = \"external\"\n"),
+        format!("[doc]\nrenderer = \"{file}\"\nout = \"external\"\nformat = \"{format}\"\n"),
     )
     .unwrap();
     comline_cmd()
@@ -319,12 +319,23 @@ fn renderer_matches_builtin(kind: Kind) {
 #[cfg(feature = "gen-wasm")]
 #[test]
 fn a_wasm_renderer_writes_what_the_builtin_does() {
-    renderer_matches_builtin(Kind::Wasm);
+    renderer_matches_builtin(Kind::Wasm, "renderer", "markdown");
 }
 
 #[test]
 fn a_native_renderer_writes_what_the_builtin_does() {
-    renderer_matches_builtin(Kind::Native);
+    renderer_matches_builtin(Kind::Native, "renderer", "markdown");
+}
+
+#[cfg(feature = "gen-wasm")]
+#[test]
+fn a_wasm_html_renderer_writes_what_the_builtin_does() {
+    renderer_matches_builtin(Kind::Wasm, "renderer-html", "html");
+}
+
+#[test]
+fn a_native_html_renderer_writes_what_the_builtin_does() {
+    renderer_matches_builtin(Kind::Native, "renderer-html", "html");
 }
 
 #[test]

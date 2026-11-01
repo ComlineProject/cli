@@ -137,10 +137,73 @@ fn an_unknown_format_names_what_is_offered() {
 
     comline_cmd()
         .current_dir(&shop)
-        .args(["doc", "--format", "html"])
+        .args(["doc", "--format", "pdf"])
         .assert()
         .failure()
-        .stderr(predicate::str::contains(
-            "doesn't render `html`; it offers `markdown`",
-        ));
+        .stderr(predicate::str::contains("doesn't render `pdf`; it offers"))
+        .stderr(predicate::str::contains("`html`"))
+        .stderr(predicate::str::contains("`markdown`"));
+}
+
+#[test]
+fn html_writes_a_self_contained_site() {
+    let temp = tempfile::tempdir().unwrap();
+    let shop = temp.path().join("shop");
+    package(&shop, "//! A shop.\n\n", API);
+    comline_cmd()
+        .current_dir(&shop)
+        .arg("build")
+        .assert()
+        .success();
+
+    comline_cmd()
+        .current_dir(&shop)
+        .args([
+            "doc",
+            "--format",
+            "html",
+            "--out",
+            "site",
+            "--changelog-from",
+            "0.1.0-dev.1",
+        ])
+        .assert()
+        .success();
+
+    let out = shop.join("site");
+    let index = read(&out.join("index.html"));
+    assert!(index.starts_with("<!doctype html>"), "{index}");
+    assert!(index.contains("<h1>shop</h1>\n<p>A shop.</p>"), "{index}");
+    assert!(index.contains("<a href=\"api.html\"><code>api</code></a>"));
+    let api = read(&out.join("api.html"));
+    assert!(
+        api.contains("<td><code>total</code></td><td><code>u64</code></td><td>What it costs.</td>"),
+        "{api}"
+    );
+    assert!(api.contains("<a href=\"#order\"><code>Order</code></a>"));
+    assert!(api.contains("<h3>On the wire</h3>"));
+    assert!(api.contains("<link rel=\"stylesheet\" href=\"style.css\">"));
+    assert!(read(&out.join("search.js")).contains("\"u\":\"api.html#order\""));
+    assert!(out.join("style.css").exists());
+    assert!(out.join("changelog.html").exists());
+    assert!(!out.join("nav.yml").exists());
+}
+
+#[test]
+fn html_is_a_doc_format_in_comline_toml() {
+    let temp = tempfile::tempdir().unwrap();
+    let shop = temp.path().join("shop");
+    package(&shop, "", API);
+    fs::write(
+        shop.join("comline.toml"),
+        "[doc]\nout = \"site\"\nformat = \"html\"\n",
+    )
+    .unwrap();
+    comline_cmd()
+        .current_dir(&shop)
+        .arg("doc")
+        .assert()
+        .success();
+    assert!(shop.join("site/index.html").exists());
+    assert!(shop.join("site/api.html").exists());
 }
