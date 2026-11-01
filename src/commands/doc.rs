@@ -4,7 +4,16 @@
 //! version's frozen IR and `//!` headers, or from the compiled working tree.
 //! By default every version is documented: each release, each dev build and
 //! the unreleased working state (when it differs from the last build), each
-//! with the changelog from the version before it, computed by core's rules.
+//! with the changelog from the version before it (a step), computed by
+//! core's rules. A release also carries its changes since the previous
+//! release, compared directly between the two built trees, which its
+//! changelog page shows; a dev build (and the unreleased state) its changes
+//! since the last release, which its page links to. The compare page
+//! composes the steps only.
+//!
+//! Only the package's own modules are documented as its modules: what it
+//! reaches of each dependency (and `std`) is listed apart, by the reach
+//! versioning uses (`comline_core::doc`).
 //! `[doc] versions` trims the list; `--version` documents one version alone
 //! (with `--changelog-from` adding a changelog from an earlier one).
 //!
@@ -39,7 +48,7 @@ use comline_codegen::protocol::{
     self, Description, FileOut, RenderOptions, RenderRequest, SiteVersion, VersionKind,
 };
 use comline_codegen::Registry;
-use comline_core::doc::{self, DocModel, FrozenDocs, DOC_MODEL_VERSION};
+use comline_core::doc::{self, ChangelogSpan, DocModel, FrozenDocs, DOC_MODEL_VERSION};
 use comline_core::package::build::cas::objects::{Commit, Tree};
 use comline_core::package::build::cas::storage::Hash;
 use comline_core::package::build::cas::{refs, ObjectStore};
@@ -82,7 +91,10 @@ struct Version {
     /// Its commit; `None` for the unreleased state.
     commit: Option<Hash>,
     model: DocModel,
+    /// Its own frozen schemas: not its dependencies' or `std`'s.
     schemas: Vec<Vec<FrozenUnit>>,
+    /// The commits its changelogs are computed from, for the cache key.
+    changelog_from: Vec<Hash>,
     /// What its documentation lacks.
     notes: Vec<String>,
 }
@@ -195,11 +207,10 @@ fn document_site(
     let mut manifest = Manifest::default();
     let renderer_key = renderers.key(format);
     let (mut rendered, mut kept) = (0, 0);
-    for (i, version) in versions.iter().enumerate() {
-        let previous = i.checked_sub(1).and_then(|p| versions[p].commit);
+    for version in versions {
         let key = version
             .commit
-            .map(|commit| cache_key(&commit, previous.as_ref(), &renderer_key, &cfg.links));
+            .map(|commit| cache_key(&commit, &version.changelog_from, &renderer_key, &cfg.links));
         let target = dir.join(&version.id);
         if old.reuses(&version.id, &key) && target.is_dir() {
             manifest.versions.insert(version.id.clone(), key);
@@ -238,18 +249,20 @@ struct Manifest {
 }
 
 /// A built version folder's cache key: everything its pages are rendered
-/// from. `renderer_key` is [`Renderers::key`], which moves whenever the
-/// renderer's output can (a built-in's version carries a content hash of
-/// its sources and assets).
+/// from (its commit and those its changelogs start from). `renderer_key` is
+/// [`Renderers::key`], which moves whenever the renderer's output can (a
+/// built-in's version carries a content hash of its sources and assets).
 fn cache_key(
     commit: &Hash,
-    previous: Option<&Hash>,
+    changelog_from: &[Hash],
     renderer_key: &str,
     links: &BTreeMap<String, String>,
 ) -> String {
-    let previous = previous
-        .map(|c| c.to_hex())
-        .unwrap_or_else(|| "none".into());
+    let previous = if changelog_from.is_empty() {
+        "none".to_string()
+    } else {
+        changelog_from.iter().map(|c| c.to_hex()).collect::<Vec<_>>().join(" and ")
+    };
     format!(
         "commit {} after {previous}; {renderer_key}; model {DOC_MODEL_VERSION}; links {links:?}",
         commit.to_hex()
@@ -494,17 +507,46 @@ fn every_version(work_dir: &Path, select: Option<&DocVersions>) -> Result<Vec<Ve
             commit: None,
             model: doc::model(&context, None),
             schemas,
+            changelog_from: vec![],
             notes: vec![],
         });
     }
 
+    // Each version's changes since the last release before it, over every
+    // version (a trimmed list still measures from the real previous
+    // release): a release's are what its changelog shows, a dev build's
+    // what its page links to. Compared directly between the two trees, so
+    // they're exact, not composed from steps.
+    let mut since_release = vec![None; versions.len()];
+    let mut last_release: Option<usize> = None;
+    for (i, version) in versions.iter().enumerate() {
+        if let Some(r) = last_release {
+            let span = match version.kind {
+                VersionKind::Release => Some(ChangelogSpan::Release),
+                // Right after the release, the step already is everything.
+                _ if r + 1 == i => None,
+                _ => Some(ChangelogSpan::SinceRelease),
+            };
+            if let Some(span) = span {
+                let release = &versions[r];
+                let mut log = doc::changelog(&release.id, &release.schemas, &version.id, &version.schemas);
+                log.span = span;
+                since_release[i] = Some((log, release.commit));
+            }
+        }
+        if version.kind == VersionKind::Release {
+            last_release = Some(i);
+        }
+    }
+    let mut versions: Vec<(Version, Option<_>)> = versions.into_iter().zip(since_release).collect();
+
     if let Some(DocVersions::Select(select)) = select {
         if select.releases_only {
-            versions.retain(|v| v.kind == VersionKind::Release);
+            versions.retain(|(v, _)| v.kind == VersionKind::Release);
         }
         if let Some(since) = &select.since {
-            let Some(at) = versions.iter().position(|v| &v.id == since) else {
-                let available: Vec<&str> = versions.iter().map(|v| v.id.as_str()).collect();
+            let Some(at) = versions.iter().position(|(v, _)| &v.id == since) else {
+                let available: Vec<&str> = versions.iter().map(|(v, _)| v.id.as_str()).collect();
                 return Err(miette!(
                     "`[doc] versions` since `{since}`: no such version (available: {})",
                     available.join(", ")
@@ -518,19 +560,23 @@ fn every_version(work_dir: &Path, select: Option<&DocVersions>) -> Result<Vec<Ve
         }
     }
 
-    // Each version's changelog from the one before it in the list.
-    for i in 1..versions.len() {
-        let (before, after) = versions.split_at_mut(i);
-        let previous = &before[i - 1];
-        let log = doc::changelog(
-            &previous.id,
-            &previous.schemas,
-            &after[0].id,
-            &after[0].schemas,
-        );
-        after[0].model.changelog = vec![log];
+    // Each version's step: the changelog from the one before it in the
+    // list, which the compare page composes. Then its changes since the
+    // last release.
+    let mut out: Vec<Version> = Vec::with_capacity(versions.len());
+    for (mut version, since) in versions {
+        if let Some(previous) = out.last() {
+            let step = doc::changelog(&previous.id, &previous.schemas, &version.id, &version.schemas);
+            version.model.changelog = vec![step];
+            version.changelog_from.extend(previous.commit);
+        }
+        if let Some((log, commit)) = since {
+            version.model.changelog.push(log);
+            version.changelog_from.extend(commit);
+        }
+        out.push(version);
     }
-    Ok(versions)
+    Ok(out)
 }
 
 /// `0.3.0-dev.2` leads to the release `0.3.0`; `0.3.0` is one.
@@ -558,7 +604,8 @@ fn frozen_version(work_dir: &Path, spec: &str) -> Result<Version> {
 fn frozen(work_dir: &Path, hash: Hash, commit: &Commit) -> Result<(Version, FrozenDocs)> {
     let spec = &commit.version;
     let store = ObjectStore::new(work_dir);
-    let schemas = history::load_schemas(&store, commit)?;
+    // Every compiled schema: the package's own, its dependencies' and std's.
+    let all_schemas = history::load_schemas(&store, commit)?;
     let config = history::load_config(&store, commit)?;
     // A built version's config doesn't always freeze the package's name;
     // the working tree's is the same unless the package was renamed.
@@ -583,7 +630,15 @@ fn frozen(work_dir: &Path, hash: Hash, commit: &Commit) -> Result<(Version, Froz
         .map_err(|e| miette!("failed to read version `{spec}`: {e:#}"))?;
     let headers = doc::read_docs(&store, &root)
         .map_err(|e| miette!("failed to read version `{spec}`'s headers: {e:#}"))?;
-    let model = doc::model_frozen(&name, Some(spec.clone()), &schemas, headers.clone());
+    let dependencies = doc::frozen_dependencies(&root);
+    let model = doc::model_frozen(
+        &name,
+        Some(spec.clone()),
+        &all_schemas,
+        &dependencies,
+        headers.clone(),
+    );
+    let schemas = doc::own_frozen_schemas(&name, &all_schemas, &dependencies);
 
     let mut notes = vec![];
     if !root.entries.iter().any(|e| e.name == doc::DOCS_ENTRY) {
@@ -616,6 +671,7 @@ fn frozen(work_dir: &Path, hash: Hash, commit: &Commit) -> Result<(Version, Froz
             commit: Some(hash),
             model,
             schemas,
+            changelog_from: vec![],
             notes,
         },
         headers,
@@ -676,8 +732,8 @@ mod tests {
         let keyed = |renderer: &str| {
             let mut manifest = Manifest::default();
             for (i, commit) in commits.iter().enumerate() {
-                let previous = i.checked_sub(1).map(|p| &commits[p]);
-                let key = cache_key(commit, previous, renderer, &links);
+                let previous: Vec<Hash> = i.checked_sub(1).map(|p| commits[p]).into_iter().collect();
+                let key = cache_key(commit, &previous, renderer, &links);
                 manifest.versions.insert(format!("v{i}"), Some(key));
             }
             manifest
