@@ -261,7 +261,11 @@ fn cache_key(
     let previous = if changelog_from.is_empty() {
         "none".to_string()
     } else {
-        changelog_from.iter().map(|c| c.to_hex()).collect::<Vec<_>>().join(" and ")
+        changelog_from
+            .iter()
+            .map(|c| c.to_hex())
+            .collect::<Vec<_>>()
+            .join(" and ")
     };
     format!(
         "commit {} after {previous}; {renderer_key}; model {DOC_MODEL_VERSION}; links {links:?}",
@@ -529,7 +533,8 @@ fn every_version(work_dir: &Path, select: Option<&DocVersions>) -> Result<Vec<Ve
             };
             if let Some(span) = span {
                 let release = &versions[r];
-                let mut log = doc::changelog(&release.id, &release.schemas, &version.id, &version.schemas);
+                let mut log =
+                    doc::changelog(&release.id, &release.schemas, &version.id, &version.schemas);
                 log.span = span;
                 since_release[i] = Some((log, release.commit));
             }
@@ -566,7 +571,12 @@ fn every_version(work_dir: &Path, select: Option<&DocVersions>) -> Result<Vec<Ve
     let mut out: Vec<Version> = Vec::with_capacity(versions.len());
     for (mut version, since) in versions {
         if let Some(previous) = out.last() {
-            let step = doc::changelog(&previous.id, &previous.schemas, &version.id, &version.schemas);
+            let step = doc::changelog(
+                &previous.id,
+                &previous.schemas,
+                &version.id,
+                &version.schemas,
+            );
             version.model.changelog = vec![step];
             version.changelog_from.extend(previous.commit);
         }
@@ -732,7 +742,8 @@ mod tests {
         let keyed = |renderer: &str| {
             let mut manifest = Manifest::default();
             for (i, commit) in commits.iter().enumerate() {
-                let previous: Vec<Hash> = i.checked_sub(1).map(|p| commits[p]).into_iter().collect();
+                let previous: Vec<Hash> =
+                    i.checked_sub(1).map(|p| commits[p]).into_iter().collect();
                 let key = cache_key(commit, &previous, renderer, &links);
                 manifest.versions.insert(format!("v{i}"), Some(key));
             }

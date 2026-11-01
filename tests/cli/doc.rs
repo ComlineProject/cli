@@ -409,12 +409,19 @@ fn a_release_changelog_covers_everything_since_the_previous_release() {
     // Past the first build after a release, a dev state links to its
     // changes since that release.
     let unreleased = read(&site.join("unreleased/changelog.md"));
-    assert!(unreleased.contains("## 0.3.0-dev.1 to unreleased\n"), "{unreleased}");
     assert!(
-        unreleased.contains("Everything since the last release: [0.2.0 to unreleased](#since-0.2.0)."),
+        unreleased.contains("## 0.3.0-dev.1 to unreleased\n"),
         "{unreleased}"
     );
-    let since = unreleased.split("## Since the last release: 0.2.0 to unreleased").nth(1).unwrap();
+    assert!(
+        unreleased
+            .contains("Everything since the last release: [0.2.0 to unreleased](#since-0.2.0)."),
+        "{unreleased}"
+    );
+    let since = unreleased
+        .split("## Since the last release: 0.2.0 to unreleased")
+        .nth(1)
+        .unwrap();
     assert!(since.contains("`Order.tag`"), "{unreleased}");
 
     // The compare page still composes the steps alone.
@@ -424,7 +431,11 @@ fn a_release_changelog_covers_everything_since_the_previous_release() {
         .assert()
         .success();
     let compare = read(&shop.join("docs/api/html/compare.js"));
-    assert_eq!(compare.matches("\"title\":\"Order.note").count(), 1, "{compare}");
+    assert_eq!(
+        compare.matches("\"title\":\"Order.note").count(),
+        1,
+        "{compare}"
+    );
 }
 
 /// A dependency's (here `std`'s) schemas are never the package's modules:
@@ -438,7 +449,11 @@ fn dependencies_are_listed_apart_by_reach() {
         "use std::http::HttpMethod\n\n/// One order.\nstruct Order {\n    method: HttpMethod\n",
     );
     package(&shop, "//! A shop.\n\n", &api);
-    comline_cmd().current_dir(&shop).arg("build").assert().success();
+    comline_cmd()
+        .current_dir(&shop)
+        .arg("build")
+        .assert()
+        .success();
     comline_cmd()
         .current_dir(&shop)
         .args(["doc", "--format", "html", "--format", "json"])
@@ -448,16 +463,31 @@ fn dependencies_are_listed_apart_by_reach() {
     for version in ["0.1.0-dev.1"] {
         let model: serde_json::Value =
             serde_json::from_str(&read(&site.join(format!("json/{version}/model.json")))).unwrap();
-        let modules: Vec<&str> = model["modules"].as_array().unwrap().iter().map(|m| m["path"].as_str().unwrap()).collect();
+        let modules: Vec<&str> = model["modules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|m| m["path"].as_str().unwrap())
+            .collect();
         assert_eq!(modules, ["api"], "{version}");
         assert_eq!(model["dependencies"][0]["package"], "std");
-        let reached: Vec<&str> =
-            model["dependencies"][0]["modules"].as_array().unwrap().iter().map(|m| m["path"].as_str().unwrap()).collect();
+        let reached: Vec<&str> = model["dependencies"][0]["modules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|m| m["path"].as_str().unwrap())
+            .collect();
         assert_eq!(reached, ["http"], "{version}");
     }
     let api = read(&site.join("html/0.1.0-dev.1/api.html"));
-    assert!(api.contains("href=\"https://comlineproject.github.io/docs/std/http/#httpmethod\""), "{api}");
+    assert!(
+        api.contains("href=\"https://comlineproject.github.io/docs/std/http/#httpmethod\""),
+        "{api}"
+    );
     assert!(api.contains("<summary>Dependencies</summary>"), "{api}");
     assert!(!site.join("html/0.1.0-dev.1/std").exists());
-    assert!(api.contains("<a class=\"brand\" href=\"index.html\">shop</a>"), "{api}");
+    assert!(
+        api.contains("<a class=\"brand\" href=\"index.html\">shop</a>"),
+        "{api}"
+    );
 }
