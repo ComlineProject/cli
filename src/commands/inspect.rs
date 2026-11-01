@@ -56,7 +56,11 @@ pub fn run(work_dir: &Path, json: bool) -> Result<()> {
             let mut text = render(p, ui::plain());
             if !p.dependency {
                 if let Some(facts) = &facts {
-                    text += &render_facts(facts, &p.name, ui::plain());
+                    text += &render_facts(
+                        facts,
+                        &compat::protocol_path(&p.schema, &p.name),
+                        ui::plain(),
+                    );
                 }
             }
             text
@@ -78,9 +82,10 @@ fn latest_facts(work_dir: &Path) -> Option<PackageFacts> {
 }
 
 /// A protocol's line, shape hash and functions' "since", as the latest
-/// build records them.
-pub fn render_facts(facts: &PackageFacts, protocol: &str, plain: bool) -> String {
-    let Some(p) = facts.protocols.iter().find(|p| p.name == protocol) else {
+/// build records them. `path` is its `namespace::Protocol`: facts are kept
+/// per qualified path, so two protocols of one name stay apart.
+pub fn render_facts(facts: &PackageFacts, path: &str, plain: bool) -> String {
+    let Some(p) = facts.protocols.iter().find(|p| p.path == path) else {
         return String::new();
     };
     let dim = |text: &str| {
@@ -90,7 +95,10 @@ pub fn render_facts(facts: &PackageFacts, protocol: &str, plain: bool) -> String
             format!("{DIM}{text}{DIM:#}")
         }
     };
-    let mut out = format!("\n  {}\n", dim(&format!("as of build {}", facts.version)));
+    let mut out = format!(
+        "\n  {}\n",
+        dim(&format!("{} as of build {}", p.path, facts.version))
+    );
     out += &format!("  {:<10} {}\n", "line", p.line);
     out += &format!("  {:<10} {}\n", "shape", p.shape_hash);
     for f in &p.functions {
