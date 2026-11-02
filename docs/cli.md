@@ -508,8 +508,9 @@ Open the generated documentation with the system's default handler:
 `<out>/<format>/index.html`, `index.md` or `index.json`, for `html`,
 `markdown` or `json`. `--out` is read as `comline doc` reads it.
 
-- With no `<format>`, `html` if it is among `[doc] formats`, else the first
-  configured format.
+- With no `<format>`, `html` if it is among `[doc] formats` or already
+  rendered (say by `comline doc --format html`), else the first configured
+  format.
 - If that file isn't there, the format is rendered first, exactly as
   `comline doc --format <format>` would. If it is, it is opened as it is,
   without re-rendering; the command says so in one line and how to refresh
