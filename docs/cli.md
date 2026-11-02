@@ -449,7 +449,8 @@ argument matches no stored version (the error lists the versions that exist).
 ### `comline doc`
 
 ```
-comline doc [--out <dir>] [--version <v>] [--changelog-from <v>] [--format <f>[,<f>...]]
+comline doc [--out <dir>] [--version <v>] [--changelog-from <v>] [--format <f>[,<f>...]] [--open]
+comline doc open [<format>] [--out <dir>]
 ```
 
 Write the package's documentation for every version: each release, each dev
@@ -494,6 +495,30 @@ version carries the changelog from the version before it, computed by core's
 | `--version <v>` | every version | document only this built version (a version string, a commit hash, or `HEAD`), into `<out>/<format>/<v>/` |
 | `--changelog-from <v>` | `[doc] changelog_from` | with `--version`: add what changed from built version `<v>` |
 | `--format <f>` | `[doc] formats`, else `markdown` | `markdown`, `html`, `json`, or another id the `[doc] renderer` offers; repeat it or separate with commas |
+| `--open` | off | after rendering, open the first format's index (see `comline doc open`); with `--version`, that version's own index |
+
+A module's summary table lists each unit with its summary, then a **Type**
+column (a constant's type, a type alias's target; linked where it can be) and
+a **Value** column (a constant's value), each only when some unit in the module
+has one. Structs, enums, protocols and the like leave both cells empty.
+
+#### `comline doc open [<format>]`
+
+Open the generated documentation with the system's default handler:
+`<out>/<format>/index.html`, `index.md` or `index.json`, for `html`,
+`markdown` or `json`. `--out` is read as `comline doc` reads it.
+
+- With no `<format>`, `html` if it is among `[doc] formats`, else the first
+  configured format.
+- If that file isn't there, the format is rendered first, exactly as
+  `comline doc --format <format>` would. If it is, it is opened as it is,
+  without re-rendering; the command says so in one line and how to refresh
+  (`comline doc --format <format>`).
+- HTML opens in the browser named by `$BROWSER`, else the system's default
+  (`xdg-open`, `open`, or the Windows shell); Markdown and JSON open in
+  whatever the system associates with the file.
+- It prints the absolute path it opens. With no display, or when nothing
+  opens, it prints that path and a hint instead, and exits `0`.
 
 **Caching.** A built version never changes, so its folder is kept between
 runs. `<out>/<format>/.comline-doc.json` records the key each folder was
@@ -545,6 +570,9 @@ comline doc --format html,markdown
 comline doc --version 0.2.0 --changelog-from 0.1.0
 comline doc --format html --out site
 comline doc --format json
+comline doc --open
+comline doc open
+comline doc open markdown
 ```
 
 ### `comline conformance`
