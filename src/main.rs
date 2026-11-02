@@ -124,15 +124,21 @@ fn run(cli: Cli) -> Result<()> {
             doc_version,
             changelog_from,
             format,
-        } => commands::doc::run(
-            &work_dir,
-            commands::doc::Flags {
-                out,
-                version: doc_version,
-                changelog_from,
-                formats: format,
-            },
-        ),
+            open,
+            command,
+        } => match command {
+            Some(cli::DocCommand::Open { format }) => commands::doc::open(&work_dir, out, format),
+            None => commands::doc::run(
+                &work_dir,
+                commands::doc::Flags {
+                    out,
+                    version: doc_version,
+                    changelog_from,
+                    formats: format,
+                    open,
+                },
+            ),
+        },
         Commands::Generate {
             target,
             out,

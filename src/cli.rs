@@ -137,10 +137,12 @@ Examples:
   comline doc --format html,markdown
   comline doc --version 0.2.0 --changelog-from 0.1.0
   comline doc --format html --out site
-  comline doc --format json")]
+  comline doc --format json
+  comline doc --open
+  comline doc open html")]
     Doc {
         /// Output directory; default from `[doc] out`, else `docs/api`
-        #[arg(long, value_name = "DIR")]
+        #[arg(long, value_name = "DIR", global = true)]
         out: Option<std::path::PathBuf>,
 
         /// Document only this built version, into `<out>/<format>/<VERSION>/`
@@ -154,6 +156,13 @@ Examples:
         /// `markdown` (pages), `html` (a static site) or `json` (the model), repeatable or comma-separated; default from `[doc] formats`
         #[arg(long = "format", value_name = "FORMAT", value_delimiter = ',')]
         format: Vec<String>,
+
+        /// After rendering, open the first format's index with the system's default handler (HTML honours `$BROWSER`)
+        #[arg(long)]
+        open: bool,
+
+        #[command(subcommand)]
+        command: Option<DocCommand>,
     },
 
     /// Validate the project and write generated code for each configured target
@@ -481,5 +490,34 @@ Examples:
         /// With `--features`: print it as JSON
         #[arg(long, requires = "features")]
         json: bool,
+    },
+}
+
+/// `comline doc <subcommand>`.
+#[derive(Debug, clap::Subcommand)]
+pub enum DocCommand {
+    /// Open the generated documentation with the system's default handler
+    #[command(long_about = "\
+Open the generated documentation: `<out>/<format>/index.html` (HTML), \
+`index.md` (Markdown) or `index.json` (JSON). `--out` is read as in \
+`comline doc`.
+
+With no FORMAT, `html` is opened when it is among `[doc] formats`, else the \
+first configured format.
+
+If that file doesn't exist, the format is rendered first (as \
+`comline doc --format FORMAT` would). If it does, it is opened as it is, \
+without re-rendering; run `comline doc` to refresh it. HTML opens in the \
+browser named by `$BROWSER`, else the system's default. With no display, or \
+when nothing opens, the absolute path is printed and the exit status is 0.
+
+Examples:
+  comline doc open
+  comline doc open markdown
+  comline doc open html --out site")]
+    Open {
+        /// `html`, `markdown` or `json`; default `html` if configured, else the first configured format
+        #[arg(value_name = "FORMAT")]
+        format: Option<String>,
     },
 }

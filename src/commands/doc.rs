@@ -66,6 +66,8 @@ pub struct Flags {
     pub version: Option<String>,
     pub changelog_from: Option<String>,
     pub formats: Vec<String>,
+    /// `--open`: open the first format's index once rendered.
+    pub open: bool,
 }
 
 /// The cache manifest's file name, in each format's folder.
@@ -99,10 +101,9 @@ struct Version {
     notes: Vec<String>,
 }
 
-pub fn run(work_dir: &Path, flags: Flags) -> Result<()> {
-    ensure_project(work_dir)?;
-    let cfg = ComlineToml::load(work_dir)?.doc;
-
+/// Where the docs go and in which formats: the command line, else `[doc]`,
+/// else the defaults.
+fn out_and_formats(work_dir: &Path, cfg: &Doc, flags: &Flags) -> Result<(PathBuf, Vec<String>)> {
     let out = match (&flags.out, &cfg.out) {
         (Some(out), _) => work_dir.join(out),
         (None, Some(out)) => work_dir.join(out),
@@ -122,6 +123,83 @@ pub fn run(work_dir: &Path, flags: Flags) -> Result<()> {
             "`[doc] formats` is empty: name at least one format"
         ));
     }
+    Ok((out, formats))
+}
+
+/// The file `comline doc open` opens for a format, under `<out>/<format>/`.
+fn index_file(format: &str) -> Result<&'static str> {
+    match format {
+        "html" => Ok("index.html"),
+        "markdown" => Ok("index.md"),
+        "json" => Ok("index.json"),
+        other => Err(miette!(
+            "can't open `{other}` documentation: only `html`, `markdown` and `json` have an index to open"
+        )),
+    }
+}
+
+/// Opens `path` with the system's default handler, HTML through `$BROWSER`
+/// first. It always says which file it is, and when nothing opens (no
+/// display, no handler) says so and points at the file instead of failing.
+fn open_file(path: &Path, format: &str) {
+    let path = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+    ui::step(format!("Opening {}", path.display()));
+    let opened = if format == "html" {
+        opener::open_browser(&path)
+    } else {
+        opener::open(&path)
+    };
+    if let Err(e) = opened {
+        ui::warn(format!(
+            "couldn't open it ({e}); open {} yourself{}",
+            path.display(),
+            if format == "html" {
+                ", or set `$BROWSER`"
+            } else {
+                ""
+            }
+        ));
+    }
+}
+
+/// `comline doc open [FORMAT]`: open the generated docs, rendering the
+/// format first only when its index isn't there.
+pub fn open(work_dir: &Path, out: Option<PathBuf>, format: Option<String>) -> Result<()> {
+    ensure_project(work_dir)?;
+    let cfg = ComlineToml::load(work_dir)?.doc;
+    let flags = Flags {
+        out,
+        ..Flags::default()
+    };
+    let (out, configured) = out_and_formats(work_dir, &cfg, &flags)?;
+    let format = match format {
+        Some(format) => format,
+        None if configured.iter().any(|f| f == "html") => "html".to_string(),
+        None => configured[0].clone(),
+    };
+    let index = out.join(&format).join(index_file(&format)?);
+    if index.is_file() {
+        ui::note(format!(
+            "Opening the existing {format} docs as they are; run `comline doc --format {format}` to refresh them"
+        ));
+    } else {
+        run(
+            work_dir,
+            Flags {
+                out: flags.out,
+                formats: vec![format.clone()],
+                ..Flags::default()
+            },
+        )?;
+    }
+    open_file(&index, &format);
+    Ok(())
+}
+
+pub fn run(work_dir: &Path, flags: Flags) -> Result<()> {
+    ensure_project(work_dir)?;
+    let cfg = ComlineToml::load(work_dir)?.doc;
+    let (out, formats) = out_and_formats(work_dir, &cfg, &flags)?;
     let changelog_from = flags.changelog_from.or(cfg.changelog_from.clone());
     let renderers = Renderers::new(work_dir, &cfg)?;
 
@@ -138,7 +216,16 @@ pub fn run(work_dir: &Path, flags: Flags) -> Result<()> {
                 &version.schemas,
             ));
         }
-        return document_one(&out, &formats, &renderers, &cfg, version);
+        let first = document_one(&out, &formats, &renderers, &cfg, version)?;
+        if flags.open {
+            // A single version has no site index: open its own.
+            let (format, dir) = first;
+            if let Ok(file) = index_file(&format) {
+                let file = if format == "json" { "model.json" } else { file };
+                open_file(&dir.join(file), &format);
+            }
+        }
+        return Ok(());
     }
     if changelog_from.is_some() {
         ui::warn(
@@ -161,6 +248,13 @@ pub fn run(work_dir: &Path, flags: Flags) -> Result<()> {
             dir.display()
         ));
     }
+    if flags.open {
+        let format = &formats[0];
+        match index_file(format) {
+            Ok(file) => open_file(&out.join(format).join(file), format),
+            Err(e) => ui::warn(format!("{e}")),
+        }
+    }
     Ok(())
 }
 
@@ -172,7 +266,8 @@ fn document_one(
     renderers: &Renderers,
     cfg: &Doc,
     version: Version,
-) -> Result<()> {
+) -> Result<(String, PathBuf)> {
+    let mut first = None;
     for format in formats {
         let dir = out.join(format);
         let files = renderers.render_version(format, cfg, &version)?;
@@ -190,8 +285,9 @@ fn document_one(
             target.display(),
             files.len()
         ));
+        first.get_or_insert((format.clone(), target));
     }
-    Ok(())
+    Ok(first.expect("formats is never empty"))
 }
 
 /// Every version, each rendered unless its cached folder still matches,

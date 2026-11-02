@@ -494,3 +494,135 @@ fn dependencies_are_listed_apart_by_reach() {
         "{api}"
     );
 }
+
+/// A `$BROWSER` that records what it was asked to open instead of opening it.
+#[cfg(unix)]
+fn recording_browser(dir: &Path) -> (std::path::PathBuf, std::path::PathBuf) {
+    use std::os::unix::fs::PermissionsExt;
+    let log = dir.join("opened.txt");
+    let script = dir.join("browser.sh");
+    fs::write(
+        &script,
+        format!("#!/bin/sh\necho \"$1\" >> '{}'\n", log.display()),
+    )
+    .unwrap();
+    fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
+    (script, log)
+}
+
+/// What the recording browser was asked to open; it runs detached, so wait for it.
+#[cfg(unix)]
+fn opened(log: &Path) -> String {
+    for _ in 0..100 {
+        if let Ok(text) = fs::read_to_string(log) {
+            if text.ends_with('\n') {
+                return text.trim().to_string();
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    panic!("nothing opened {}", log.display());
+}
+
+#[cfg(unix)]
+#[test]
+fn open_renders_a_missing_output_first_and_opens_it() {
+    let temp = tempfile::tempdir().unwrap();
+    let shop = temp.path().join("shop");
+    package(&shop, "", API);
+    fs::write(shop.join("comline.toml"), "[doc]\nformats = [\"html\"]\n").unwrap();
+    let (browser, log) = recording_browser(temp.path());
+
+    let index = shop.join("docs/api/html/index.html");
+    comline_cmd()
+        .current_dir(&shop)
+        .env("BROWSER", &browser)
+        .args(["doc", "open"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("Documented 1 version(s) of shop"))
+        .stderr(predicate::str::contains(index.display().to_string()));
+
+    assert!(index.exists());
+    assert_eq!(opened(&log), index.display().to_string());
+}
+
+#[cfg(unix)]
+#[test]
+fn open_uses_existing_output_without_rendering_and_respects_out() {
+    let temp = tempfile::tempdir().unwrap();
+    let shop = temp.path().join("shop");
+    package(&shop, "", API);
+    let (browser, log) = recording_browser(temp.path());
+    comline_cmd()
+        .current_dir(&shop)
+        .args(["doc", "--format", "html", "--out", "site"])
+        .assert()
+        .success();
+    let index = shop.join("site/html/index.html");
+    // Marks the output, so a re-render would be seen.
+    fs::write(&index, "<!-- kept -->").unwrap();
+
+    // Markdown is configured by default, but HTML is asked for by name.
+    comline_cmd()
+        .current_dir(&shop)
+        .env("BROWSER", &browser)
+        .args(["doc", "open", "html", "--out", "site"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("as they are"))
+        .stderr(predicate::str::contains("comline doc --format html"))
+        .stderr(predicate::str::contains("Documented").not());
+
+    assert_eq!(read(&index), "<!-- kept -->");
+    assert_eq!(opened(&log), index.display().to_string());
+}
+
+#[cfg(unix)]
+#[test]
+fn doc_open_flag_renders_then_opens_the_first_format() {
+    let temp = tempfile::tempdir().unwrap();
+    let shop = temp.path().join("shop");
+    package(&shop, "", API);
+    let (browser, log) = recording_browser(temp.path());
+    comline_cmd()
+        .current_dir(&shop)
+        .env("BROWSER", &browser)
+        .args(["doc", "--format", "html,markdown", "--open"])
+        .assert()
+        .success();
+    assert_eq!(
+        opened(&log),
+        shop.join("docs/api/html/index.html").display().to_string()
+    );
+}
+
+#[test]
+fn open_names_the_file_and_succeeds_when_nothing_can_open_it() {
+    let temp = tempfile::tempdir().unwrap();
+    let shop = temp.path().join("shop");
+    package(&shop, "", API);
+    comline_cmd()
+        .current_dir(&shop)
+        .env("BROWSER", temp.path().join("no-such-browser"))
+        .args(["doc", "open", "html"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("index.html"))
+        .stderr(predicate::str::contains("$BROWSER"));
+}
+
+#[test]
+fn open_rejects_a_format_it_has_no_index_for() {
+    let temp = tempfile::tempdir().unwrap();
+    let shop = temp.path().join("shop");
+    package(&shop, "", API);
+    comline_cmd()
+        .current_dir(&shop)
+        .args(["doc", "open", "pdf"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "only `html`, `markdown` and `json`",
+        ));
+}
