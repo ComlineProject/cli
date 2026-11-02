@@ -32,20 +32,20 @@ eyre = "0.6.8"
 # needs real I/O (git fetch, filesystem), so it's off by default for
 # `comline-core`'s wasm32 consumers (the playground editor, the language
 # server); the CLI is the one consumer that actually runs `comline build`.
-comline-core = { git = "https://github.com/ComlineProject/core", rev = "da1157c9264b5743f7b4fa0993524c3cb6ea00f7", features = ["deps"] }
+comline-core = { git = "https://github.com/ComlineProject/core", rev = "a8aee682248f630ea3bf4fa5d988b34ae27fb45c", features = ["deps"] }
 # All three pinned to revs that agree on one `comline-codegen`, and bumped
 # together: comline-rust and comline-typescript's codegen crates consume
 # `comline-codegen`'s types, so the rev below must be byte-identical to the
 # one *they* pin - Cargo only unifies a git dependency across identical rev
 # strings, and two copies of `GenRequest` are two incompatible types.
-comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "c634f01441dbd28a4607fe3b49ff2b54a0d81395" }
+comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "4d047a8763a7e7a73c7e8128fc3aea67763b0ce3" }
 # The official Markdown and HTML documentation renderers (`comline doc`),
 # linked in like the official generators. Same generation rev as
 # `comline-codegen`.
-comline-doc-markdown = { git = "https://github.com/ComlineProject/generation", rev = "c634f01441dbd28a4607fe3b49ff2b54a0d81395" }
-comline-doc-html = { git = "https://github.com/ComlineProject/generation", rev = "c634f01441dbd28a4607fe3b49ff2b54a0d81395" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "4bbae4cb9473c6f50b35fa120d6627ed19b8c36a", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "f779044be6ae79be44237c0a9fbade5feaed1cec", optional = true }
+comline-doc-markdown = { git = "https://github.com/ComlineProject/generation", rev = "4d047a8763a7e7a73c7e8128fc3aea67763b0ce3" }
+comline-doc-html = { git = "https://github.com/ComlineProject/generation", rev = "4d047a8763a7e7a73c7e8128fc3aea67763b0ce3" }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "5831687d52277c366038cc66452587bda74c867a", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "b2b29f3db2024703b9eba0aa253a4cf07a8dba61", optional = true }
 # `comline conformance`: the conformance runner (corpus loading, judging,
 # profile proofs) and its case format, a public spec. Pinned by git rev.
 comline-runtime-conformance = { git = "https://github.com/ComlineProject/runtime", rev = "4378c91b74ee1ef1debc800a3daf75c874198e70" }

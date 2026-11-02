@@ -118,6 +118,91 @@ fn documents_a_built_version_with_its_frozen_headers_and_a_changelog() {
     assert!(changelog.contains("```diff\n+"), "{changelog}");
 }
 
+/// A changelog applies the package's own `wire`, as `comline diff` does
+/// (core#157): under `json@1` an optional field added is a feature, where
+/// core's default format would call it breaking.
+#[test]
+fn a_changelog_follows_the_package_wire_format() {
+    let temp = tempfile::tempdir().unwrap();
+    let shop = temp.path().join("shop");
+    let json_package = |schema: &str| {
+        package(&shop, "", schema);
+        fs::write(
+            shop.join("config.idp"),
+            "congregation shop\nspecification_version = 1\nwire = { format = \"json@1\" }\n",
+        )
+        .unwrap();
+    };
+    json_package(API);
+    comline_cmd()
+        .current_dir(&shop)
+        .arg("build")
+        .assert()
+        .success();
+    json_package(&API.replace(
+        "    total: u64\n",
+        "    total: u64\n    optional note: string\n",
+    ));
+
+    let kinds = |log: &serde_json::Value, group: &str| -> Vec<String> {
+        log[group]
+            .as_array()
+            .unwrap_or_else(|| panic!("no `{group}` in {log}"))
+            .iter()
+            .map(|e| e["kind"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let check = |model: &Path| {
+        let model: serde_json::Value = serde_json::from_str(&read(model)).unwrap();
+        let log = &model["changelog"][0];
+        assert!(kinds(log, "breaking").is_empty(), "{log}");
+        assert_eq!(kinds(log, "features"), ["added_field"], "{log}");
+    };
+
+    // The unreleased state against the build: the live config.
+    comline_cmd()
+        .current_dir(&shop)
+        .args(["doc", "--format", "json", "--out", "now"])
+        .assert()
+        .success();
+    check(&shop.join("now/json/unreleased/model.json"));
+
+    // Two builds: each one's stored config, on both paths.
+    comline_cmd()
+        .current_dir(&shop)
+        .arg("build")
+        .assert()
+        .success();
+    comline_cmd()
+        .current_dir(&shop)
+        .args(["doc", "--format", "json", "--out", "all"])
+        .assert()
+        .success();
+    let built = fs::read_dir(shop.join("all/json"))
+        .unwrap()
+        .filter_map(|e| e.ok().map(|e| e.file_name().to_string_lossy().into_owned()))
+        .filter(|name| name.starts_with("0.") && name != "0.1.0-dev.1")
+        .collect::<Vec<_>>();
+    assert_eq!(built.len(), 1, "{built:?}");
+    check(&shop.join("all/json").join(&built[0]).join("model.json"));
+
+    comline_cmd()
+        .current_dir(&shop)
+        .args([
+            "doc",
+            "--format",
+            "json",
+            "--out",
+            "one",
+            "--version",
+            &built[0],
+        ])
+        .args(["--changelog-from", "0.1.0-dev.1"])
+        .assert()
+        .success();
+    check(&shop.join("one/json").join(&built[0]).join("model.json"));
+}
+
 #[test]
 fn json_writes_the_model_and_doc_settings_come_from_comline_toml() {
     let temp = tempfile::tempdir().unwrap();
