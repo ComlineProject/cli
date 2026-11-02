@@ -52,6 +52,7 @@ use comline_core::doc::{self, ChangelogSpan, DocModel, FrozenDocs, DOC_MODEL_VER
 use comline_core::package::build::cas::objects::{Commit, Tree};
 use comline_core::package::build::cas::storage::Hash;
 use comline_core::package::build::cas::{refs, ObjectStore};
+use comline_core::package::config::ir::frozen::FrozenUnit as ConfigUnit;
 use comline_core::schema::ir::frozen::unit::FrozenUnit;
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
 use serde::{Deserialize, Serialize};
@@ -95,6 +96,8 @@ struct Version {
     model: DocModel,
     /// Its own frozen schemas: not its dependencies' or `std`'s.
     schemas: Vec<Vec<FrozenUnit>>,
+    /// Its frozen config, whose `wire` its changelogs are measured under.
+    config: Vec<ConfigUnit>,
     /// The commits its changelogs are computed from, for the cache key.
     changelog_from: Vec<Hash>,
     /// What its documentation lacks.
@@ -211,12 +214,14 @@ pub fn run(work_dir: &Path, flags: Flags) -> Result<()> {
         if let Some(from) = &changelog_from {
             let history = history::load(work_dir)?;
             let commit = history::resolve(&history, from)?;
-            let old = history::load_schemas(&ObjectStore::new(work_dir), commit)?;
+            let store = ObjectStore::new(work_dir);
+            let old = history::load_schemas(&store, commit)?;
+            let old_config = history::load_config(&store, commit)?;
             version.model.changelog.push(doc::changelog(
                 &commit.version,
-                &old,
+                (&old, &old_config),
                 &version.id,
-                &version.schemas,
+                (&version.schemas, &version.config),
             ));
         }
         let first = document_one(&out, &formats, &renderers, &cfg, version)?;
@@ -610,6 +615,7 @@ fn every_version(work_dir: &Path, select: Option<&DocVersions>) -> Result<Vec<Ve
             commit: None,
             model: doc::model(&context, None),
             schemas,
+            config: doc::frozen_config(&context),
             changelog_from: vec![],
             notes: vec![],
         });
@@ -632,8 +638,12 @@ fn every_version(work_dir: &Path, select: Option<&DocVersions>) -> Result<Vec<Ve
             };
             if let Some(span) = span {
                 let release = &versions[r];
-                let mut log =
-                    doc::changelog(&release.id, &release.schemas, &version.id, &version.schemas);
+                let mut log = doc::changelog(
+                    &release.id,
+                    (&release.schemas, &release.config),
+                    &version.id,
+                    (&version.schemas, &version.config),
+                );
                 log.span = span;
                 since_release[i] = Some((log, release.commit));
             }
@@ -672,9 +682,9 @@ fn every_version(work_dir: &Path, select: Option<&DocVersions>) -> Result<Vec<Ve
         if let Some(previous) = out.last() {
             let step = doc::changelog(
                 &previous.id,
-                &previous.schemas,
+                (&previous.schemas, &previous.config),
                 &version.id,
-                &version.schemas,
+                (&version.schemas, &version.config),
             );
             version.model.changelog = vec![step];
             version.changelog_from.extend(previous.commit);
@@ -780,6 +790,7 @@ fn frozen(work_dir: &Path, hash: Hash, commit: &Commit) -> Result<(Version, Froz
             commit: Some(hash),
             model,
             schemas,
+            config,
             changelog_from: vec![],
             notes,
         },
