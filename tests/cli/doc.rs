@@ -134,8 +134,15 @@ fn a_changelog_follows_the_package_wire_format() {
         .unwrap();
     };
     json_package(API);
-    comline_cmd().current_dir(&shop).arg("build").assert().success();
-    json_package(&API.replace("    total: u64\n", "    total: u64\n    optional note: string\n"));
+    comline_cmd()
+        .current_dir(&shop)
+        .arg("build")
+        .assert()
+        .success();
+    json_package(&API.replace(
+        "    total: u64\n",
+        "    total: u64\n    optional note: string\n",
+    ));
 
     let kinds = |log: &serde_json::Value, group: &str| -> Vec<String> {
         log[group]
@@ -161,7 +168,11 @@ fn a_changelog_follows_the_package_wire_format() {
     check(&shop.join("now/json/unreleased/model.json"));
 
     // Two builds: each one's stored config, on both paths.
-    comline_cmd().current_dir(&shop).arg("build").assert().success();
+    comline_cmd()
+        .current_dir(&shop)
+        .arg("build")
+        .assert()
+        .success();
     comline_cmd()
         .current_dir(&shop)
         .args(["doc", "--format", "json", "--out", "all"])
@@ -177,7 +188,15 @@ fn a_changelog_follows_the_package_wire_format() {
 
     comline_cmd()
         .current_dir(&shop)
-        .args(["doc", "--format", "json", "--out", "one", "--version", &built[0]])
+        .args([
+            "doc",
+            "--format",
+            "json",
+            "--out",
+            "one",
+            "--version",
+            &built[0],
+        ])
         .args(["--changelog-from", "0.1.0-dev.1"])
         .assert()
         .success();
