@@ -172,9 +172,12 @@ pub fn open(work_dir: &Path, out: Option<PathBuf>, format: Option<String>) -> Re
         ..Flags::default()
     };
     let (out, configured) = out_and_formats(work_dir, &cfg, &flags)?;
+    // Without a format, HTML wins when it's configured or already rendered:
+    // `comline doc --format html` leaves no trace in `[doc] formats`.
+    let html_rendered = out.join("html").join("index.html").is_file();
     let format = match format {
         Some(format) => format,
-        None if configured.iter().any(|f| f == "html") => "html".to_string(),
+        None if html_rendered || configured.iter().any(|f| f == "html") => "html".to_string(),
         None => configured[0].clone(),
     };
     let index = out.join(&format).join(index_file(&format)?);

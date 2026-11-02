@@ -549,6 +549,31 @@ fn open_renders_a_missing_output_first_and_opens_it() {
 
 #[cfg(unix)]
 #[test]
+fn open_prefers_rendered_html_when_no_format_is_configured() {
+    let temp = tempfile::tempdir().unwrap();
+    let shop = temp.path().join("shop");
+    package(&shop, "", API);
+    let (browser, log) = recording_browser(temp.path());
+    // No `[doc]` section: the configured formats are just `markdown`.
+    comline_cmd()
+        .current_dir(&shop)
+        .args(["doc", "--format", "html,markdown"])
+        .assert()
+        .success();
+
+    let index = shop.join("docs/api/html/index.html");
+    comline_cmd()
+        .current_dir(&shop)
+        .env("BROWSER", &browser)
+        .args(["doc", "open"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(index.display().to_string()));
+    assert_eq!(opened(&log), index.display().to_string());
+}
+
+#[cfg(unix)]
+#[test]
 fn open_uses_existing_output_without_rendering_and_respects_out() {
     let temp = tempfile::tempdir().unwrap();
     let shop = temp.path().join("shop");
