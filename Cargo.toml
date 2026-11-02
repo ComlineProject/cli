@@ -38,14 +38,14 @@ comline-core = { git = "https://github.com/ComlineProject/core", rev = "da1157c9
 # `comline-codegen`'s types, so the rev below must be byte-identical to the
 # one *they* pin - Cargo only unifies a git dependency across identical rev
 # strings, and two copies of `GenRequest` are two incompatible types.
-comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "abba324743b32f0b4a5d824d312defb7cfad7df5" }
+comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "4a42cc1c14ace568f3589643696e4526a6364b0f" }
 # The official Markdown and HTML documentation renderers (`comline doc`),
 # linked in like the official generators. Same generation rev as
 # `comline-codegen`.
-comline-doc-markdown = { git = "https://github.com/ComlineProject/generation", rev = "abba324743b32f0b4a5d824d312defb7cfad7df5" }
-comline-doc-html = { git = "https://github.com/ComlineProject/generation", rev = "abba324743b32f0b4a5d824d312defb7cfad7df5" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "3a2eef6fb2da0f84f544b91bbf4dfc5bcb5666da", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "4ae232348ac9e256145487c908d60c65faf4fa7f", optional = true }
+comline-doc-markdown = { git = "https://github.com/ComlineProject/generation", rev = "4a42cc1c14ace568f3589643696e4526a6364b0f" }
+comline-doc-html = { git = "https://github.com/ComlineProject/generation", rev = "4a42cc1c14ace568f3589643696e4526a6364b0f" }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "bcebb787d35c3f35912e79e5c68b78b3b6f1cafd", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "8ed8880ac5a5605fecce97e53818256ece7d153f", optional = true }
 # `comline conformance`: the conformance runner (corpus loading, judging,
 # profile proofs) and its case format, a public spec. Pinned by git rev.
 comline-runtime-conformance = { git = "https://github.com/ComlineProject/runtime", rev = "4378c91b74ee1ef1debc800a3daf75c874198e70" }

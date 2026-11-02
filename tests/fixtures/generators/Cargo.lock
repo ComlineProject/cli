@@ -79,7 +79,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=abba324743b32f0b4a5d824d312defb7cfad7df5#abba324743b32f0b4a5d824d312defb7cfad7df5"
+source = "git+https://github.com/ComlineProject/generation?rev=4a42cc1c14ace568f3589643696e4526a6364b0f#4a42cc1c14ace568f3589643696e4526a6364b0f"
 dependencies = [
  "comline-core",
  "eyre",
@@ -93,7 +93,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-rust"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-rust?rev=3a2eef6fb2da0f84f544b91bbf4dfc5bcb5666da#3a2eef6fb2da0f84f544b91bbf4dfc5bcb5666da"
+source = "git+https://github.com/ComlineProject/comline-rust?rev=bcebb787d35c3f35912e79e5c68b78b3b6f1cafd#bcebb787d35c3f35912e79e5c68b78b3b6f1cafd"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -125,7 +125,7 @@ source = "git+https://github.com/ComlineProject/core?rev=da1157c9264b5743f7b4fa0
 [[package]]
 name = "comline-doc-html"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=abba324743b32f0b4a5d824d312defb7cfad7df5#abba324743b32f0b4a5d824d312defb7cfad7df5"
+source = "git+https://github.com/ComlineProject/generation?rev=4a42cc1c14ace568f3589643696e4526a6364b0f#4a42cc1c14ace568f3589643696e4526a6364b0f"
 dependencies = [
  "comline-codegen",
  "eyre",
@@ -136,7 +136,7 @@ dependencies = [
 [[package]]
 name = "comline-doc-markdown"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=abba324743b32f0b4a5d824d312defb7cfad7df5#abba324743b32f0b4a5d824d312defb7cfad7df5"
+source = "git+https://github.com/ComlineProject/generation?rev=4a42cc1c14ace568f3589643696e4526a6364b0f#4a42cc1c14ace568f3589643696e4526a6364b0f"
 dependencies = [
  "comline-codegen",
  "eyre",
