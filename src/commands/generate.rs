@@ -594,6 +594,8 @@ fn note_no_connection_protocols(language: &str, request: &GenerateRequest) {
         .into_iter()
         .map(|f| match f.as_str() {
             "jsonrpc" => "JSON-RPC (with none of its protocols client-provided)".to_owned(),
+            // Canonical, `datagram` is the lockstep `datagram@1`.
+            "datagram" => "`datagram@1`".to_owned(),
             _ => format!("`{f}`"),
         })
         .collect();
