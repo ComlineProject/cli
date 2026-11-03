@@ -219,8 +219,10 @@ Examples:
         #[arg(long)]
         no_external_std: bool,
 
-        /// Run `@validators` checks while decoding: `off`, `collect` (fail
-        /// with every failure) or `first` (fail with the first)
+        /// Run `@validators` checks while decoding: `collect` (the default:
+        /// fail with every failure) or `first` (fail with the first). Turning
+        /// them off is written in comline.toml, with its reason:
+        /// `validate_on_decode = { off = "why" }`
         #[arg(long, value_name = "WHEN")]
         validate_on_decode: Option<String>,
 

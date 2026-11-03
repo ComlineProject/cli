@@ -1163,3 +1163,63 @@ fn an_unsupported_format_gives_the_support_tables_message() {
         .stderr(predicate::str::contains("no typescript mapping").not());
     assert!(!project.join("generated").exists(), "nothing was written");
 }
+
+/// Validators run on decode by default (`collect`); turning them off is a
+/// give-up with its reason, which generate and inspect show. A bare `"off"`
+/// is refused with the fix (core#98).
+#[test]
+fn validate_on_decode_off_needs_a_reason_and_is_shown() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = copy_fixture("validated_project", temp.path());
+
+    fs::write(
+        project.join("comline.toml"),
+        "[generate]\nvalidate_on_decode = \"off\"\n",
+    )
+    .unwrap();
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "write `validate_on_decode = { off = \"why\" }` in comline.toml",
+        ));
+
+    fs::write(
+        project.join("comline.toml"),
+        "[generate]\nvalidate_on_decode = { off = \"checked by the gateway\" }\n",
+    )
+    .unwrap();
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "target `rust`: decoding doesn't run `@validators` checks \
+             (`validate_on_decode` given up: \"checked by the gateway\")",
+        ));
+    let accounts = fs::read_to_string(project.join("generated/rust/accounts.rs")).unwrap();
+    assert!(!accounts.contains("try_from"), "{accounts}");
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["--plain", "inspect"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "target rust (comline.toml)\n  validators on decode   given up\n      because \"checked by the gateway\"\n",
+        ));
+
+    // Without the setting: collect, the default.
+    fs::remove_file(project.join("comline.toml")).unwrap();
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("given up").not());
+    let accounts = fs::read_to_string(project.join("generated/rust/accounts.rs")).unwrap();
+    assert!(accounts.contains("try_from"), "{accounts}");
+}

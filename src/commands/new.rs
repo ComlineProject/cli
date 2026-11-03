@@ -50,7 +50,7 @@ const COMLINE_TOML: &str = "\
 # mode = \"code\"                                    # code (loose source) | lib (a buildable package); dylib not built yet
 # external_std = false                             # reference `comline_std` rather than inlining std; defaults on in `lib`
 # package_versions = \"latest\"                      # latest | all | [\"0.3.0\", \"0.4.0\"]
-# validate_on_decode = \"off\"                      # run `@validators` while decoding: off | collect | first
+# validate_on_decode = \"collect\"                  # run `@validators` while decoding: collect | first | { off = \"why\" }
 # async = false                                    # protocols on a connection get async handlers and senders
 # encodings = { \"com.acme.lines@1\" = \"acme::LinesFraming\" }  # the type implementing an encoding, over its package's suggestion
 #
