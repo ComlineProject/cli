@@ -32,6 +32,13 @@ pub enum CliError {
     #[error("no builds found in `{}` — run `comline build` first", .0.display())]
     NothingBuilt(PathBuf),
 
+    #[error(
+        "the version history in `.comline/` is in IR format {found}, but this comline reads \
+         and writes format {expected}: run `comline build` to rebuild it in the current format \
+         (that starts the version history over)"
+    )]
+    StoreFormat { found: String, expected: u32 },
+
     #[error("refusing to delete the version history without confirmation")]
     #[diagnostic(help("re-run in a terminal to confirm, or pass `--force`"))]
     ConfirmationRequired,
@@ -54,6 +61,7 @@ pub fn exit_code_for(report: &miette::Report) -> i32 {
     match report.downcast_ref::<CliError>() {
         Some(CliError::NotAProject(_)) => EXIT_PRECONDITION,
         Some(CliError::NothingBuilt(_)) => EXIT_PRECONDITION,
+        Some(CliError::StoreFormat { .. }) => EXIT_PRECONDITION,
         Some(CliError::ConfirmationRequired) => EXIT_PRECONDITION,
         Some(CliError::AcceptanceRequired { .. }) => EXIT_PRECONDITION,
         Some(CliError::ReleaseConfirmationRequired { .. }) => EXIT_PRECONDITION,

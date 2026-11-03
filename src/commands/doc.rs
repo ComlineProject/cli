@@ -50,8 +50,8 @@ use comline_codegen::protocol::{
 use comline_codegen::Registry;
 use comline_core::doc::{self, ChangelogSpan, DocModel, FrozenDocs, DOC_MODEL_VERSION};
 use comline_core::package::build::cas::objects::{Commit, Tree};
+use comline_core::package::build::cas::refs;
 use comline_core::package::build::cas::storage::Hash;
-use comline_core::package::build::cas::{refs, ObjectStore};
 use comline_core::package::config::ir::frozen::FrozenUnit as ConfigUnit;
 use comline_core::schema::ir::frozen::unit::FrozenUnit;
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
@@ -204,6 +204,7 @@ pub fn open(work_dir: &Path, out: Option<PathBuf>, format: Option<String>) -> Re
 
 pub fn run(work_dir: &Path, flags: Flags) -> Result<()> {
     ensure_project(work_dir)?;
+    history::ensure_readable(work_dir)?;
     let cfg = ComlineToml::load(work_dir)?.doc;
     let (out, formats) = out_and_formats(work_dir, &cfg, &flags)?;
     let changelog_from = flags.changelog_from.or(cfg.changelog_from.clone());
@@ -214,7 +215,7 @@ pub fn run(work_dir: &Path, flags: Flags) -> Result<()> {
         if let Some(from) = &changelog_from {
             let history = history::load(work_dir)?;
             let commit = history::resolve(&history, from)?;
-            let store = ObjectStore::new(work_dir);
+            let store = history::open_store(work_dir)?;
             let old = history::load_schemas(&store, commit)?;
             let old_config = history::load_config(&store, commit)?;
             version.model.changelog.push(doc::changelog(
@@ -722,7 +723,7 @@ fn frozen_version(work_dir: &Path, spec: &str) -> Result<Version> {
 /// tree's with.
 fn frozen(work_dir: &Path, hash: Hash, commit: &Commit) -> Result<(Version, FrozenDocs)> {
     let spec = &commit.version;
-    let store = ObjectStore::new(work_dir);
+    let store = history::open_store(work_dir)?;
     // Every compiled schema: the package's own, its dependencies' and std's.
     let all_schemas = history::load_schemas(&store, commit)?;
     let config = history::load_config(&store, commit)?;

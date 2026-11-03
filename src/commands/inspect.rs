@@ -15,6 +15,7 @@ use comline_core::inspect::{self, Acceptance, Choice, ProtocolSummary, Source};
 use miette::{IntoDiagnostic, Result};
 
 use crate::commands::{core_err, ensure_project};
+use crate::history;
 use crate::ui;
 
 const HELD: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)));
@@ -24,6 +25,7 @@ const BOLD: Style = Style::new().bold();
 
 pub fn run(work_dir: &Path, json: bool) -> Result<()> {
     ensure_project(work_dir)?;
+    history::ensure_readable(work_dir)?;
 
     let spinner = ui::spinner("compiling schemas");
     let outcome = comline_core::package::build::compile_package(work_dir);

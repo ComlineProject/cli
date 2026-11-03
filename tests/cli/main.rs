@@ -22,3 +22,4 @@ mod inspect;
 mod new;
 mod release;
 mod reset;
+mod store_stamp;

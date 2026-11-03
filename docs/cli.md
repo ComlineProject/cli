@@ -113,14 +113,14 @@ package version automatically, by the largest change it finds:
 | **minor** | a new feature | added struct/enum/protocol/error, added a variant, added an optional field, new schema file |
 | **patch** | a modification | field made optional, docstring-only change |
 
-The first build is version `0.0.1`. A build with no schema changes keeps the
+The first build is version `0.1.0-dev.1`. A build with no schema changes keeps the
 current version and does not add a commit. `comline diff` runs this same
 comparison between any two stored versions on demand.
 
 The chain in `.comline/` is the only copy of this history — there is no publish
 step yet. [`comline clean`](#comline-clean) does **not** touch it; only
 [`comline reset`](#comline-reset) discards it, after which the next build starts
-over at `0.0.1`.
+over at `0.1.0-dev.1`.
 
 ## Commands
 
@@ -440,7 +440,7 @@ Each argument is one of:
 ```bash
 comline diff 0.1.0 0.2.0
 comline diff 0.1.0            # 0.1.0 against HEAD
-comline diff 0.0.1 HEAD
+comline diff 0.1.0-dev.1 HEAD
 ```
 
 Fails with exit `2` if the project has never been built, and exit `1` if an
@@ -680,7 +680,7 @@ comline reset [--force] [--dry-run]
 
 Delete `.comline/` — every frozen version and the commit chain — **and**
 generated code. This cannot be undone, and since nothing else holds the history,
-the next `build` starts over at `0.0.1`.
+the next `build` starts over at `0.1.0-dev.1`.
 
 Guarded:
 

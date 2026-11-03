@@ -75,6 +75,7 @@ struct GenVersion {
 }
 
 fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bool) -> Result<()> {
+    history::ensure_readable(work_dir)?;
     ui::step(format!(
         "Generating code{}{}",
         ui::at_path(work_dir),
@@ -492,7 +493,7 @@ fn expand_versions(
             // Every release: what consumers see. The builds between them
             // are named one by one when wanted.
             let chain = history::load(work_dir)?;
-            let store = ObjectStore::new(work_dir);
+            let store = history::open_store(work_dir)?;
             let releases: Vec<_> = chain.iter().filter(|e| e.commit.is_release()).collect();
             if releases.is_empty() {
                 return Err(miette!(
@@ -507,7 +508,7 @@ fn expand_versions(
         }
         VersionSpec::List(specs) => {
             let chain = history::load(work_dir)?;
-            let store = ObjectStore::new(work_dir);
+            let store = history::open_store(work_dir)?;
             specs
                 .iter()
                 .map(|s| {
