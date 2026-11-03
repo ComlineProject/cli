@@ -311,7 +311,9 @@ fn protocols_on_no_connection_say_why_there_is_no_package_serve() {
         .args(["generate", "--target", "rust"])
         .assert()
         .success()
-        .stderr(predicate::str::contains("no package `Services` / `serve` / `connect`"))
+        .stderr(predicate::str::contains(
+            "no package `Services` / `serve` / `connect`",
+        ))
         .stderr(predicate::str::contains(
             "every protocol is server-provided on `datagram@1`",
         ))
