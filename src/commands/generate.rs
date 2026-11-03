@@ -277,6 +277,14 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
         } else {
             format!("⚙️  {label}")
         });
+        // A given-up guarantee, shown where it's given up.
+        if let Some(reason) = &t.validate_on_decode_off {
+            ui::note(format!(
+                "target `{}`: decoding doesn't run `@validators` checks \
+                 (`validate_on_decode` given up: \"{reason}\")",
+                t.language
+            ));
+        }
 
         for gv in &versions {
             let mut request = GenerateRequest {

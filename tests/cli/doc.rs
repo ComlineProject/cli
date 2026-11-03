@@ -11,7 +11,9 @@ fn package(dir: &Path, header: &str, schema: &str) {
     fs::create_dir_all(dir.join("src")).unwrap();
     fs::write(
         dir.join("config.idp"),
-        format!("{header}congregation shop\nspecification_version = 1\n"),
+        with_bounds(&format!(
+            "{header}congregation shop\nspecification_version = 1\n"
+        )),
     )
     .unwrap();
     fs::write(dir.join("src/api.ids"), schema).unwrap();
@@ -129,7 +131,9 @@ fn a_changelog_follows_the_package_wire_format() {
         package(&shop, "", schema);
         fs::write(
             shop.join("config.idp"),
-            "congregation shop\nspecification_version = 1\nwire = { format = \"json@1\" }\n",
+            with_bounds(
+                "congregation shop\nspecification_version = 1\nwire = { format = \"json@1\" }\n",
+            ),
         )
         .unwrap();
     };
@@ -278,7 +282,7 @@ fn html_writes_a_self_contained_site_per_version() {
     assert!(read(&site.join("versions.js")).contains("var LATEST = \"0.1.0-dev.1\";"));
     let compare = read(&site.join("compare.js"));
     assert!(
-        compare.contains("\"api::Order.note\":\"optional string\""),
+        compare.contains("\"api::Order.note\":\"optional char[max 256]\""),
         "{compare}"
     );
     assert!(site.join("compare.html").exists());

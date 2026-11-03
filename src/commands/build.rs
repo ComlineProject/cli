@@ -7,9 +7,13 @@
 
 use std::path::Path;
 
+use comline_core::package::build::cas::objects::Commit;
+use comline_core::package::build::cas::reconcile::{self, Heads};
+use comline_core::package::build::cas::{main_ref, read_ref, ref_exists, Hash, ObjectStore};
 use comline_core::package::build::{self, VersionBump};
 use miette::Result;
 
+use crate::bounds_migration;
 use crate::changes;
 use crate::commands::generate::generator_registry;
 use crate::commands::{core_err, ensure_project};
@@ -17,17 +21,78 @@ use crate::lang_targets;
 use crate::ui;
 use crate::watch;
 
-pub fn run(work_dir: &Path, watching: bool) -> Result<()> {
+pub fn run(work_dir: &Path, watching: bool, reconcile: Option<&str>) -> Result<()> {
     ensure_project(work_dir)?;
 
+    if let Some(other) = reconcile {
+        mark_diverged(work_dir, other)?;
+    }
     if watching {
-        watch::run(work_dir, "build", || build_once(work_dir))
+        watch::run(work_dir, "build", || build_once(work_dir, false))
     } else {
-        build_once(work_dir)
+        build_once(work_dir, true)
     }
 }
 
-fn build_once(work_dir: &Path) -> Result<()> {
+/// `--reconcile <hash>`: put the dropped head back beside the current one,
+/// as a Git conflict leaves them, for the build to reconcile (cli#128).
+fn mark_diverged(work_dir: &Path, other: &str) -> Result<()> {
+    let hash = Hash::from_hex(other.trim())
+        .map_err(|e| miette::miette!("`--reconcile {other}`: not a commit hash: {e}"))?;
+    reconcile::mark_diverged(work_dir, &hash)
+        .map_err(|e| core_err(&format!("couldn't reconcile with {other}"), e))?;
+    ui::note(format!(
+        "marked {} as a second head to reconcile",
+        short(&hash)
+    ));
+    Ok(())
+}
+
+/// The two heads a Git merge left in `.comline/refs/heads/main`, if it holds
+/// two: this build reconciles them.
+fn diverged_heads(work_dir: &Path) -> Option<(Hash, Hash)> {
+    if !ref_exists(work_dir, main_ref()) {
+        return None;
+    }
+    match reconcile::read_heads(work_dir) {
+        Ok(Heads::Two(ours, theirs)) => Some((ours, theirs)),
+        _ => None,
+    }
+}
+
+/// Say how a build joined two heads: which one the line continued from,
+/// and which one it recorded as the second parent.
+fn report_reconciled(work_dir: &Path, (ours, theirs): (Hash, Hash)) {
+    let parents = read_ref(work_dir, main_ref()).ok().and_then(|head| {
+        let bytes = ObjectStore::new(work_dir).read(&head).ok()?;
+        Some((head, Commit::from_bytes(&bytes).ok()?.parents))
+    });
+    let message = match parents {
+        Some((_, parents)) if parents.len() == 2 => format!(
+            "reconciled the diverged history: continued from {}, recorded {} as the second parent",
+            short(&parents[0]),
+            short(&parents[1])
+        ),
+        Some((head, _)) => format!(
+            "reconciled the diverged history ({} and {}): continued from {}, nothing new to record",
+            short(&ours),
+            short(&theirs),
+            short(&head)
+        ),
+        None => format!(
+            "reconciled the diverged history ({} and {})",
+            short(&ours),
+            short(&theirs)
+        ),
+    };
+    ui::detail(message);
+}
+
+fn short(hash: &Hash) -> String {
+    hash.to_hex()[..12].to_string()
+}
+
+fn build_once(work_dir: &Path, offer_migration: bool) -> Result<()> {
     ui::step(format!("Building project{}", ui::at_path(work_dir)));
     // Every package has an id (its identity for `comline@2`); one without
     // gets it here, as one line in config.idp.
@@ -39,6 +104,7 @@ fn build_once(work_dir: &Path) -> Result<()> {
         Ok(None) => {}
         Err(e) => return Err(core_err("couldn't add an id to config.idp", e)),
     }
+    let diverged = diverged_heads(work_dir);
     let spinner = ui::spinner("compiling schemas");
     let registry = generator_registry();
     let mut target_warnings = Vec::new();
@@ -48,7 +114,30 @@ fn build_once(work_dir: &Path) -> Result<()> {
     });
     ui::finish_spinner(spinner);
 
-    let result = result.map_err(|e| core_err("build failed", e))?;
+    let result = match result {
+        Ok(result) => result,
+        Err(e) => {
+            let detail = format!("{e:#}");
+            let unbounded = bounds_migration::Unbounded::of(&detail);
+            if unbounded.is_empty() {
+                return Err(core_err("build failed", e));
+            }
+            if !(offer_migration && bounds_migration::interactive()) {
+                let hint = bounds_migration::hint(&unbounded);
+                return Err(miette::miette!("build failed:\n\n{detail}\n{hint}"));
+            }
+            // Errors first, then the question.
+            ui::error(format!("build failed:\n\n{detail}"));
+            ui::note(bounds_migration::hint(&unbounded));
+            if bounds_migration::offer(work_dir, &unbounded) {
+                return build_once(work_dir, false);
+            }
+            return Err(miette::miette!(
+                "build failed: {} values without a maximum",
+                unbounded.total()
+            ));
+        }
+    };
     for warning in result
         .context
         .rendered_warnings()
@@ -59,6 +148,9 @@ fn build_once(work_dir: &Path) -> Result<()> {
     }
 
     ui::success("Project built");
+    if let Some(heads) = diverged {
+        report_reconciled(work_dir, heads);
+    }
 
     if result.is_initial_build() {
         ui::detail(pkg(format!("initial build {}", result.current_version)));

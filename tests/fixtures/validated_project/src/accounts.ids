@@ -3,10 +3,12 @@ use std::validators::StringBounds
 @validators = [StringBounds(min_chars = 2, max_chars = 8)]
 type Handle = string
 
+type Handles = Handle[]
+
 struct Account {
     handle: Handle
     optional nickname: Handle
-    friends: Handle[]
+    friends: Handles
 }
 
 protocol Accounts {

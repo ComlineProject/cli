@@ -29,7 +29,7 @@ struct Svc {
 }
 
 impl Chat for Svc {
-    fn send(&self, _peer: &mut impl Peer, text: &str) -> Result<Message, Fault<ChatSendError>> {
+    fn send(&self, _peer: &mut impl Peer, text: String) -> Result<Message, Fault<ChatSendError>> {
         if text.is_empty() {
             // A declared error: `From<E> for Fault<E>` means `?`/`.into()`
             // works, but spell it out here so the test pins the shape.
@@ -48,8 +48,8 @@ impl Chat for Svc {
         }
         Ok(Message { body: format!("echo: {text}"), seq: 1 })
     }
-    fn note(&self, _peer: &mut impl Peer, text: &str) {
-        self.notes.lock().unwrap().push(text.to_string());
+    fn note(&self, _peer: &mut impl Peer, text: String) {
+        self.notes.lock().unwrap().push(text);
     }
 }
 
@@ -70,9 +70,9 @@ fn client_and_provider_over_duplex() {
     let mut conn = connect(client_side).expect("handshake");
     let mut client = ChatSender::new(&mut conn);
 
-    assert_eq!(client.send("hi").unwrap().body, "echo: hi");
+    assert_eq!(client.send("hi".into()).unwrap().body, "echo: hi");
 
-    match client.send("").unwrap_err() {
+    match client.send("".into()).unwrap_err() {
         CallError::App(ChatSendError::Rejected(r)) => assert_eq!(r.reason, "empty"),
         other => panic!("expected a Rejected, got {other:?}"),
     }
@@ -86,7 +86,7 @@ fn client_and_provider_over_duplex() {
 
     // Both arms of `! Rejected, TooLong` are reachable, and each decodes
     // into its own variant rather than into whichever shares an ordinal.
-    match client.send("far too long to accept").unwrap_err() {
+    match client.send("far too long to accept".into()).unwrap_err() {
         CallError::App(ChatSendError::TooLong(t)) => {
             assert_eq!(t.limit, 8);
             assert_eq!(t.to_string(), "too long: 8 max");
@@ -96,15 +96,15 @@ fn client_and_provider_over_duplex() {
 
     // An undeclared failure arrives as a fault, not as some ordinal the
     // client would have decoded into the wrong error type.
-    match client.send("boom").unwrap_err() {
+    match client.send("boom".into()).unwrap_err() {
         CallError::Runtime(RuntimeError::Provider) => {}
         other => panic!("expected a provider fault, got {other:?}"),
     }
 
     // and the connection survives it — a fault is a reply, not a teardown
-    assert_eq!(client.send("ok").unwrap().body, "echo: ok");
+    assert_eq!(client.send("ok".into()).unwrap().body, "echo: ok");
 
-    client.note("saved").unwrap(); // one-way
+    client.note("saved".into()).unwrap(); // one-way
 
     drop(conn);
     provider.join().unwrap();

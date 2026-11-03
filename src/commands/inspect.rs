@@ -33,12 +33,21 @@ pub fn run(work_dir: &Path, json: bool) -> Result<()> {
     let context = outcome.map_err(|e| core_err("validation failed", e))?;
 
     let protocols = inspect::protocols(&context);
+    let unchecked = validators_given_up(work_dir, &context);
     // What the latest build records for `comline@2`: each protocol's line,
     // shape hash and functions' "since". None before the first build.
     let facts = latest_facts(work_dir);
     let mut out = anstream::stdout().lock();
     if json {
-        let report = serde_json::json!({ "protocols": protocols, "facts": facts });
+        let given_up: Vec<_> = unchecked
+            .iter()
+            .map(|(target, reason)| serde_json::json!({ "target": target, "reason": reason }))
+            .collect();
+        let report = serde_json::json!({
+            "protocols": protocols,
+            "facts": facts,
+            "validate_on_decode_given_up": given_up,
+        });
         writeln!(
             out,
             "{}",
@@ -48,8 +57,10 @@ pub fn run(work_dir: &Path, json: bool) -> Result<()> {
         return Ok(());
     }
 
+    let consumer = render_unchecked(&unchecked, ui::plain());
     if protocols.is_empty() {
         ui::note("No protocols to inspect");
+        write!(out, "{consumer}").into_diagnostic()?;
         return Ok(());
     }
     let text = protocols
@@ -70,7 +81,55 @@ pub fn run(work_dir: &Path, json: bool) -> Result<()> {
         .collect::<Vec<_>>()
         .join("\n");
     write!(out, "{text}").into_diagnostic()?;
+    if !consumer.is_empty() {
+        write!(out, "\n{consumer}").into_diagnostic()?;
+    }
     Ok(())
+}
+
+/// The targets in comline.toml whose decoding doesn't run `@validators`
+/// checks, with the reason each gives (`validate_on_decode = { off = "why" }`).
+/// Empty without a comline.toml, or one that doesn't resolve: `generate`
+/// reports that.
+fn validators_given_up(
+    work_dir: &Path,
+    context: &comline_core::package::config::ir::context::ProjectContext,
+) -> Vec<(String, String)> {
+    use comline_codegen::config::{resolve, ComlineToml, Overrides};
+    if !work_dir.join(comline_codegen::config::FILE_NAME).exists() {
+        return vec![];
+    }
+    let Ok(cfg) = ComlineToml::load(work_dir) else {
+        return vec![];
+    };
+    let declared = context
+        .config_frozen
+        .as_deref()
+        .map(crate::lang_targets::declared)
+        .unwrap_or_default();
+    match resolve(&cfg, &declared, work_dir, &Overrides::default()) {
+        Ok(targets) => targets
+            .into_iter()
+            .filter_map(|t| t.validate_on_decode_off.map(|reason| (t.language, reason)))
+            .collect(),
+        Err(_) => vec![],
+    }
+}
+
+/// The given-up `validate_on_decode`s, as a consumer's guarantees.
+fn render_unchecked(unchecked: &[(String, String)], plain: bool) -> String {
+    let mut out = String::new();
+    for (target, reason) in unchecked {
+        let given_up = if plain {
+            "given up".to_string()
+        } else {
+            format!("{GIVEN_UP}given up{GIVEN_UP:#}")
+        };
+        out += &format!("target {target} (comline.toml)\n");
+        out += &format!("  {:<22} {given_up}\n", "validators on decode");
+        out += &format!("      because \"{reason}\"\n");
+    }
+    out
 }
 
 /// The latest build's facts, if the package was built. Read-only: the

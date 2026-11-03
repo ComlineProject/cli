@@ -58,6 +58,7 @@ protocol api::Orders (shop)
   encoding agreement     held
   encoding conformance   held
   version honesty        held
+  bounded size           held
 
 protocol api::Legacy (shop)
   format     json@1                   JSON-RPC's format
@@ -73,6 +74,7 @@ protocol api::Legacy (shop)
       acceptance: up to each consumer's config.idp
   encoding conformance   held
   version honesty        held
+  bounded size           held
 ";
     assert_eq!(out, expected);
     assert!(out.lines().all(|l| l.chars().count() <= 80), "{out}");

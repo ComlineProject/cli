@@ -269,10 +269,12 @@ fn without_a_wire_key_a_protocol_is_on_a_packed_connection() {
 fn protocols_on_different_framings_get_no_package_serve() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
-    add_to_config(
-        &project,
-        "settings = {\n    annotations = {\n        framing = {\n            allowed = true\n        }\n    }\n}",
-    );
+    let config = fs::read_to_string(project.join("config.idp")).unwrap();
+    fs::write(
+        project.join("config.idp"),
+        with_setting(&config, "annotations = { framing = { allowed = true } }"),
+    )
+    .unwrap();
     fs::write(
         project.join("src/link.ids"),
         "protocol Link {\n    function send(n: u32) -> u32;\n}\n\n\
@@ -614,9 +616,11 @@ fn package_versions_all_without_a_build_errors() {
 fn declare_two_languages(project: &std::path::Path) {
     fs::write(
         project.join("config.idp"),
-        "congregation simple_project\nspecification_version = 1\n\n\
-         code_generation = {\n    languages = {\n        rust#1.85.0 = {}\n\
-         \x20       python#3.11.0 = {}\n    }\n}\n",
+        with_bounds(
+            "congregation simple_project\nspecification_version = 1\n\n\
+             code_generation = {\n    languages = {\n        rust#1.85.0 = {}\n\
+             \x20       python#3.11.0 = {}\n    }\n}\n",
+        ),
     )
     .unwrap();
 }
@@ -977,11 +981,11 @@ fn acme_and_app(root: &std::path::Path, map: &str) -> std::path::PathBuf {
     fs::create_dir_all(acme.join("src")).unwrap();
     fs::write(
         acme.join("config.idp"),
-        format!(
+        with_bounds(&format!(
             "congregation acme\nspecification_version = 1\n\n\
              encodings = {{\n    \"com.acme.lines@1\" = {{\n        kind = \"framing\"\n        \
              profile = \"lines.json\"\n        map = {{ {map} }}\n    }}\n}}\n"
-        ),
+        )),
     )
     .unwrap();
     fs::write(acme.join("lines.json"), LINES_PROFILE).unwrap();
@@ -1002,10 +1006,12 @@ fn acme_and_app(root: &std::path::Path, map: &str) -> std::path::PathBuf {
     fs::create_dir_all(app.join("src")).unwrap();
     fs::write(
         app.join("config.idp"),
-        "congregation app\nspecification_version = 1\n\n\
-         code_generation = {\n    languages = {\n        rust#1.85.0 = {}\n    }\n}\n\n\
-         settings = { annotations = { framing = { allowed = true } } }\n\n\
-         dependencies = {\n    acme = { path = \"../acme\" }\n}\n",
+        with_bounds(
+            "congregation app\nspecification_version = 1\n\n\
+             code_generation = {\n    languages = {\n        rust#1.85.0 = {}\n    }\n}\n\n\
+             settings = { annotations = { framing = { allowed = true } } }\n\n\
+             dependencies = {\n    acme = { path = \"../acme\" }\n}\n",
+        ),
     )
     .unwrap();
     fs::write(
@@ -1109,7 +1115,7 @@ fn an_unknown_framing_is_an_error() {
     let config = fs::read_to_string(project.join("config.idp")).unwrap();
     fs::write(
         project.join("config.idp"),
-        format!("{config}\nsettings = {{ annotations = {{ framing = {{ allowed = true }} }} }}\n"),
+        with_setting(&config, "annotations = { framing = { allowed = true } }"),
     )
     .unwrap();
     fs::write(
@@ -1156,4 +1162,64 @@ fn an_unsupported_format_gives_the_support_tables_message() {
         ))
         .stderr(predicate::str::contains("no typescript mapping").not());
     assert!(!project.join("generated").exists(), "nothing was written");
+}
+
+/// Validators run on decode by default (`collect`); turning them off is a
+/// give-up with its reason, which generate and inspect show. A bare `"off"`
+/// is refused with the fix (core#98).
+#[test]
+fn validate_on_decode_off_needs_a_reason_and_is_shown() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = copy_fixture("validated_project", temp.path());
+
+    fs::write(
+        project.join("comline.toml"),
+        "[generate]\nvalidate_on_decode = \"off\"\n",
+    )
+    .unwrap();
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "write `validate_on_decode = { off = \"why\" }` in comline.toml",
+        ));
+
+    fs::write(
+        project.join("comline.toml"),
+        "[generate]\nvalidate_on_decode = { off = \"checked by the gateway\" }\n",
+    )
+    .unwrap();
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "target `rust`: decoding doesn't run `@validators` checks \
+             (`validate_on_decode` given up: \"checked by the gateway\")",
+        ));
+    let accounts = fs::read_to_string(project.join("generated/rust/accounts.rs")).unwrap();
+    assert!(!accounts.contains("try_from"), "{accounts}");
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["--plain", "inspect"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "target rust (comline.toml)\n  validators on decode   given up\n      because \"checked by the gateway\"\n",
+        ));
+
+    // Without the setting: collect, the default.
+    fs::remove_file(project.join("comline.toml")).unwrap();
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("given up").not());
+    let accounts = fs::read_to_string(project.join("generated/rust/accounts.rs")).unwrap();
+    assert!(accounts.contains("try_from"), "{accounts}");
 }

@@ -51,3 +51,32 @@ fn copy_dir(from: &Path, to: &Path) {
         }
     }
 }
+
+/// The package defaults every string and list takes where its type writes
+/// no maximum (bounds on types, core#98), as one `settings` entry.
+pub const BOUNDS: &str = "bounds = { string = { max = 256 } array = { max = 1024 } }";
+
+/// `config` (a whole `config.idp`) with the bound defaults added: into its
+/// top-level `settings` block if it has one, else as a block of their own.
+pub fn with_bounds(config: &str) -> String {
+    with_setting(config, BOUNDS)
+}
+
+/// `config` with `entry` added to its top-level `settings`, or in a new
+/// `settings` block when it has none.
+pub fn with_setting(config: &str, entry: &str) -> String {
+    match config.find("\nsettings = {") {
+        Some(at) => {
+            let open = at + "\nsettings = {".len();
+            format!("{} {entry}\n{}", &config[..open], &config[open..])
+        }
+        None if config.starts_with("settings = {") => {
+            let open = "settings = {".len();
+            format!("{} {entry}\n{}", &config[..open], &config[open..])
+        }
+        None => {
+            let sep = if config.ends_with('\n') { "" } else { "\n" };
+            format!("{config}{sep}settings = {{ {entry} }}\n")
+        }
+    }
+}

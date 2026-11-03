@@ -17,7 +17,8 @@ enum Language {
 }
 
 struct Greeting {
-    message: string
+    /// At most 280 characters: every string and list has a maximum.
+    message: char[max 280]
     language: Language
 }
 ";
@@ -49,7 +50,7 @@ const COMLINE_TOML: &str = "\
 # mode = \"code\"                                    # code (loose source) | lib (a buildable package); dylib not built yet
 # external_std = false                             # reference `comline_std` rather than inlining std; defaults on in `lib`
 # package_versions = \"latest\"                      # latest | all | [\"0.3.0\", \"0.4.0\"]
-# validate_on_decode = \"off\"                      # run `@validators` while decoding: off | collect | first
+# validate_on_decode = \"collect\"                  # run `@validators` while decoding: collect | first | { off = \"why\" }
 # async = false                                    # protocols on a connection get async handlers and senders
 # encodings = { \"com.acme.lines@1\" = \"acme::LinesFraming\" }  # the type implementing an encoding, over its package's suggestion
 #
@@ -147,6 +148,16 @@ code_generation = {{
 
 // The wire both ends speak; these are the defaults.
 // wire = {{ format = \"packed@1\" framing = \"datagram@2\" }}
+
+// Every string and list needs a maximum. A type can write its own
+// (`char[max 64]`, `u32[max 10]`); these are the package's defaults for the
+// ones that don't, so `string` and `T[]` build.
+// settings = {{
+//     bounds = {{
+//         string = {{ max = 256 }}
+//         array = {{ max = 1024 }}
+//     }}
+// }}
 "
     )
 }
