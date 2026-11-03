@@ -1,3 +1,4 @@
+mod bounds_migration;
 mod changes;
 mod cli;
 mod commands;
@@ -116,7 +117,9 @@ fn run(cli: Cli) -> Result<()> {
     };
 
     match cli.command {
-        Commands::Build { watch } => commands::build::run(&work_dir, watch),
+        Commands::Build { watch, reconcile } => {
+            commands::build::run(&work_dir, watch, reconcile.as_deref())
+        }
         Commands::Check => commands::check::run(&work_dir),
         Commands::Inspect { json } => commands::inspect::run(&work_dir, json),
         Commands::Doc {

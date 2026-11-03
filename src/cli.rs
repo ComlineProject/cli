@@ -66,8 +66,15 @@ Examples:
   comline build --watch")]
     Build {
         /// Rebuild automatically when a schema or `config.idp` changes
-        #[arg(short, long)]
+        #[arg(short, long, conflicts_with = "reconcile")]
         watch: bool,
+
+        /// Before building, put this commit back beside the current head, so
+        /// the build reconciles the two: for a Git merge whose conflict on
+        /// `.comline/refs/heads/main` was resolved by picking one side, with
+        /// the dropped side's head (a full hash)
+        #[arg(long, value_name = "HASH")]
+        reconcile: Option<String>,
     },
 
     /// Validate the project without freezing a version or writing artifacts
@@ -502,8 +509,9 @@ Open the generated documentation: `<out>/<format>/index.html` (HTML), \
 `index.md` (Markdown) or `index.json` (JSON). `--out` is read as in \
 `comline doc`.
 
-With no FORMAT, `html` is opened when it is among `[doc] formats`, else the \
-first configured format.
+With no FORMAT, `html` is opened when it is among `[doc] formats` or is \
+already rendered (`comline doc --format html` leaves no trace in the \
+config), else the first configured format.
 
 If that file doesn't exist, the format is rendered first (as \
 `comline doc --format FORMAT` would). If it does, it is opened as it is, \
@@ -516,7 +524,7 @@ Examples:
   comline doc open markdown
   comline doc open html --out site")]
     Open {
-        /// `html`, `markdown` or `json`; default `html` if configured, else the first configured format
+        /// `html`, `markdown` or `json`; default `html` if configured or already rendered, else the first configured format
         #[arg(value_name = "FORMAT")]
         format: Option<String>,
     },

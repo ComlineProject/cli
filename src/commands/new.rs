@@ -17,7 +17,8 @@ enum Language {
 }
 
 struct Greeting {
-    message: string
+    /// At most 280 characters: every string and list has a maximum.
+    message: char[max 280]
     language: Language
 }
 ";
@@ -147,6 +148,16 @@ code_generation = {{
 
 // The wire both ends speak; these are the defaults.
 // wire = {{ format = \"packed@1\" framing = \"datagram@2\" }}
+
+// Every string and list needs a maximum. A type can write its own
+// (`char[max 64]`, `u32[max 10]`); these are the package's defaults for the
+// ones that don't, so `string` and `T[]` build.
+// settings = {{
+//     bounds = {{
+//         string = {{ max = 256 }}
+//         array = {{ max = 1024 }}
+//     }}
+// }}
 "
     )
 }

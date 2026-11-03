@@ -614,9 +614,11 @@ fn package_versions_all_without_a_build_errors() {
 fn declare_two_languages(project: &std::path::Path) {
     fs::write(
         project.join("config.idp"),
-        "congregation simple_project\nspecification_version = 1\n\n\
-         code_generation = {\n    languages = {\n        rust#1.85.0 = {}\n\
-         \x20       python#3.11.0 = {}\n    }\n}\n",
+        with_bounds(
+            "congregation simple_project\nspecification_version = 1\n\n\
+             code_generation = {\n    languages = {\n        rust#1.85.0 = {}\n\
+             \x20       python#3.11.0 = {}\n    }\n}\n",
+        ),
     )
     .unwrap();
 }
@@ -977,11 +979,11 @@ fn acme_and_app(root: &std::path::Path, map: &str) -> std::path::PathBuf {
     fs::create_dir_all(acme.join("src")).unwrap();
     fs::write(
         acme.join("config.idp"),
-        format!(
+        with_bounds(&format!(
             "congregation acme\nspecification_version = 1\n\n\
              encodings = {{\n    \"com.acme.lines@1\" = {{\n        kind = \"framing\"\n        \
              profile = \"lines.json\"\n        map = {{ {map} }}\n    }}\n}}\n"
-        ),
+        )),
     )
     .unwrap();
     fs::write(acme.join("lines.json"), LINES_PROFILE).unwrap();
@@ -1002,10 +1004,12 @@ fn acme_and_app(root: &std::path::Path, map: &str) -> std::path::PathBuf {
     fs::create_dir_all(app.join("src")).unwrap();
     fs::write(
         app.join("config.idp"),
-        "congregation app\nspecification_version = 1\n\n\
-         code_generation = {\n    languages = {\n        rust#1.85.0 = {}\n    }\n}\n\n\
-         settings = { annotations = { framing = { allowed = true } } }\n\n\
-         dependencies = {\n    acme = { path = \"../acme\" }\n}\n",
+        with_bounds(
+            "congregation app\nspecification_version = 1\n\n\
+             code_generation = {\n    languages = {\n        rust#1.85.0 = {}\n    }\n}\n\n\
+             settings = { annotations = { framing = { allowed = true } } }\n\n\
+             dependencies = {\n    acme = { path = \"../acme\" }\n}\n",
+        ),
     )
     .unwrap();
     fs::write(
@@ -1109,7 +1113,7 @@ fn an_unknown_framing_is_an_error() {
     let config = fs::read_to_string(project.join("config.idp")).unwrap();
     fs::write(
         project.join("config.idp"),
-        format!("{config}\nsettings = {{ annotations = {{ framing = {{ allowed = true }} }} }}\n"),
+        with_setting(&config, "annotations = { framing = { allowed = true } }"),
     )
     .unwrap();
     fs::write(

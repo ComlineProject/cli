@@ -256,20 +256,35 @@ directory is not a Comline project.
 ### `comline build`
 
 ```
-comline build [--release] [--watch]
+comline build [--watch] [--reconcile <hash>]
 ```
 
 Compile and validate every schema, then freeze the result into `.comline/`,
 bumping the version per the [versioning model](#versioning-model). Prints the
 version change, a grouped changelog, and the bump that was applied.
 
-- `--release` — reserved for future optimization work; currently a no-op (prints
-  a note).
 - `--watch` — rebuild on change; see [Watch mode](#watch-mode).
+- `--reconcile <hash>` — for a Git merge whose conflict on
+  `.comline/refs/heads/main` was resolved by picking one side: puts the
+  dropped side's head (a full commit hash) back beside the current one, then
+  builds, so the build joins the two lines. Refused for a hash that isn't a
+  commit in `.comline/objects`.
+
+When `.comline/refs/heads/main` holds two heads (a Git merge left it
+conflicted, or `--reconcile`), the build reconciles them and says so: which
+head the line continued from and which one it recorded as the second parent.
+
+Every string and list needs a maximum ([bounds on types](https://comlineproject.github.io/docs/guide/idl/types/#every-string-and-list-has-a-maximum)).
+A project written before bounds fails with one `bounds::unbounded` error per
+position; the build then says how many there are and shows the
+`settings = { bounds = { … } }` block that gives the package defaults
+(`bounds.string.max`, `bounds.array.max`) in `config.idp`. On a terminal it
+offers to add that block, with maxima you type in; it never picks them.
 
 ```bash
 comline build
 comline build --watch
+comline build --reconcile 3f9a…  # the full 64-character hash
 ```
 
 ### `comline generate`

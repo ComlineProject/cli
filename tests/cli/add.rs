@@ -13,7 +13,7 @@ fn write_package(dir: &Path, name: &str) {
     fs::create_dir_all(dir.join("src")).unwrap();
     fs::write(
         dir.join("config.idp"),
-        format!("congregation {name}\nspecification_version = 1\n"),
+        with_bounds(&format!("congregation {name}\nspecification_version = 1\n")),
     )
     .unwrap();
     fs::write(

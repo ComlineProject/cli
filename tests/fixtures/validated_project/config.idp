@@ -6,3 +6,16 @@ code_generation = {
         rust#1.85.0 = {}
     }
 }
+
+// Every string and list has a maximum (bounds on types); these are the
+// defaults where a type writes none.
+settings = {
+    bounds = {
+        string = {
+            max = 256
+        }
+        array = {
+            max = 1024
+        }
+    }
+}

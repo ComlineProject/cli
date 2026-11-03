@@ -11,7 +11,9 @@ fn package(dir: &Path, header: &str, schema: &str) {
     fs::create_dir_all(dir.join("src")).unwrap();
     fs::write(
         dir.join("config.idp"),
-        format!("{header}congregation shop\nspecification_version = 1\n"),
+        with_bounds(&format!(
+            "{header}congregation shop\nspecification_version = 1\n"
+        )),
     )
     .unwrap();
     fs::write(dir.join("src/api.ids"), schema).unwrap();
@@ -129,7 +131,9 @@ fn a_changelog_follows_the_package_wire_format() {
         package(&shop, "", schema);
         fs::write(
             shop.join("config.idp"),
-            "congregation shop\nspecification_version = 1\nwire = { format = \"json@1\" }\n",
+            with_bounds(
+                "congregation shop\nspecification_version = 1\nwire = { format = \"json@1\" }\n",
+            ),
         )
         .unwrap();
     };
