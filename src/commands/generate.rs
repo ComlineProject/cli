@@ -565,12 +565,52 @@ fn warn_async_unused(language: &str, request: &GenerateRequest) {
 /// when they disagree on the framing or handshake, the generators leave them
 /// out, which would otherwise look like they forgot.
 fn warn_no_package_connection(language: &str, request: &GenerateRequest) {
-    if let Err(reason) = connections::package_connection(&request.schemas) {
-        ui::warn(format!(
+    match connections::package_connection(&request.schemas) {
+        Err(reason) => ui::warn(format!(
             "`{language}`: no package `serve` / `connect` - {reason}; each protocol still has \
              its own"
-        ));
+        )),
+        Ok(None) => note_no_connection_protocols(language, request),
+        Ok(Some(_)) => {}
     }
+}
+
+/// The silent case: protocols are declared, but none is on a connection, so
+/// there is no `Services` / `serve` to look for. A package with no protocols
+/// has nothing to serve and gets no note.
+fn note_no_connection_protocols(language: &str, request: &GenerateRequest) {
+    let mut framings = std::collections::BTreeSet::new();
+    for (_, units) in &request.schemas {
+        for unit in units {
+            if let FrozenUnit::Protocol { parameters, .. } = unit {
+                framings.insert(connections::framing_name(parameters));
+            }
+        }
+    }
+    if framings.is_empty() {
+        return;
+    }
+    let framings: Vec<String> = framings
+        .into_iter()
+        .map(|f| match f.as_str() {
+            "jsonrpc" => "JSON-RPC (with none of its protocols client-provided)".to_owned(),
+            // Canonical, `datagram` is the lockstep `datagram@1`.
+            "datagram" => "`datagram@1`".to_owned(),
+            _ => format!("`{f}`"),
+        })
+        .collect();
+    let page = match language {
+        "rust" => " (https://comlineproject.github.io/docs/languages/rust/connections/#when-theyre-generated)",
+        "typescript" => {
+            " (https://comlineproject.github.io/docs/languages/typescript/connections/#when-theyre-generated)"
+        }
+        _ => "",
+    };
+    ui::note(format!(
+        "`{language}`: no package `Services` / `serve` / `connect` - every protocol is \
+         server-provided on {}, and none is on a connection{page}",
+        framings.join(" or ")
+    ));
 }
 
 /// A warning per feature `request` uses that this generator ignores - it
