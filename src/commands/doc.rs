@@ -50,8 +50,8 @@ use comline_codegen::protocol::{
 use comline_codegen::Registry;
 use comline_core::doc::{self, ChangelogSpan, DocModel, FrozenDocs, DOC_MODEL_VERSION};
 use comline_core::package::build::cas::objects::{Commit, Tree};
-use comline_core::package::build::cas::storage::Hash;
 use comline_core::package::build::cas::refs;
+use comline_core::package::build::cas::storage::Hash;
 use comline_core::package::config::ir::frozen::FrozenUnit as ConfigUnit;
 use comline_core::schema::ir::frozen::unit::FrozenUnit;
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
