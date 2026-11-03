@@ -308,7 +308,7 @@ Examples:
 Delete the project's `.comline/` content-addressable store — every frozen \
 version and the commit chain. Generated code is removed too. This cannot be \
 undone and nothing else holds the history, so the next `build` starts over at \
-0.0.1.
+0.1.0-dev.1.
 
 Requires confirmation: on a terminal you are asked to type `reset`; otherwise \
 pass `--force`.")]

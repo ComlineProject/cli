@@ -2,7 +2,7 @@
 //!
 //! Deletes `.comline/` (every frozen version and the commit chain) plus
 //! generated code. Irreversible, and — since there is no `publish` yet —
-//! nothing else holds the history, so the next `build` starts over at 0.0.1.
+//! nothing else holds the history, so the next `build` starts over at 0.1.0-dev.1.
 //! Guarded by a typed confirmation unless `--force`.
 
 use std::io::{self, IsTerminal, Write};
@@ -67,7 +67,7 @@ pub fn run(work_dir: &Path, force: bool, dry_run: bool) -> Result<()> {
         ui::detail(format!("removed {shown}"));
     }
 
-    ui::success("Reset complete — the next `build` starts a new history at 0.0.1");
+    ui::success("Reset complete — the next `build` starts a new history at 0.1.0-dev.1");
     Ok(())
 }
 

@@ -21,7 +21,7 @@ cargo install --path .
 ```bash
 comline new my-api          # scaffold a project
 cd my-api
-comline build               # compile + freeze version 0.0.1
+comline build               # compile + freeze version 0.1.0-dev.1
 comline generate            # write generated code for each configured target
 ```
 
@@ -37,7 +37,7 @@ comline generate            # write generated code for each configured target
 | `comline diff <old> <new>` | Show the schema changes between two built versions. Each argument is a version (`0.2.0`), a commit hash, or `HEAD` (the default for `<new>`). |
 | `comline conformance --impl <cmd> [--encoding <name>] [--corpus <dir>]` | Run an encoding's implementation (a process speaking the conformance ops protocol) against the vectors its package ships beside each profile (`profiles/x.json` → `profiles/x.vectors.json`). Reports proven facts and failed cases with byte diffs; exits `1` on any failure. |
 | `comline clean [--dry-run]` | Remove the `generate` output (the output root, or the individual files). Leaves `.comline/` alone. |
-| `comline reset [--force] [--dry-run]` | Discard the version history: delete `.comline/` and generated code. Asks for confirmation on a terminal; needs `--force` otherwise. No undo — the next build restarts at `0.0.1`. |
+| `comline reset [--force] [--dry-run]` | Discard the version history: delete `.comline/` and generated code. Asks for confirmation on a terminal; needs `--force` otherwise. No undo — the next build restarts at `0.1.0-dev.1`. |
 | `comline completions <shell>` | Print a shell completion script to stdout. |
 
 Global flags: `--path <dir>` to run outside the current directory, `-v`/`-vv` for

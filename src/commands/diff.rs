@@ -7,7 +7,6 @@ use std::path::Path;
 
 use comline_core::package::build::cas::build::compare;
 use comline_core::package::build::cas::objects::{Commit, Tree};
-use comline_core::package::build::cas::ObjectStore;
 use miette::Result;
 
 use crate::commands::ensure_project;
@@ -17,7 +16,7 @@ pub fn run(work_dir: &Path, old: &str, new: &str) -> Result<()> {
     ensure_project(work_dir)?;
 
     let chain = history::load(work_dir)?;
-    let store = ObjectStore::new(work_dir);
+    let store = history::open_store(work_dir)?;
 
     let old_commit = history::resolve(&chain, old)?;
     let new_commit = history::resolve(&chain, new)?;

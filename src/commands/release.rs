@@ -20,6 +20,7 @@ use crate::changes;
 use crate::cli::ReleaseLevel as Level;
 use crate::commands::{core_err, ensure_project};
 use crate::error::CliError;
+use crate::history;
 use crate::ui;
 
 fn bump(level: Level) -> VersionBump {
@@ -38,6 +39,9 @@ pub fn run(
     yes: bool,
 ) -> Result<()> {
     ensure_project(work_dir)?;
+    // `build` below would rebuild a mismatched store, dropping its history;
+    // a release is made on top of that history, so refuse instead.
+    history::ensure_readable(work_dir)?;
     let stable = match version {
         None => false,
         Some("1.0" | "1.0.0") => true,
