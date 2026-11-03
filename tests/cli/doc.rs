@@ -282,7 +282,7 @@ fn html_writes_a_self_contained_site_per_version() {
     assert!(read(&site.join("versions.js")).contains("var LATEST = \"0.1.0-dev.1\";"));
     let compare = read(&site.join("compare.js"));
     assert!(
-        compare.contains("\"api::Order.note\":\"optional string\""),
+        compare.contains("\"api::Order.note\":\"optional char[max 256]\""),
         "{compare}"
     );
     assert!(site.join("compare.html").exists());

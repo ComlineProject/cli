@@ -269,10 +269,12 @@ fn without_a_wire_key_a_protocol_is_on_a_packed_connection() {
 fn protocols_on_different_framings_get_no_package_serve() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
-    add_to_config(
-        &project,
-        "settings = {\n    annotations = {\n        framing = {\n            allowed = true\n        }\n    }\n}",
-    );
+    let config = fs::read_to_string(project.join("config.idp")).unwrap();
+    fs::write(
+        project.join("config.idp"),
+        with_setting(&config, "annotations = { framing = { allowed = true } }"),
+    )
+    .unwrap();
     fs::write(
         project.join("src/link.ids"),
         "protocol Link {\n    function send(n: u32) -> u32;\n}\n\n\
