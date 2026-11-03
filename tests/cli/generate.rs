@@ -292,6 +292,49 @@ fn protocols_on_different_framings_get_no_package_serve() {
     assert!(!project.join("generated/rust/connection.rs").exists());
 }
 
+/// Protocols that are all server-provided on `datagram@1` are on no
+/// connection, so there is no package `serve`; generate says why, rather than
+/// leaving it looking forgotten.
+#[test]
+fn protocols_on_no_connection_say_why_there_is_no_package_serve() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    add_to_config(&project, "wire = { framing = \"datagram\" }");
+    fs::write(
+        project.join("src/link.ids"),
+        "protocol Link {\n    function send(n: u32) -> u32;\n}\n",
+    )
+    .unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("no package `Services` / `serve` / `connect`"))
+        .stderr(predicate::str::contains(
+            "every protocol is server-provided on `datagram@1`",
+        ))
+        .stderr(predicate::str::contains("#when-theyre-generated"));
+    assert!(!project.join("generated/rust/connection.rs").exists());
+}
+
+/// No protocols at all: nothing to serve, so nothing is said.
+#[test]
+fn a_package_without_protocols_gets_no_serve_note() {
+    let temp = tempfile::tempdir().unwrap();
+    // The fixture declares structs and enums only.
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generate", "--target", "rust"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("`Services` / `serve`").not())
+        .stderr(predicate::str::contains("no package").not());
+}
+
 #[test]
 fn comline_toml_default_framing_says_it_moved() {
     let temp = tempfile::tempdir().unwrap();
