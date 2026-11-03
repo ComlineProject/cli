@@ -34,12 +34,9 @@ pub enum CliError {
 
     #[error(
         "the version history in `.comline/` is in IR format {found}, but this comline reads \
-         and writes format {expected}"
+         and writes format {expected}: run `comline build` to rebuild it in the current format \
+         (that starts the version history over)"
     )]
-    #[diagnostic(help(
-        "run `comline build` to rebuild the store in the current format (it starts the version \
-         history over)"
-    ))]
     StoreFormat { found: String, expected: u32 },
 
     #[error("refusing to delete the version history without confirmation")]
