@@ -188,11 +188,25 @@ pub fn check_declared(context: &ProjectContext, registry: &Registry) -> eyre::Re
     // What each framing the package can see states, which the rules below go by.
     let framings: BTreeMap<String, EncodingMapping> = config
         .iter()
-        .chain(context.dependency_configs.iter().flat_map(|(_, units)| units))
+        .chain(
+            context
+                .dependency_configs
+                .iter()
+                .flat_map(|(_, units)| units),
+        )
         .filter_map(|unit| match unit {
-            ConfigUnit::Encoding { name, grammar, calls, .. } => Some((
+            ConfigUnit::Encoding {
+                name,
+                grammar,
+                calls,
+                ..
+            } => Some((
                 comline_codegen::encodings::canonical(name),
-                EncodingMapping { grammar: grammar.clone(), calls: calls.clone(), ..Default::default() },
+                EncodingMapping {
+                    grammar: grammar.clone(),
+                    calls: calls.clone(),
+                    ..Default::default()
+                },
             )),
             _ => None,
         })

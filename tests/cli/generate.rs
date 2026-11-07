@@ -1045,7 +1045,11 @@ fn a_dependencys_framing_writing_json_encodes_with_json() {
             .success();
     };
     generate();
-    assert!(generated_api(&app).contains("pub type Format"), "{}", generated_api(&app));
+    assert!(
+        generated_api(&app).contains("pub type Format"),
+        "{}",
+        generated_api(&app)
+    );
 
     fs::write(
         temp.path().join("acme/lines.json"),
@@ -1053,7 +1057,11 @@ fn a_dependencys_framing_writing_json_encodes_with_json() {
     )
     .unwrap();
     generate();
-    assert!(!generated_api(&app).contains("pub type Format"), "{}", generated_api(&app));
+    assert!(
+        !generated_api(&app).contains("pub type Format"),
+        "{}",
+        generated_api(&app)
+    );
 }
 
 /// A dependency's framing: the declaring package's suggested mapping when
