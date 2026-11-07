@@ -969,7 +969,8 @@ const LINES_PROFILE: &str = r#"{
   "kind": "framing",
   "facts": {
     "calls": { "value": "by_name", "proven_by": ["lines/request"] },
-    "errors": { "value": "by_name", "proven_by": ["lines/error"] }
+    "errors": { "value": "by_name", "proven_by": ["lines/error"] },
+    "payload": { "value": "opaque", "proven_by": ["lines/request"] }
   }
 }"#;
 

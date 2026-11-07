@@ -172,7 +172,7 @@ fn answers(line: &str, i: usize) -> std::result::Result<Vec<Answer>, String> {
 /// Prints one encoding's results; the number of problems.
 fn report(subject: &Subject, outcomes: &BTreeMap<String, Outcome>, claimed: bool) -> usize {
     let profile = &subject.profile;
-    let kind = serde_json::to_value(profile.kind).unwrap_or_default();
+    let kind = serde_json::to_value(profile.kind()).unwrap_or_default();
     let passed = subject
         .cases
         .iter()

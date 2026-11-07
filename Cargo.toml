@@ -48,7 +48,7 @@ comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust",
 comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "ea9b9e2c70bbd87d99cc028543f73c8ee7749e1c", optional = true }
 # `comline conformance`: the conformance runner (corpus loading, judging,
 # profile proofs) and its case format, a public spec. Pinned by git rev.
-comline-runtime-conformance = { git = "https://github.com/ComlineProject/runtime", rev = "17c3b70e3a350bd2473316d1727006d43d0d8fad" }
+comline-runtime-conformance = { git = "https://github.com/ComlineProject/runtime", rev = "3d749427a80986bb293a5cdf9165be4fa02186f7" }
 # `comline doc open` / `--open`: the system's default handler for a file (a
 # browser for HTML). Exact pin; no default features (`reveal` pulls in D-Bus).
 opener = { version = "=0.9.0", default-features = false }
