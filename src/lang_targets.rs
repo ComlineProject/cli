@@ -18,7 +18,10 @@
 //!
 //! See the *Language target versions* proposal in the docs.
 
+use std::collections::BTreeMap;
+
 use comline_codegen::features::{self, Options};
+use comline_codegen::protocol::EncodingMapping;
 use comline_codegen::versions::LangVersion;
 use comline_codegen::{Registry, Resolved, Unresolved};
 use comline_core::diagnostics::{Diagnostic, DiagnosticCode};
@@ -182,6 +185,33 @@ pub fn check_declared(context: &ProjectContext, registry: &Registry) -> eyre::Re
         })
         .collect();
 
+    // What each framing the package can see states, which the rules below go by.
+    let framings: BTreeMap<String, EncodingMapping> = config
+        .iter()
+        .chain(
+            context
+                .dependency_configs
+                .iter()
+                .flat_map(|(_, units)| units),
+        )
+        .filter_map(|unit| match unit {
+            ConfigUnit::Encoding {
+                name,
+                grammar,
+                calls,
+                ..
+            } => Some((
+                comline_codegen::encodings::canonical(name),
+                EncodingMapping {
+                    grammar: grammar.clone(),
+                    calls: calls.clone(),
+                    ..Default::default()
+                },
+            )),
+            _ => None,
+        })
+        .collect();
+
     let mut problems = Vec::new();
     let mut warnings = Vec::new();
     for d in declared(config) {
@@ -204,6 +234,7 @@ pub fn check_declared(context: &ProjectContext, registry: &Registry) -> eyre::Re
         // promise, so only what the schemas and config.idp use is checked.
         let options = Options {
             wire_format: Some(frozen::wire_format(config).to_string()),
+            encodings: framings.clone(),
             ..Options::default()
         };
         if let Some(refusal) = unsupported(&d.language, &resolved, &schemas, &options) {
@@ -218,7 +249,7 @@ pub fn check_declared(context: &ProjectContext, registry: &Registry) -> eyre::Re
 
     // JSON-RPC protocols on one connection whose bare method names a side
     // couldn't tell apart: no generator can emit them.
-    for clash in comline_codegen::connections::bare_name_clashes(&schemas) {
+    for clash in comline_codegen::connections::bare_name_clashes(&schemas, &framings) {
         problems.push(format!("every target: {clash}"));
     }
 

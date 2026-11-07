@@ -86,6 +86,24 @@
       },
       "bytes": "4d415942452039",
       "expect": "reject"
+    },
+    {
+      "id": "lines/reject-ok-as-request",
+      "op": "request",
+      "input": {
+        "framing": "com.acme.lines@1"
+      },
+      "bytes": "4f4b20372036383639",
+      "expect": "reject"
+    },
+    {
+      "id": "lines/reject-request-as-ok",
+      "op": "response",
+      "input": {
+        "framing": "com.acme.lines@1"
+      },
+      "bytes": "524551203432206772656574207b226172726179223a5b7b22753332223a377d2c7b22737472696e67223a2278227d5d7d",
+      "expect": "reject"
     }
   ]
 }
