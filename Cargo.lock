@@ -565,7 +565,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=bfa3845e7eecd42905344f4230fa1999d0c2c399#bfa3845e7eecd42905344f4230fa1999d0c2c399"
+source = "git+https://github.com/ComlineProject/generation?rev=68993b0306fb7ef5e24c3d9b4d023dcace88a530#68993b0306fb7ef5e24c3d9b4d023dcace88a530"
 dependencies = [
  "comline-core",
  "eyre",
@@ -579,7 +579,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-rust"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-rust?rev=e56d0697edf8898fbfd80b73fdb2dd7eb1dcd681#e56d0697edf8898fbfd80b73fdb2dd7eb1dcd681"
+source = "git+https://github.com/ComlineProject/comline-rust?rev=a5438cc71ec33d28be3e90f527c687cf43bd785e#a5438cc71ec33d28be3e90f527c687cf43bd785e"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -589,7 +589,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-typescript"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-typescript?rev=2befdfc272b44db65e6ed58c0ee6124ce25a026c#2befdfc272b44db65e6ed58c0ee6124ce25a026c"
+source = "git+https://github.com/ComlineProject/comline-typescript?rev=f5ffd7a13d026efca52dfc67856d76b1357a2206#f5ffd7a13d026efca52dfc67856d76b1357a2206"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -599,7 +599,7 @@ dependencies = [
 [[package]]
 name = "comline-core"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/core?rev=00fd9dbda3856e6890f25197b0543ba9b9b6bfe9#00fd9dbda3856e6890f25197b0543ba9b9b6bfe9"
+source = "git+https://github.com/ComlineProject/core?rev=ff69d928b0232266f0da6ea417daec0e69bf2c8e#ff69d928b0232266f0da6ea417daec0e69bf2c8e"
 dependencies = [
  "ariadne",
  "blake3",
@@ -628,12 +628,12 @@ dependencies = [
 [[package]]
 name = "comline-core-stdlib"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/core?rev=00fd9dbda3856e6890f25197b0543ba9b9b6bfe9#00fd9dbda3856e6890f25197b0543ba9b9b6bfe9"
+source = "git+https://github.com/ComlineProject/core?rev=ff69d928b0232266f0da6ea417daec0e69bf2c8e#ff69d928b0232266f0da6ea417daec0e69bf2c8e"
 
 [[package]]
 name = "comline-doc-html"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=bfa3845e7eecd42905344f4230fa1999d0c2c399#bfa3845e7eecd42905344f4230fa1999d0c2c399"
+source = "git+https://github.com/ComlineProject/generation?rev=68993b0306fb7ef5e24c3d9b4d023dcace88a530#68993b0306fb7ef5e24c3d9b4d023dcace88a530"
 dependencies = [
  "comline-codegen",
  "eyre",
@@ -644,7 +644,7 @@ dependencies = [
 [[package]]
 name = "comline-doc-markdown"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=bfa3845e7eecd42905344f4230fa1999d0c2c399#bfa3845e7eecd42905344f4230fa1999d0c2c399"
+source = "git+https://github.com/ComlineProject/generation?rev=68993b0306fb7ef5e24c3d9b4d023dcace88a530#68993b0306fb7ef5e24c3d9b4d023dcace88a530"
 dependencies = [
  "comline-codegen",
  "eyre",
@@ -655,7 +655,7 @@ dependencies = [
 [[package]]
 name = "comline-runtime"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/runtime?rev=3d749427a80986bb293a5cdf9165be4fa02186f7#3d749427a80986bb293a5cdf9165be4fa02186f7"
+source = "git+https://github.com/ComlineProject/runtime?rev=cf5e06780793d8e71b0ec1133da8fd6c0e42b8e9#cf5e06780793d8e71b0ec1133da8fd6c0e42b8e9"
 dependencies = [
  "abi_stable",
  "bytemuck",
@@ -669,7 +669,7 @@ dependencies = [
 [[package]]
 name = "comline-runtime-conformance"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/runtime?rev=3d749427a80986bb293a5cdf9165be4fa02186f7#3d749427a80986bb293a5cdf9165be4fa02186f7"
+source = "git+https://github.com/ComlineProject/runtime?rev=cf5e06780793d8e71b0ec1133da8fd6c0e42b8e9#cf5e06780793d8e71b0ec1133da8fd6c0e42b8e9"
 dependencies = [
  "comline-runtime",
  "serde",

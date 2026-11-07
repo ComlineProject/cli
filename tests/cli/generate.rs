@@ -969,6 +969,7 @@ const LINES_PROFILE: &str = r#"{
   "kind": "framing",
   "facts": {
     "calls": { "value": "by_name", "proven_by": ["lines/request"] },
+    "directions": { "value": "both", "proven_by": ["lines/request"] },
     "errors": { "value": "by_name", "proven_by": ["lines/error"] },
     "payload": { "value": "opaque", "proven_by": ["lines/request"] }
   }
@@ -1025,6 +1026,34 @@ fn acme_and_app(root: &std::path::Path, map: &str) -> std::path::PathBuf {
 
 fn generated_api(app: &std::path::Path) -> String {
     fs::read_to_string(app.join("generated/rust/api.rs")).unwrap()
+}
+
+/// A dependency's framing that writes JSON encodes with JSON, by what its
+/// profile states: the request carries it from the declaration.
+#[test]
+fn a_dependencys_framing_writing_json_encodes_with_json() {
+    let temp = tempfile::tempdir().unwrap();
+    let app = acme_and_app(
+        temp.path(),
+        "rust = { type = \"acme::LinesFraming\" package = \"acme\" }",
+    );
+    let generate = || {
+        comline_cmd()
+            .current_dir(&app)
+            .args(["generate", "--target", "rust"])
+            .assert()
+            .success();
+    };
+    generate();
+    assert!(generated_api(&app).contains("pub type Format"), "{}", generated_api(&app));
+
+    fs::write(
+        temp.path().join("acme/lines.json"),
+        LINES_PROFILE.replace("\"opaque\"", "\"json\""),
+    )
+    .unwrap();
+    generate();
+    assert!(!generated_api(&app).contains("pub type Format"), "{}", generated_api(&app));
 }
 
 /// A dependency's framing: the declaring package's suggested mapping when

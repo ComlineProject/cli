@@ -128,9 +128,10 @@ fn a_package_proves_its_own_framing() {
         .assert()
         .success()
         .stderr(predicate::str::contains(
-            "com.acme.lines@1 (framing): 6/6 case(s) pass",
+            "com.acme.lines@1 (framing): 8/8 case(s) pass",
         ))
         .stderr(predicate::str::contains("proven  calls: by_name"))
+        .stderr(predicate::str::contains("proven  directions: both"))
         .stderr(predicate::str::contains("proven  errors: by_ordinal"))
         .stderr(predicate::str::contains("proven  payload: opaque"));
 

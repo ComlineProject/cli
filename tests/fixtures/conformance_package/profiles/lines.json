@@ -3,6 +3,7 @@
   "kind": "framing",
   "facts": {
     "calls": { "value": "by_name", "proven_by": ["lines/request"] },
+    "directions": { "value": "both", "proven_by": ["lines/request", "lines/ok", "lines/reject-ok-as-request", "lines/reject-request-as-ok"] },
     "errors": { "value": "by_ordinal", "proven_by": ["lines/error"] },
     "payload": { "value": "opaque", "proven_by": ["lines/request-params-msgpack"] }
   }
