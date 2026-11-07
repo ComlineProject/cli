@@ -1315,7 +1315,10 @@ fn datagram3_and_comline2_take_their_facts_from_the_last_build() {
         .success();
     generate().success();
     let module = fs::read_to_string(project.join("generated/rust/connection.rs")).unwrap();
-    assert!(never_built.contains("pub const HELLO: &[u8] = &["), "{never_built}");
+    assert!(
+        never_built.contains("pub const HELLO: &[u8] = &["),
+        "{never_built}"
+    );
     assert!(module.contains("pub const HELLO: &[u8] = &["), "{module}");
     assert!(
         module.contains("newer_consumer: c2::NewerConsumer::Refuse"),
