@@ -24,6 +24,28 @@
       "bytes": "524551203432206772656574207b226172726179223a5b7b22753332223a377d2c7b22737472696e67223a2278227d5d7d"
     },
     {
+      "id": "lines/request-params-msgpack",
+      "op": "request",
+      "input": {
+        "call_id": 3,
+        "format": "msgpack@1",
+        "framing": "com.acme.lines@1",
+        "method": "greet",
+        "params": {
+          "array": [
+            {
+              "u32": 7
+            },
+            {
+              "string": "x"
+            }
+          ]
+        },
+        "request_id": "42"
+      },
+      "bytes": "524551203432206772656574207b226172726179223a5b7b22753332223a377d2c7b22737472696e67223a2278227d5d7d"
+    },
+    {
       "id": "lines/ok",
       "op": "response",
       "input": {
