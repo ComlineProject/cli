@@ -72,6 +72,18 @@ struct GenVersion {
     /// The version's own `wire.format`: a built version keeps the format it
     /// was built with.
     wire_format: String,
+    /// Where its facts come from (`comline_core::compat`), for a package that
+    /// needs them: a built version, or for the working tree, the last build
+    /// when nothing has changed since.
+    facts: FactsSource,
+}
+
+/// Where a generated version's facts come from.
+enum FactsSource {
+    /// This commit's.
+    Commit(comline_core::package::build::cas::storage::Hash),
+    /// None: why, one sentence.
+    Missing(String),
 }
 
 fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bool) -> Result<()> {
@@ -310,6 +322,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
                 validate_on_decode: t.validate_on_decode,
                 // Filled just below.
                 encodings: Default::default(),
+                facts: None,
             };
             // The type each encoding the package uses maps to in this
             // language: comline.toml's mapping, else the declaring package's
@@ -335,6 +348,10 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
                 }
                 return Err(miette!("target `{}`: {e}", t.language));
             }
+            // Wire numbers and the rest of `comline@2`'s facts, from the
+            // package's history: only for a package that needs them.
+            request.facts = facts_for(work_dir, &request, &gv.facts)
+                .map_err(|e| miette!("target `{}`: {e}", t.language))?;
             // Deliberately not `core_err`: a generator's errors are about
             // schema/package *structure* (e.g. a namespace that's both a
             // schema and a parent of deeper schemas), not source *text* -
@@ -487,14 +504,29 @@ fn expand_versions(
 ) -> Result<Vec<GenVersion>> {
     match spec {
         VersionSpec::Latest => {
-            let package_version = history::load(work_dir)
+            let head = history::load(work_dir)
                 .ok()
-                .and_then(|chain| chain.first().map(|e| e.commit.version.clone()))
+                .and_then(|chain| chain.into_iter().next());
+            let package_version = head
+                .as_ref()
+                .map(|e| e.commit.version.clone())
                 .unwrap_or_default();
+            let wire_format = frozen::wire_format(live_config).to_string();
+            let facts = match &head {
+                None => FactsSource::Missing("the package has never been built".to_string()),
+                Some(head) => match working_tree_changed(work_dir, head, live, &wire_format) {
+                    Some(why) => FactsSource::Missing(format!(
+                        "{why} since the last build ({})",
+                        head.commit.version
+                    )),
+                    None => FactsSource::Commit(head.hash),
+                },
+            };
             Ok(vec![GenVersion {
                 package_version,
                 schemas: live.to_vec(),
-                wire_format: frozen::wire_format(live_config).to_string(),
+                wire_format,
+                facts,
             }])
         }
         VersionSpec::All => {
@@ -511,7 +543,7 @@ fn expand_versions(
             }
             releases
                 .iter()
-                .map(|e| gen_version_from_commit(&store, &e.commit.version, &e.commit))
+                .map(|e| gen_version_from_commit(&store, &e.commit.version, &e.commit, &e.hash))
                 .collect()
         }
         VersionSpec::List(specs) => {
@@ -521,7 +553,11 @@ fn expand_versions(
                 .iter()
                 .map(|s| {
                     let commit = history::resolve(&chain, s)?;
-                    gen_version_from_commit(&store, &commit.version, commit)
+                    let entry = chain
+                        .iter()
+                        .find(|e| std::ptr::eq(&e.commit, commit))
+                        .expect("resolve gives a commit of the chain");
+                    gen_version_from_commit(&store, &commit.version, commit, &entry.hash)
                 })
                 .collect()
         }
@@ -532,6 +568,7 @@ fn gen_version_from_commit(
     store: &ObjectStore,
     version: &str,
     commit: &comline_core::package::build::cas::objects::Commit,
+    hash: &comline_core::package::build::cas::storage::Hash,
 ) -> Result<GenVersion> {
     let schemas = history::load_schemas(store, commit)?
         .into_iter()
@@ -545,7 +582,76 @@ fn gen_version_from_commit(
         package_version: version.to_owned(),
         schemas,
         wire_format: frozen::wire_format(&config).to_string(),
+        facts: FactsSource::Commit(*hash),
     })
+}
+
+/// Whether the working tree differs from the build `head` in what its facts
+/// cover, and so has no facts yet: one sentence, or `None`.
+fn working_tree_changed(
+    work_dir: &Path,
+    head: &history::Entry,
+    live: &[(String, Vec<FrozenUnit>)],
+    wire_format: &str,
+) -> Option<String> {
+    use comline_core::schema::ir::frozen::cas::blob::schema_ir_hash;
+    let store = history::open_store(work_dir).ok()?;
+    let (Ok(built), Ok(config)) = (
+        history::load_schemas(&store, &head.commit),
+        history::load_config(&store, &head.commit),
+    ) else {
+        return Some("the last build can't be read".to_string());
+    };
+    let mut built: Vec<u64> = built.iter().map(|units| schema_ir_hash(units)).collect();
+    let mut now: Vec<u64> = live
+        .iter()
+        .map(|(_, units)| schema_ir_hash(units))
+        .collect();
+    built.sort_unstable();
+    now.sort_unstable();
+    if built != now {
+        return Some("the schemas changed".to_string());
+    }
+    if frozen::wire_format(&config) != wire_format {
+        return Some("`wire.format` changed".to_string());
+    }
+    None
+}
+
+/// The facts `request` needs, if it needs any: wire numbers for a framing
+/// that calls by number (`datagram@3`), and everything `comline@2` checks.
+///
+/// They come from the package's build history, never from the working tree
+/// alone: a build numbers what it adds against the last release, so numbers
+/// read off the current schemas would be positions, and a peer of another
+/// version would call the wrong function. So a working tree with no build,
+/// or changed since its last build, is refused with what to run.
+fn facts_for(
+    work_dir: &Path,
+    request: &GenerateRequest,
+    source: &FactsSource,
+) -> Result<Option<comline_codegen::facts::PackageFacts>> {
+    if !comline_codegen::facts::needed(&request.schemas, &request.encodings) {
+        return Ok(None);
+    }
+    let hash = match source {
+        FactsSource::Commit(hash) => hash,
+        FactsSource::Missing(why) => {
+            return Err(miette!(
+                "the package uses `datagram@3` or `comline@2`, which address calls by the wire numbers its build \
+                 history assigns, and {why}: run `comline build`, then generate again"
+            ))
+        }
+    };
+    let store = history::open_store(work_dir)?;
+    let facts = comline_core::compat::facts_of_commit(&store, hash)
+        .map_err(|e| miette!("reading the package's facts: {e:#}"))?;
+    // The same fields under the same names: the generator protocol's mirror.
+    let facts = serde_json::to_value(&facts)
+        .and_then(serde_json::from_value)
+        .into_diagnostic()
+        .wrap_err("the package's facts")?;
+    Ok(Some(facts))
 }
 
 /// `async = true` changes only protocols on a connection; with none, the

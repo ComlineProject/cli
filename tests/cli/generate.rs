@@ -1261,3 +1261,86 @@ fn validate_on_decode_off_needs_a_reason_and_is_shown() {
     let accounts = fs::read_to_string(project.join("generated/rust/accounts.rs")).unwrap();
     assert!(accounts.contains("try_from"), "{accounts}");
 }
+
+/// A package choosing `datagram@3` and `comline@2` takes its wire numbers
+/// and the rest of its facts from its build history: generating before a
+/// build, or after the schemas changed since one, is refused with what to
+/// run, never numbered by position.
+#[test]
+fn datagram3_and_comline2_take_their_facts_from_the_last_build() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = temp.path().join("chat");
+    comline_cmd()
+        .current_dir(temp.path())
+        .args(["new", "chat"])
+        .assert()
+        .success();
+    let config = fs::read_to_string(project.join("config.idp"))
+        .unwrap()
+        .replace(
+            "// wire = { format = \"packed@1\" framing = \"datagram@2\" }",
+            "wire = { format = \"packed@1\" framing = \"datagram@3\" }\n\
+         handshake = { name = \"comline@2\" newer_consumer = \"refuse\" }",
+        );
+    fs::write(project.join("config.idp"), config).unwrap();
+    let chat = |functions: &str| {
+        fs::write(
+            project.join("src/chat.ids"),
+            format!("protocol Chat {{\n{functions}}}\n"),
+        )
+        .unwrap();
+    };
+    chat("    function hello(name: char[max 32]) -> u32;\n    function shout(text: char[max 32]) -> u32;\n");
+    let generate = || {
+        comline_cmd()
+            .current_dir(&project)
+            .args(["generate", "--target", "rust"])
+            .assert()
+    };
+
+    generate().failure().stderr(predicate::str::contains(
+        "the package has never been built: run `comline build`",
+    ));
+
+    comline_cmd()
+        .current_dir(&project)
+        .arg("build")
+        .assert()
+        .success();
+    comline_cmd()
+        .current_dir(&project)
+        .arg("release")
+        .assert()
+        .success();
+    generate().success();
+    let module = fs::read_to_string(project.join("generated/rust/connection.rs")).unwrap();
+    assert!(module.contains("pub const HELLO: &[u8] = &["), "{module}");
+    assert!(
+        module.contains("newer_consumer: c2::NewerConsumer::Refuse"),
+        "{module}"
+    );
+
+    // Reordered and one added: refused until it's built, then each function
+    // keeps the number 0.1.0 gave it.
+    chat(
+        "    function shout(text: char[max 32]) -> u32;\n    function whisper(text: char[max 32]) -> u32;\n    \
+         function hello(name: char[max 32]) -> u32;\n",
+    );
+    generate().failure().stderr(predicate::str::contains(
+        "the schemas changed since the last build (0.1.0)",
+    ));
+    comline_cmd()
+        .current_dir(&project)
+        .arg("build")
+        .assert()
+        .success();
+    generate().success();
+    let code = fs::read_to_string(project.join("generated/rust/chat.rs")).unwrap();
+    for call in [
+        "Call::new(1, \"shout\")",
+        "Call::new(2, \"whisper\")",
+        "Call::new(0, \"hello\")",
+    ] {
+        assert!(code.contains(call), "missing `{call}` in:\n{code}");
+    }
+}
