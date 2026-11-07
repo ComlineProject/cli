@@ -289,7 +289,7 @@ fn protocols_on_different_framings_get_no_package_serve() {
         .success()
         .stderr(predicate::str::contains("no package `serve` / `connect`"))
         .stderr(predicate::str::contains(
-            "`link::Link` is on a `datagram@2` connection",
+            "`link::Link` is on a `datagram@3` connection",
         ));
     assert!(!project.join("generated/rust/connection.rs").exists());
 }
@@ -1278,7 +1278,7 @@ fn datagram3_and_comline2_take_their_facts_from_the_last_build() {
     let config = fs::read_to_string(project.join("config.idp"))
         .unwrap()
         .replace(
-            "// wire = { format = \"packed@1\" framing = \"datagram@2\" }",
+            "// wire = { format = \"packed@1\" framing = \"datagram@3\" }",
             "wire = { format = \"packed@1\" framing = \"datagram@3\" }\n\
          handshake = { name = \"comline@2\" newer_consumer = \"refuse\" }",
         );
@@ -1298,9 +1298,10 @@ fn datagram3_and_comline2_take_their_facts_from_the_last_build() {
             .assert()
     };
 
-    generate().failure().stderr(predicate::str::contains(
-        "the package has never been built: run `comline build`",
-    ));
+    // Never built: the facts a first build would record, nothing written.
+    generate().success();
+    assert!(!project.join(".comline").exists());
+    let never_built = fs::read_to_string(project.join("generated/rust/connection.rs")).unwrap();
 
     comline_cmd()
         .current_dir(&project)
@@ -1314,6 +1315,7 @@ fn datagram3_and_comline2_take_their_facts_from_the_last_build() {
         .success();
     generate().success();
     let module = fs::read_to_string(project.join("generated/rust/connection.rs")).unwrap();
+    assert!(never_built.contains("pub const HELLO: &[u8] = &["), "{never_built}");
     assert!(module.contains("pub const HELLO: &[u8] = &["), "{module}");
     assert!(
         module.contains("newer_consumer: c2::NewerConsumer::Refuse"),
@@ -1326,9 +1328,10 @@ fn datagram3_and_comline2_take_their_facts_from_the_last_build() {
         "    function shout(text: char[max 32]) -> u32;\n    function whisper(text: char[max 32]) -> u32;\n    \
          function hello(name: char[max 32]) -> u32;\n",
     );
-    generate().failure().stderr(predicate::str::contains(
-        "the schemas changed since the last build (0.1.0)",
-    ));
+    // Changed since the build: numbered as the next build would number it,
+    // the same as after that build.
+    generate().success();
+    let unbuilt = fs::read_to_string(project.join("generated/rust/chat.rs")).unwrap();
     comline_cmd()
         .current_dir(&project)
         .arg("build")
@@ -1336,6 +1339,7 @@ fn datagram3_and_comline2_take_their_facts_from_the_last_build() {
         .success();
     generate().success();
     let code = fs::read_to_string(project.join("generated/rust/chat.rs")).unwrap();
+    assert_eq!(unbuilt, code);
     for call in [
         "Call::new(1, \"shout\")",
         "Call::new(2, \"whisper\")",

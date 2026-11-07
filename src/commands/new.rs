@@ -147,7 +147,7 @@ code_generation = {{
 }}
 
 // The wire both ends speak; these are the defaults.
-// wire = {{ format = \"packed@1\" framing = \"datagram@2\" }}
+// wire = {{ format = \"packed@1\" framing = \"datagram@3\" }}
 
 // Every string and list needs a maximum. A type can write its own
 // (`char[max 64]`, `u32[max 10]`); these are the package's defaults for the

@@ -27,7 +27,14 @@ fn freezes_an_initial_version() {
 fn adds_a_missing_id_with_a_note_and_keeps_one_there_is() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());
-    let before = std::fs::read_to_string(project.join("config.idp")).unwrap();
+    // The fixture has one, as every package `comline new` makes does.
+    let before = std::fs::read_to_string(project.join("config.idp"))
+        .unwrap()
+        .lines()
+        .filter(|l| !l.starts_with("id = "))
+        .map(|l| format!("{l}\n"))
+        .collect::<String>();
+    std::fs::write(project.join("config.idp"), &before).unwrap();
     assert!(!before.contains("\nid = "), "{before}");
 
     build(&project)

@@ -73,8 +73,7 @@ struct GenVersion {
     /// was built with.
     wire_format: String,
     /// Where its facts come from (`comline_core::compat`), for a package that
-    /// needs them: a built version, or for the working tree, the last build
-    /// when nothing has changed since.
+    /// needs them: a built version's, or the working tree's.
     facts: FactsSource,
 }
 
@@ -82,8 +81,8 @@ struct GenVersion {
 enum FactsSource {
     /// This commit's.
     Commit(comline_core::package::build::cas::storage::Hash),
-    /// None: why, one sentence.
-    Missing(String),
+    /// The working tree's, as its next build would record them.
+    WorkingTree,
 }
 
 fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bool) -> Result<()> {
@@ -350,7 +349,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
             }
             // Wire numbers and the rest of `comline@2`'s facts, from the
             // package's history: only for a package that needs them.
-            request.facts = facts_for(work_dir, &request, &gv.facts)
+            request.facts = facts_for(work_dir, &context, &request, &gv.facts)
                 .map_err(|e| miette!("target `{}`: {e}", t.language))?;
             // Deliberately not `core_err`: a generator's errors are about
             // schema/package *structure* (e.g. a namespace that's both a
@@ -512,21 +511,11 @@ fn expand_versions(
                 .map(|e| e.commit.version.clone())
                 .unwrap_or_default();
             let wire_format = frozen::wire_format(live_config).to_string();
-            let facts = match &head {
-                None => FactsSource::Missing("the package has never been built".to_string()),
-                Some(head) => match working_tree_changed(work_dir, head, live, &wire_format) {
-                    Some(why) => FactsSource::Missing(format!(
-                        "{why} since the last build ({})",
-                        head.commit.version
-                    )),
-                    None => FactsSource::Commit(head.hash),
-                },
-            };
             Ok(vec![GenVersion {
                 package_version,
                 schemas: live.to_vec(),
                 wire_format,
-                facts,
+                facts: FactsSource::WorkingTree,
             }])
         }
         VersionSpec::All => {
@@ -586,66 +575,33 @@ fn gen_version_from_commit(
     })
 }
 
-/// Whether the working tree differs from the build `head` in what its facts
-/// cover, and so has no facts yet: one sentence, or `None`.
-fn working_tree_changed(
-    work_dir: &Path,
-    head: &history::Entry,
-    live: &[(String, Vec<FrozenUnit>)],
-    wire_format: &str,
-) -> Option<String> {
-    use comline_core::schema::ir::frozen::cas::blob::schema_ir_hash;
-    let store = history::open_store(work_dir).ok()?;
-    let (Ok(built), Ok(config)) = (
-        history::load_schemas(&store, &head.commit),
-        history::load_config(&store, &head.commit),
-    ) else {
-        return Some("the last build can't be read".to_string());
-    };
-    let mut built: Vec<u64> = built.iter().map(|units| schema_ir_hash(units)).collect();
-    let mut now: Vec<u64> = live
-        .iter()
-        .map(|(_, units)| schema_ir_hash(units))
-        .collect();
-    built.sort_unstable();
-    now.sort_unstable();
-    if built != now {
-        return Some("the schemas changed".to_string());
-    }
-    if frozen::wire_format(&config) != wire_format {
-        return Some("`wire.format` changed".to_string());
-    }
-    None
-}
-
 /// The facts `request` needs, if it needs any: wire numbers for a framing
 /// that calls by number (`datagram@3`), and everything `comline@2` checks.
 ///
-/// They come from the package's build history, never from the working tree
+/// They come from the package's build history, never from the schemas
 /// alone: a build numbers what it adds against the last release, so numbers
 /// read off the current schemas would be positions, and a peer of another
-/// version would call the wrong function. So a working tree with no build,
-/// or changed since its last build, is refused with what to run.
+/// version would call the wrong function. For the working tree they're
+/// what its next build would record, worked out without writing anything:
+/// the head build's own where nothing changed since, and provisional until
+/// a release, as a build's are.
 fn facts_for(
     work_dir: &Path,
+    context: &comline_core::package::config::ir::context::ProjectContext,
     request: &GenerateRequest,
     source: &FactsSource,
 ) -> Result<Option<comline_codegen::facts::PackageFacts>> {
     if !comline_codegen::facts::needed(&request.schemas, &request.encodings) {
         return Ok(None);
     }
-    let hash = match source {
-        FactsSource::Commit(hash) => hash,
-        FactsSource::Missing(why) => {
-            return Err(miette!(
-                "the package uses `datagram@3` or `comline@2`, which address calls by the wire numbers its build \
-                 history assigns, and {why}: run `comline build`, then generate again"
-            ))
+    let facts = match source {
+        FactsSource::Commit(hash) => {
+            let store = history::open_store(work_dir)?;
+            comline_core::compat::facts_of_commit(&store, hash)
         }
-    };
-    let store = history::open_store(work_dir)?;
-    let facts = comline_core::compat::facts_of_commit(&store, hash)
-        .map_err(|e| miette!("reading the package's facts: {e:#}"))?;
+        FactsSource::WorkingTree => comline_core::compat::facts_of_working_tree(work_dir, context),
+    }
+    .map_err(|e| miette!("working out the package's facts: {e:#}"))?;
     // The same fields under the same names: the generator protocol's mirror.
     let facts = serde_json::to_value(&facts)
         .and_then(serde_json::from_value)
@@ -670,7 +626,7 @@ fn warn_async_unused(language: &str, request: &GenerateRequest) {
     ui::warn(format!(
         "`{language}`: `async = true`, but no protocol runs on a connection, so the output \
          is the same as without it - every protocol here is lockstep: on the `datagram` \
-         framing (the default, `datagram@2`, is a connection), or on JSON-RPC with none of \
+         framing (the default, `datagram@3`, is a connection), or on JSON-RPC with none of \
          the package's JSON-RPC protocols client-provided"
     ));
 }
