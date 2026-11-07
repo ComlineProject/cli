@@ -1,4 +1,5 @@
 congregation simple_project
+id = "5eed0000000000000000000000000001"
 specification_version = 1
 
 code_generation = {

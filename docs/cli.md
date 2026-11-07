@@ -213,7 +213,7 @@ resolves to, with their parameters and where each came from:
 |---|---|
 | `from @framing` / `from @handshake` | the protocol's own annotation |
 | `from config.idp ...` | the package's `wire.format`, `wire.framing` or `handshake` |
-| `core's default` | nothing named one: `packed@1`, `datagram@2`, `comline@1` |
+| `core's default` | nothing named one: `packed@1`, `datagram@3`, `comline@2` (`comline@1` on any framing but `datagram@3`) |
 | `JSON-RPC's format` | the framing is JSON-RPC and the package names no format |
 
 Then one row per guarantee (schema agreement, encoding agreement, encoding
@@ -296,6 +296,14 @@ comline generate [--target <lang>] [--out <dir>] [--layout <template>] [--mode <
 Validate the project, then write generated code for each target. Unlike `build`,
 this **does not** freeze a version or write to `.comline/` — it stops after
 validation.
+
+**Wire numbers.** Protocols on `datagram@3` or `comline@2` (the defaults) need
+the package's facts: each protocol's and function's wire number, its line and
+its "since" versions. When the working tree is what the last build froze,
+`generate` uses that build's facts. Otherwise it works them out as the next
+`comline build` would, against the last release and every retired number,
+without writing anything. A package that was never built generates too. The
+numbers stay provisional until `comline release`, as a build's are.
 
 **Targets** come from `[[generate.target]]` in `comline.toml`; if that file lists
 none, from `code_generation.languages` in `config.idp`.
