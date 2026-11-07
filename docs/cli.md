@@ -274,7 +274,7 @@ When `.comline/refs/heads/main` holds two heads (a Git merge left it
 conflicted, or `--reconcile`), the build reconciles them and says so: which
 head the line continued from and which one it recorded as the second parent.
 
-Every string and list needs a maximum ([bounds on types](https://comlineproject.github.io/docs/guide/idl/types/#every-string-and-list-has-a-maximum)).
+Every string and list needs a maximum ([bounds on types](https://comlineproject.github.io/docs/guides/idl/types/#every-string-and-list-has-a-maximum)).
 A project written before bounds fails with one `bounds::unbounded` error per
 position; the build then says how many there are and shows the
 `settings = { bounds = { … } }` block that gives the package defaults
@@ -559,7 +559,7 @@ formats = ["html", "markdown", "json"]
 versions = { last = 5 }                  # or "all" (the default), { since = "0.3.0" }, { releases_only = true }
 renderer = "renderers/my-renderer.wasm"  # optional: an external renderer
 timeout = 60                             # seconds per call to `renderer`
-links = { std = "https://comlineproject.github.io/docs/std/" }
+links = { std = "https://comlineproject.github.io/docs/reference/schema/std/" }
 changelog_from = "0.1.0"                 # with --version only
 ```
 

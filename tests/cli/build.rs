@@ -214,7 +214,7 @@ fn unbounded_values_fail_with_the_defaults_to_add() {
         .stderr(predicate::str::contains("values have no maximum"))
         .stderr(predicate::str::contains("string = {\n            max = N"))
         .stderr(predicate::str::contains("array = {\n            max = N"))
-        .stderr(predicate::str::contains("guide/idl/types/"));
+        .stderr(predicate::str::contains("guides/idl/types/"));
     assert!(!project.join(".comline").exists());
     // Not a terminal: no defaults are written.
     let config = std::fs::read_to_string(project.join("config.idp")).unwrap();

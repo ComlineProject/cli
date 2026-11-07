@@ -15,7 +15,7 @@ use crate::ui;
 
 /// The types guide's section on maxima.
 pub const GUIDE: &str =
-    "https://comlineproject.github.io/docs/guide/idl/types/#every-string-and-list-has-a-maximum";
+    "https://comlineproject.github.io/docs/guides/idl/types/#every-string-and-list-has-a-maximum";
 
 /// What a failed build's errors say is unbounded.
 #[derive(Debug, Default, PartialEq, Eq)]
