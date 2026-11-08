@@ -176,6 +176,78 @@ fn an_official_name_points_at_the_corpus() {
         .stderr(predicate::str::contains("--corpus"));
 }
 
+#[test]
+fn json_reports_a_passing_run() {
+    let output = comline_cmd()
+        .args([
+            "conformance",
+            "--impl",
+            &implementation("reference"),
+            "--json",
+        ])
+        .args(["--encoding", "packed@1", "--corpus"])
+        .arg(corpus())
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let report: serde_json::Value = serde_json::from_slice(&output).expect("stdout is JSON");
+    assert_eq!(report["format"], 1);
+    assert_eq!(report["verdict"], "conforms");
+    assert_eq!(report["totals"]["problems"], 0);
+    assert_eq!(report["totals"]["cases"], report["totals"]["passed"]);
+    assert!(report["implementation"]["version"]["protocol"].is_number());
+    let encoding = &report["encodings"][0];
+    assert_eq!(encoding["name"], "packed@1");
+    assert_eq!(encoding["kind"], "format");
+    assert_eq!(encoding["listed_by_implementation"], true);
+    assert!(encoding["facts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|f| f["proven"] == true));
+    assert!(encoding["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|c| c["outcome"] == "pass"));
+}
+
+#[test]
+fn json_reports_a_failing_run_and_still_exits_1() {
+    let assert = comline_cmd()
+        .args([
+            "conformance",
+            "--impl",
+            &implementation("flipper"),
+            "--json",
+        ])
+        .args(["--encoding", "datagram@1", "--corpus"])
+        .arg(corpus())
+        .assert()
+        .code(1);
+    let report: serde_json::Value =
+        serde_json::from_slice(&assert.get_output().stdout).expect("stdout is JSON");
+    assert_eq!(report["format"], 1);
+    assert_eq!(report["verdict"], "fails");
+    assert!(report["totals"]["problems"].as_u64().unwrap() > 0);
+    let encoding = &report["encodings"][0];
+    let failed = encoding["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["id"] == "framing-datagram/request")
+        .unwrap();
+    assert_eq!(failed["outcome"], "fail");
+    assert!(failed["detail"].as_str().unwrap().contains("encodes wrong"));
+    assert!(encoding["facts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|f| f["fact"] == "calls" && f["proven"] == false && f["reason"].is_string()));
+}
+
 fn copy_dir_all(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
     for entry in std::fs::read_dir(from).unwrap() {

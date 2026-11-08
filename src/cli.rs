@@ -431,7 +431,8 @@ The implementation is a process speaking the conformance ops protocol (as \
 stdout, exit when stdin ends. It runs once, with a cleared environment, a \
 time limit and an output cap. The report says which profile facts are \
 proven and which cases failed, with byte diffs; the exit code is 1 on any \
-failure.
+failure. `--json` prints the same report as JSON on stdout instead \
+(`format`, `implementation`, `encodings`, `totals`, `verdict`).
 
 `--corpus` runs a corpus laid out like ComlineProject/runtime's \
 `runtime/conformance` (`profiles/`, `vectors/`) instead, for the official \
@@ -440,7 +441,8 @@ encodings.
 Examples:
   comline conformance --impl ./target/release/acme-lines-conformance
   comline conformance --impl \"node conformance.js\" --encoding com.acme.lines@1
-  comline conformance --impl comline-reference --corpus runtime/conformance --encoding packed@1")]
+  comline conformance --impl comline-reference --corpus runtime/conformance --encoding packed@1
+  comline conformance --impl ./target/release/acme-lines-conformance --json")]
     Conformance {
         /// The implementation's command line: a program and its arguments, split on whitespace
         #[arg(long = "impl", value_name = "COMMAND")]
@@ -457,6 +459,10 @@ Examples:
         /// Seconds the implementation may take for every case together [default: 60]
         #[arg(long, value_name = "SECS")]
         timeout: Option<u64>,
+
+        /// Print the report as JSON on stdout (same exit code)
+        #[arg(long)]
+        json: bool,
     },
 
     /// Print a shell completion script to stdout
