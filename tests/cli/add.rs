@@ -212,7 +212,13 @@ fn adds_a_git_dependency_at_a_pinned_commit() {
     git(&repo, &["add", "."]);
     git(&repo, &["commit", "--quiet", "-m", "net"]);
     let commit = git(&repo, &["rev-parse", "HEAD"]);
-    let uri = format!("file://{}", repo.display());
+    // A file URL: `/`-separated, and `file:///C:/...` on Windows.
+    let slashed = repo.display().to_string().replace('\\', "/");
+    let uri = if slashed.starts_with('/') {
+        format!("file://{slashed}")
+    } else {
+        format!("file:///{slashed}")
+    };
 
     comline_cmd()
         .current_dir(&project)

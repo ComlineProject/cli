@@ -602,17 +602,25 @@ fn recording_browser(dir: &Path) -> (std::path::PathBuf, std::path::PathBuf) {
 }
 
 /// What the recording browser was asked to open; it runs detached, so wait for it.
+/// Canonical, as `doc open` passes it: on macOS the temp dir is a symlink
+/// (`/var` -> `/private/var`), so compare against `canonical(..)`.
 #[cfg(unix)]
-fn opened(log: &Path) -> String {
+fn opened(log: &Path) -> std::path::PathBuf {
     for _ in 0..100 {
         if let Ok(text) = fs::read_to_string(log) {
             if text.ends_with('\n') {
-                return text.trim().to_string();
+                return canonical(Path::new(text.trim()));
             }
         }
         std::thread::sleep(std::time::Duration::from_millis(50));
     }
     panic!("nothing opened {}", log.display());
+}
+
+#[cfg(unix)]
+fn canonical(path: &Path) -> std::path::PathBuf {
+    path.canonicalize()
+        .unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
 
 #[cfg(unix)]
@@ -635,7 +643,7 @@ fn open_renders_a_missing_output_first_and_opens_it() {
         .stderr(predicate::str::contains(index.display().to_string()));
 
     assert!(index.exists());
-    assert_eq!(opened(&log), index.display().to_string());
+    assert_eq!(opened(&log), canonical(&index));
 }
 
 #[cfg(unix)]
@@ -660,7 +668,7 @@ fn open_prefers_rendered_html_when_no_format_is_configured() {
         .assert()
         .success()
         .stderr(predicate::str::contains(index.display().to_string()));
-    assert_eq!(opened(&log), index.display().to_string());
+    assert_eq!(opened(&log), canonical(&index));
 }
 
 #[cfg(unix)]
@@ -691,7 +699,7 @@ fn open_uses_existing_output_without_rendering_and_respects_out() {
         .stderr(predicate::str::contains("Documented").not());
 
     assert_eq!(read(&index), "<!-- kept -->");
-    assert_eq!(opened(&log), index.display().to_string());
+    assert_eq!(opened(&log), canonical(&index));
 }
 
 #[cfg(unix)]
@@ -709,7 +717,7 @@ fn doc_open_flag_renders_then_opens_the_first_format() {
         .success();
     assert_eq!(
         opened(&log),
-        shop.join("docs/api/html/index.html").display().to_string()
+        canonical(&shop.join("docs/api/html/index.html"))
     );
 }
 
