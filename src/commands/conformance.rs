@@ -34,7 +34,7 @@ use comline_runtime_conformance::runner::{
     self, judge, parse_reply, questions, Corpus, FactProof, OPS_PROTOCOL,
 };
 use comline_runtime_conformance::{Answer, Case, Outcome, Profile};
-use miette::{miette, Result};
+use miette::{miette, IntoDiagnostic, Result};
 use serde_json::{json, Value as Json};
 
 use crate::commands::{core_err, ensure_project};
@@ -53,6 +53,7 @@ pub fn run(
     encodings: &[String],
     corpus: Option<&Path>,
     timeout: Option<u64>,
+    json: bool,
 ) -> Result<()> {
     let subjects = match corpus {
         Some(dir) => from_corpus(dir, encodings)?,
@@ -89,11 +90,13 @@ pub fn run(
         input.push('\n');
     }
 
-    ui::step(format!(
-        "Running `{implementation}` against {} case(s) of {} encoding(s)",
-        all.len(),
-        subjects.len()
-    ));
+    if !json {
+        ui::step(format!(
+            "Running `{implementation}` against {} case(s) of {} encoding(s)",
+            all.len(),
+            subjects.len()
+        ));
+    }
     let output = native::run(&program, args, &name, input.as_bytes(), timeout).map_err(|e| {
         if e.starts_with("didn't finish") {
             miette!(
@@ -137,16 +140,113 @@ pub fn run(
     }
 
     let mut failures = 0;
-    for subject in &subjects {
-        failures += report(subject, &outcomes, claimed(&subject.profile.name));
+    if json {
+        let mut encodings = Vec::new();
+        for subject in &subjects {
+            let (entry, problems) = report_json(subject, &outcomes, claimed(&subject.profile.name));
+            failures += problems;
+            encodings.push(entry);
+        }
+        let cases = all.len();
+        let passed = all
+            .iter()
+            .filter(|c| outcomes.get(&c.id) == Some(&Outcome::Pass))
+            .count();
+        let report = json!({
+            "format": 1,
+            "implementation": {
+                "command": implementation,
+                "version": version,
+            },
+            "encodings": encodings,
+            "totals": {
+                "encodings": subjects.len(),
+                "cases": cases,
+                "passed": passed,
+                "problems": failures,
+            },
+            "verdict": if failures == 0 { "conforms" } else { "fails" },
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).into_diagnostic()?
+        );
+    } else {
+        for subject in &subjects {
+            failures += report(subject, &outcomes, claimed(&subject.profile.name));
+        }
     }
     if failures > 0 {
         return Err(miette!("conformance failed: {failures} problem(s)"));
     }
-    ui::success(format!(
-        "`{name}` conforms to every encoding it was run against"
-    ));
+    if !json {
+        ui::success(format!(
+            "`{name}` conforms to every encoding it was run against"
+        ));
+    }
     Ok(())
+}
+
+/// One encoding's results as JSON, and its number of problems (counted as
+/// [`report`] does).
+fn report_json(
+    subject: &Subject,
+    outcomes: &BTreeMap<String, Outcome>,
+    claimed: bool,
+) -> (Json, usize) {
+    let profile = &subject.profile;
+    let mut problems = 0;
+    let case = |id: &str| subject.cases.iter().find(|c| c.id == id);
+    let facts: Vec<Json> = runner::prove(profile, case, outcomes)
+        .into_iter()
+        .map(
+            |FactProof {
+                 fact,
+                 value,
+                 result,
+             }| {
+                if result.is_err() {
+                    problems += 1;
+                }
+                json!({
+                    "fact": fact,
+                    "value": value,
+                    "proven": result.is_ok(),
+                    "reason": result.err(),
+                })
+            },
+        )
+        .collect();
+    let cases: Vec<Json> = subject
+        .cases
+        .iter()
+        .map(|c| match &outcomes[&c.id] {
+            Outcome::Pass => json!({ "id": c.id, "outcome": "pass", "detail": null }),
+            Outcome::Fail(why) => {
+                problems += 1;
+                json!({ "id": c.id, "outcome": "fail", "detail": why })
+            }
+            Outcome::NotImplemented(what) => {
+                problems += 1;
+                json!({ "id": c.id, "outcome": "not_implemented", "detail": what })
+            }
+        })
+        .collect();
+    let passed = subject
+        .cases
+        .iter()
+        .filter(|c| outcomes.get(&c.id) == Some(&Outcome::Pass))
+        .count();
+    let entry = json!({
+        "name": profile.name,
+        "kind": serde_json::to_value(profile.kind()).unwrap_or_default(),
+        "listed_by_implementation": claimed,
+        "passed": passed,
+        "total": subject.cases.len(),
+        "facts": facts,
+        "cases": cases,
+    });
+    (entry, problems)
 }
 
 /// The answers on one reply line: the batch for case `i`.
