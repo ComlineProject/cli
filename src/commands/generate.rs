@@ -399,7 +399,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
                             // can't show - the one thing `--list` has that
                             // the default doesn't.
                             let src_name = format!("{namespace}.{SCHEMA_EXTENSION}");
-                            let shown = dest.strip_prefix(work_dir).unwrap_or(&dest).display();
+                            let shown = ui::shown_path(work_dir, &dest);
                             let tag = if multi {
                                 format!("[{}] ", gv.package_version)
                             } else {
@@ -426,7 +426,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
                             write_file(&dest, &f.contents)?;
                         }
                         if list {
-                            let shown = dest.strip_prefix(work_dir).unwrap_or(&dest).display();
+                            let shown = ui::shown_path(work_dir, &dest);
                             ui::detail(format!("     {} {} {shown}", f.path, ui::arrow()));
                         }
                         destinations.push(dest);

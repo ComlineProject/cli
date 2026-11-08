@@ -85,6 +85,25 @@ pub fn at_path(p: &Path) -> String {
     format!(" (in {shown})")
 }
 
+/// `path` as shown in output: relative to `base` when under it, with `/`
+/// between its parts on every platform (as paths are written in
+/// `comline.toml`), or as given otherwise. Without this a relative path
+/// built from `out` and a layout reads `generated\rust/api.rs` on Windows.
+pub fn shown_path(base: &Path, path: &Path) -> String {
+    match path.strip_prefix(base) {
+        Ok(rel) => slashed(rel),
+        Err(_) => path.display().to_string(),
+    }
+}
+
+/// A relative path's parts joined with `/`.
+fn slashed(rel: &Path) -> String {
+    rel.components()
+        .map(|c| c.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
 /// `"→"` normally, `"->"` under `--plain`. Used for schema/version mappings.
 pub fn arrow() -> &'static str {
     if plain() {
@@ -215,12 +234,10 @@ pub fn tree(base: &Path, paths: &[PathBuf]) {
     }
 
     let root = common_root(paths);
-    let shown_root = root.strip_prefix(base).unwrap_or(&root);
-    let mut label = if shown_root.as_os_str().is_empty() {
-        ".".to_string()
-    } else {
-        shown_root.display().to_string()
-    };
+    let mut label = shown_path(base, &root);
+    if label.is_empty() {
+        label = ".".to_string();
+    }
     label.push('/');
     detail(format!("     {label}"));
 
@@ -302,5 +319,18 @@ fn print_level(rows: &[Vec<String>], prefix: &[String], indent: &str) {
             let deeper = format!("{indent}{}", if last { "   " } else { pipe });
             print_level(rows, &path, &deeper);
         }
+    }
+}
+
+#[cfg(test)]
+mod path_tests {
+    use super::*;
+
+    #[test]
+    fn shown_paths_use_forward_slashes_under_the_base() {
+        let base = Path::new("project");
+        let path = base.join("generated").join("rust").join("api.rs");
+        assert_eq!(shown_path(base, &path), "generated/rust/api.rs");
+        assert_eq!(shown_path(base, base), "");
     }
 }

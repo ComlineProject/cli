@@ -335,18 +335,35 @@ fn indent(text: &str) -> String {
 
 /// A program as a shell would find it: a path as given, or a bare name on
 /// `PATH`. The implementation runs with a cleared environment, so the name
-/// is resolved here.
+/// is resolved here. On Windows a name without an extension is also tried
+/// with each of `PATHEXT`'s (`node` finds `node.exe`), as `cmd` would.
 fn resolve(program: &str) -> Result<PathBuf> {
     let path = Path::new(program);
     if path.components().count() > 1 || path.is_absolute() {
         return Ok(path.to_path_buf());
     }
+    let names = executable_names(program);
     std::env::var_os("PATH")
         .into_iter()
         .flat_map(|paths| std::env::split_paths(&paths).collect::<Vec<_>>())
-        .map(|dir| dir.join(program))
+        .flat_map(|dir| names.iter().map(move |n| dir.join(n)))
         .find(|candidate| candidate.is_file())
         .ok_or_else(|| miette!("`{program}` isn't on PATH: give its path"))
+}
+
+/// The file names `program` may have on `PATH`: itself, and on Windows (when
+/// it has no extension) itself with each extension in `PATHEXT`.
+fn executable_names(program: &str) -> Vec<String> {
+    let mut names = vec![program.to_string()];
+    if cfg!(windows) && Path::new(program).extension().is_none() {
+        let exts = std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into());
+        names.extend(
+            exts.split(';')
+                .filter(|e| !e.is_empty())
+                .map(|e| format!("{program}{e}")),
+        );
+    }
+    names
 }
 
 /// The encodings in a runtime-style corpus: its profiles (all, or those
@@ -493,6 +510,15 @@ fn unquote(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A bare name is found on `PATH`, on Windows without its `.exe`.
+    #[test]
+    fn bare_names_resolve_on_path() {
+        let program = if cfg!(windows) { "cmd" } else { "sh" };
+        let found = resolve(program).expect("on PATH");
+        assert!(found.is_file(), "{}", found.display());
+        assert!(resolve("no-such-program-comline-test").is_err());
+    }
 
     #[test]
     fn vectors_sit_beside_the_profile() {
