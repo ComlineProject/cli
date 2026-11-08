@@ -1,0 +1,108 @@
+name: Reports
+
+# Observatory reports: size, coverage and compile time of the CLI.
+# Each job writes one JSON report and uploads it; the `publish` job commits
+# them all to the `reports` branch, only from `main` or a manual run. On a
+# pull request everything runs except the publish, so the workflow is proven
+# before it merges.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reports-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  size:
+    name: size
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+      - uses: Swatinem/rust-cache@v2
+      - id: rustc
+        run: echo "version=$(rustc --version)" >> "$GITHUB_OUTPUT"
+      - name: Build
+        run: |
+          cargo build --locked --release
+      - uses: ComlineProject/observatory/.github/actions/report-size@v1
+        with:
+          output: reports/cli.size.json
+          toolchain: ${{ steps.rustc.outputs.version }}
+          artifacts: |
+            cli/x86_64-linux-release=target/release/comline
+      - uses: actions/upload-artifact@v7
+        with:
+          name: report-size
+          path: reports/cli.size.json
+          if-no-files-found: error
+
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+      - uses: Swatinem/rust-cache@v2
+      - uses: ComlineProject/observatory/.github/actions/report-rust-coverage@v1
+        with:
+          output: reports/cli.coverage.json
+          args: --workspace
+      - uses: actions/upload-artifact@v7
+        with:
+          name: report-coverage
+          path: reports/cli.coverage.json
+          if-no-files-found: error
+
+  compile:
+    name: compile time
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+      - uses: ComlineProject/observatory/.github/actions/report-rust-compile@v1
+        with:
+          output: reports/cli.compile.json
+          args: --workspace --release
+      - uses: actions/upload-artifact@v7
+        with:
+          name: report-compile
+          path: reports/cli.compile.json
+          if-no-files-found: error
+
+  publish:
+    name: publish
+    needs: [size, coverage, compile]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: report-*
+          path: reports
+          merge-multiple: true
+      - uses: ComlineProject/observatory/.github/actions/publish-report@v1
+        with:
+          reports: reports/cli.size.json reports/cli.coverage.json reports/cli.compile.json
+          readme: .github/reports-branch.md
