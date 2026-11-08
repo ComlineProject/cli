@@ -79,7 +79,7 @@ jobs:
       - uses: ComlineProject/observatory/.github/actions/report-rust-compile@v1
         with:
           output: reports/cli.compile.json
-          args: --release
+          args: --workspace --release
       - uses: actions/upload-artifact@v7
         with:
           name: report-compile
