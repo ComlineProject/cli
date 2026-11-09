@@ -7,12 +7,12 @@
 //! beside the profile, at `profiles/lines.vectors.json`: the profile's path
 //! with `.json` replaced by `.vectors.json`. The file is a corpus vectors
 //! file (`{"feature": ..., "cases": [...]}`), in the conformance spec's case
-//! format (ComlineProject/runtime `runtime/conformance/README.md`). Every
+//! format (ComlineProject/specification's README). Every
 //! case in it is run, and the profile's `proven_by` names cases in it.
 //!
 //! **The official encodings** (`packed@1`, ...) aren't declared by a package
-//! and their vectors live in the runtime's corpus: `--corpus <dir>` runs a
-//! corpus laid out like `runtime/conformance` (`profiles/<name>.json`,
+//! and their vectors live in the specification: `--corpus <dir>` runs a
+//! copy of ComlineProject/specification (`profiles/<name>.json`,
 //! `vectors/*.json`) instead of the package's declarations.
 //!
 //! **The implementation** is a process speaking the ops protocol, as
@@ -417,7 +417,7 @@ fn from_package(work_dir: &Path, names: &[String]) -> Result<Vec<Subject>> {
         if declared.is_empty() {
             return Err(miette!(
                 "the package declares no encodings (`encodings` in config.idp); to run an official \
-                 encoding's vectors, pass `--corpus <runtime/conformance>`"
+                 encoding's vectors, pass `--corpus <specification>`"
             ));
         }
         declared
@@ -425,8 +425,8 @@ fn from_package(work_dir: &Path, names: &[String]) -> Result<Vec<Subject>> {
         for n in names {
             if !declared.contains(n) {
                 let hint = if comline_core::encodings::is_bare(n) {
-                    "; an official encoding's vectors are in the runtime's corpus: pass \
-                     `--corpus <runtime/conformance>`"
+                    "; an official encoding's vectors are in the specification: pass \
+                     `--corpus <specification>`"
                 } else {
                     ""
                 };
