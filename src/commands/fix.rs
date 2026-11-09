@@ -26,7 +26,11 @@ pub fn run(work_dir: &Path, to: Option<u8>, dry_run: bool) -> Result<()> {
     ensure_project(work_dir)?;
     ui::step(format!(
         "{}{}",
-        if dry_run { "Checking what to fix" } else { "Fixing" },
+        if dry_run {
+            "Checking what to fix"
+        } else {
+            "Fixing"
+        },
         ui::at_path(work_dir)
     ));
 
@@ -41,7 +45,10 @@ pub fn run(work_dir: &Path, to: Option<u8>, dry_run: bool) -> Result<()> {
     let current = match edition::check_config(&config_source, &config) {
         Ok(current) => current,
         Err(diagnostic) => {
-            let fix = diagnostic.fix.as_ref().expect("core's edition errors carry a fix");
+            let fix = diagnostic
+                .fix
+                .as_ref()
+                .expect("core's edition errors carry a fix");
             ui::detail(format!("{CONFIG}: {}", fix.title));
             config_out = fix.apply(&config_out);
             fixed += 1;
@@ -53,7 +60,10 @@ pub fn run(work_dir: &Path, to: Option<u8>, dry_run: bool) -> Result<()> {
         None => current,
         Some(n) => {
             let target = Edition::from_number(n).ok_or_else(|| {
-                miette::miette!("edition {n} isn't one this Comline knows; it knows {}", Edition::known())
+                miette::miette!(
+                    "edition {n} isn't one this Comline knows; it knows {}",
+                    Edition::known()
+                )
             })?;
             if target < current {
                 return Err(miette::miette!(
@@ -74,7 +84,11 @@ pub fn run(work_dir: &Path, to: Option<u8>, dry_run: bool) -> Result<()> {
         if !fixable.is_empty() {
             let fixes: Vec<&Fix> = fixable.iter().filter_map(|d| d.fix.as_ref()).collect();
             for fix in &fixes {
-                ui::detail(format!("{}: {}", ui::shown_path(work_dir, &path), fix.title));
+                ui::detail(format!(
+                    "{}: {}",
+                    ui::shown_path(work_dir, &path),
+                    fix.title
+                ));
             }
             fixed += fixes.len();
             writes.push((path.clone(), apply_all(&source, &fixes)));
@@ -84,8 +98,13 @@ pub fn run(work_dir: &Path, to: Option<u8>, dry_run: bool) -> Result<()> {
 
     let blocked = by_hand.iter().any(|(_, _, d)| d.code == edition::REMOVED);
     for (path, source, d) in &by_hand {
-        let rendered = comline_core::diagnostics::render(d, &ui::shown_path(work_dir, path), source);
-        if d.code == edition::REMOVED { ui::error(rendered) } else { ui::warn(rendered) }
+        let rendered =
+            comline_core::diagnostics::render(d, &ui::shown_path(work_dir, path), source);
+        if d.code == edition::REMOVED {
+            ui::error(rendered)
+        } else {
+            ui::warn(rendered)
+        }
     }
 
     let moving = target != current;
@@ -103,7 +122,13 @@ pub fn run(work_dir: &Path, to: Option<u8>, dry_run: bool) -> Result<()> {
     }
 
     let verb = if dry_run { "would apply" } else { "applied" };
-    let fixes = |n: usize| if n == 1 { "1 fix".to_string() } else { format!("{n} fixes") };
+    let fixes = |n: usize| {
+        if n == 1 {
+            "1 fix".to_string()
+        } else {
+            format!("{n} fixes")
+        }
+    };
     match (moving, blocked) {
         (true, true) => {
             return Err(miette::miette!(
@@ -115,20 +140,34 @@ pub fn run(work_dir: &Path, to: Option<u8>, dry_run: bool) -> Result<()> {
         }
         (true, false) => ui::success(format!(
             "{} edition {current} {} {target}{}",
-            if dry_run { "Would move from" } else { "Moved from" },
+            if dry_run {
+                "Would move from"
+            } else {
+                "Moved from"
+            },
             ui::arrow(),
-            if fixed > 0 { format!(", {verb} {}", fixes(fixed)) } else { String::new() }
+            if fixed > 0 {
+                format!(", {verb} {}", fixes(fixed))
+            } else {
+                String::new()
+            }
         )),
         (false, _) if fixed == 0 && by_hand.is_empty() => ui::success("Nothing to fix"),
         (false, _) => ui::success(format!(
             "{} {}{}",
             if dry_run { "Would apply" } else { "Applied" },
             fixes(fixed),
-            if by_hand.is_empty() { String::new() } else { format!(", {} to change by hand", by_hand.len()) }
+            if by_hand.is_empty() {
+                String::new()
+            } else {
+                format!(", {} to change by hand", by_hand.len())
+            }
         )),
     }
     if blocked {
-        return Err(miette::miette!("the schemas use words their edition removed; change them by hand"));
+        return Err(miette::miette!(
+            "the schemas use words their edition removed; change them by hand"
+        ));
     }
     Ok(())
 }
@@ -156,9 +195,12 @@ fn set_edition(source: &str, edition: Edition) -> Result<String> {
     let (start, end) = (assignment.span.0, assignment.span.1);
     let written = &source[start..end];
     let Some(eq) = written.find('=') else {
-        return Err(miette::miette!("{CONFIG}'s `specification_version` has no `=`"));
+        return Err(miette::miette!(
+            "{CONFIG}'s `specification_version` has no `=`"
+        ));
     };
-    let value_start = start + eq + 1 + (written[eq + 1..].len() - written[eq + 1..].trim_start().len());
+    let value_start =
+        start + eq + 1 + (written[eq + 1..].len() - written[eq + 1..].trim_start().len());
     let value_end = start + written.trim_end().len();
     let fix = Fix::replace("", (value_start, value_end), edition.to_string());
     Ok(fix.apply(source))
@@ -169,7 +211,9 @@ fn schema_files(root: &Path) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
     let mut dirs = vec![root.to_path_buf()];
     while let Some(dir) = dirs.pop() {
-        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in entries {
             let path = entry.into_diagnostic()?.path();
             if path.is_dir() {
@@ -184,11 +228,15 @@ fn schema_files(root: &Path) -> Result<Vec<PathBuf>> {
 }
 
 fn read(path: &Path) -> Result<String> {
-    std::fs::read_to_string(path).into_diagnostic().wrap_err_with(|| format!("reading {}", path.display()))
+    std::fs::read_to_string(path)
+        .into_diagnostic()
+        .wrap_err_with(|| format!("reading {}", path.display()))
 }
 
 fn write(path: &Path, source: &str) -> Result<()> {
-    std::fs::write(path, source).into_diagnostic().wrap_err_with(|| format!("writing {}", path.display()))
+    std::fs::write(path, source)
+        .into_diagnostic()
+        .wrap_err_with(|| format!("writing {}", path.display()))
 }
 
 #[cfg(test)]
@@ -213,7 +261,10 @@ mod tests {
         let (a, b) = (at(0), at(at(0).1));
         let first = Fix::replace("a", a, "byte");
         let second = Fix::replace("b", b, "byte");
-        assert_eq!(apply_all(source, &[&first, &second]), "struct S {\n    a: byte\n    b: byte\n}\n");
+        assert_eq!(
+            apply_all(source, &[&first, &second]),
+            "struct S {\n    a: byte\n    b: byte\n}\n"
+        );
     }
 
     #[test]
@@ -227,7 +278,12 @@ mod tests {
         let found: Vec<_> = schema_files(&src)
             .unwrap()
             .iter()
-            .map(|p| p.strip_prefix(&src).unwrap().to_string_lossy().replace('\\', "/"))
+            .map(|p| {
+                p.strip_prefix(&src)
+                    .unwrap()
+                    .to_string_lossy()
+                    .replace('\\', "/")
+            })
             .collect();
         assert_eq!(found, ["a/b/c.ids", "z.ids"]);
     }
