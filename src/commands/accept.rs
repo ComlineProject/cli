@@ -47,7 +47,7 @@ pub fn unverified_in(package_dir: &Path) -> Result<Vec<Unverified>> {
             found.push(Unverified {
                 protocol: protocol.to_string(),
                 set: set.to_vec(),
-                reason: reason.map(str::to_string),
+                reason,
             });
         }
     }
@@ -82,7 +82,7 @@ pub fn decide(
         let reason = p
             .reason
             .as_deref()
-            .map(|r| format!(": \"{r}\""))
+            .map(|r| format!(": {r}"))
             .unwrap_or_default();
         ui::detail(format!(
             "{} gives up {}{reason}",

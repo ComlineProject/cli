@@ -42,8 +42,9 @@ fn implementation(bin: &str) -> String {
         .to_string()
 }
 
-/// The runtime corpus the CLI's `comline-runtime-conformance` comes with:
-/// that crate's directory, from `cargo metadata`.
+/// The runtime corpus the CLI's `comline-runtime-conformance` comes with: the
+/// specification it vendors in `spec/`, in that crate's directory (from
+/// `cargo metadata`).
 fn corpus() -> &'static PathBuf {
     static CORPUS: OnceLock<PathBuf> = OnceLock::new();
     CORPUS.get_or_init(|| {
@@ -64,7 +65,7 @@ fn corpus() -> &'static PathBuf {
             .as_str()
             .unwrap()
             .to_string();
-        Path::new(&manifest).parent().unwrap().to_path_buf()
+        Path::new(&manifest).parent().unwrap().join("spec")
     })
 }
 
