@@ -12,7 +12,7 @@ publish = false
 [dependencies]
 # The same revs the CLI pins, so the real generator's output is comparable
 # byte for byte with the CLI's built-in one.
-comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "55d3fdc064ae3216f313975ce08071f3e5f32d3f" }
-comline-doc-markdown = { git = "https://github.com/ComlineProject/generation", rev = "55d3fdc064ae3216f313975ce08071f3e5f32d3f" }
-comline-doc-html = { git = "https://github.com/ComlineProject/generation", rev = "55d3fdc064ae3216f313975ce08071f3e5f32d3f" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "be90c80b97266025c4a4b69588f26cff1ca51e06" }
+comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = "6a73541e142ba5895fd628ee444449694382e70a" }
+comline-doc-markdown = { git = "https://github.com/ComlineProject/generation", rev = "6a73541e142ba5895fd628ee444449694382e70a" }
+comline-doc-html = { git = "https://github.com/ComlineProject/generation", rev = "6a73541e142ba5895fd628ee444449694382e70a" }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "eb04c130356e44a2b88b74a6805e24d0e80bdbcc" }
