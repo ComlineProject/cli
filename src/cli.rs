@@ -84,6 +84,32 @@ first error found. Unlike `build`, this never writes to `.comline/` and never \
 bumps the version, so it is safe to run in editors and pre-commit hooks.")]
     Check,
 
+    /// Apply the fixes the language asks for, or move to another edition
+    #[command(long_about = "\
+Apply the fixes Comline attaches to what it reports about the language: add a \
+missing `specification_version` to `config.idp`, and replace each use of a \
+keyword or type the package's edition deprecates or removes, when it has a \
+replacement. A use without one is listed to change by hand.
+
+With `--edition N`, the schemas are checked and fixed under edition N, and \
+`config.idp` moves to it, unless N removes a word the schemas still use that \
+has no replacement. Moving to a new edition doesn't bump the version by \
+itself; whatever it changes in the compiled schema does.
+
+Examples:
+  comline fix
+  comline fix --dry-run
+  comline fix --edition 2")]
+    Fix {
+        /// Move the package to this edition, fixing what it deprecates or removes
+        #[arg(long, value_name = "N")]
+        edition: Option<u8>,
+
+        /// List the fixes without writing them
+        #[arg(long)]
+        dry_run: bool,
+    },
+
     /// Show what each protocol speaks on the wire and which guarantees it keeps
     #[command(long_about = "\
 For each protocol, the format, framing and handshake it resolves to, their \

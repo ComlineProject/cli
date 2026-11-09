@@ -56,7 +56,7 @@ fn config_line(change: &ConfigChange) -> String {
         ConfigChange::SpecificationVersionChanged { old, new } => mark(
             "🔄",
             "~",
-            format!("Changed `specification_version`: {old} {arrow} {new}"),
+            format!("Moved to edition {new} (from {old}); no bump by itself, the schema changes decide"),
         ),
         ConfigChange::DependencyRemoved { project } => {
             mark("❌", "-", format!("Removed dependency `{project}`"))
