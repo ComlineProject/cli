@@ -121,6 +121,7 @@ fn run(cli: Cli) -> Result<()> {
             commands::build::run(&work_dir, watch, reconcile.as_deref())
         }
         Commands::Check => commands::check::run(&work_dir),
+        Commands::Fix { edition, dry_run } => commands::fix::run(&work_dir, edition, dry_run),
         Commands::Inspect { json } => commands::inspect::run(&work_dir, json),
         Commands::Doc {
             out,
