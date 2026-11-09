@@ -460,14 +460,13 @@ proven and which cases failed, with byte diffs; the exit code is 1 on any \
 failure. `--json` prints the same report as JSON on stdout instead \
 (`format`, `implementation`, `encodings`, `totals`, `verdict`).
 
-`--corpus` runs a corpus laid out like ComlineProject/runtime's \
-`runtime/conformance` (`profiles/`, `vectors/`) instead, for the official \
-encodings.
+`--corpus` runs a copy of ComlineProject/specification (`profiles/`, \
+`vectors/`) instead, for the official encodings.
 
 Examples:
   comline conformance --impl ./target/release/acme-lines-conformance
   comline conformance --impl \"node conformance.js\" --encoding com.acme.lines@1
-  comline conformance --impl comline-reference --corpus runtime/conformance --encoding packed@1
+  comline conformance --impl comline-reference --corpus specification --encoding packed@1
   comline conformance --impl ./target/release/acme-lines-conformance --json")]
     Conformance {
         /// The implementation's command line: a program and its arguments, split on whitespace

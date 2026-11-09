@@ -623,8 +623,8 @@ profiles/lines.vectors.json   the vectors: {"feature": ..., "cases": [...]}
 ```
 
 The vectors file and the profile are in the conformance corpus's case
-format, a public spec (version 0.1, early days), documented in
-ComlineProject/runtime's `runtime/conformance/README.md`. Every case in the
+format, a public spec (early days, versioned in its `VERSION`), documented in
+ComlineProject/specification's README. Every case in the
 file is run, and each profile fact's `proven_by` names cases in it.
 
 The implementation is a process speaking the conformance **ops protocol**,
@@ -658,17 +658,17 @@ unproven fact makes the exit code `1`.
 - `--impl <command line>`: the implementation.
 - `--encoding <name>`: only this encoding (repeatable). Default: every
   encoding the package declares.
-- `--corpus <dir>`: run a corpus laid out like ComlineProject/runtime's
-  `runtime/conformance` (`profiles/<name>.json`, `vectors/*.json`) instead
-  of the package's declarations: the official encodings (`packed@1`,
-  `datagram@2`, ...), whose vectors live there. Each encoding runs every
+- `--corpus <dir>`: run a copy of ComlineProject/specification
+  (`profiles/<name>.json`, `vectors/*.json`) instead of the package's
+  declarations: the official encodings (`packed@1`, `datagram@2`, ...),
+  whose vectors live there. Each encoding runs every
   case of the features its profile's facts name.
 - `--timeout <secs>`: how long the implementation may take for all the
   cases together.
 
 ```bash
 comline conformance --impl ./target/release/acme-lines-conformance
-comline conformance --impl comline-reference --corpus ../runtime/runtime/conformance --encoding packed@1
+comline conformance --impl comline-reference --corpus ../specification --encoding packed@1
 ```
 
 ### `comline clean`
