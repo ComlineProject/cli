@@ -19,8 +19,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: reports-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -28,25 +28,32 @@ env:
 jobs:
   size:
     name: size
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: 1.99.1
           targets: wasm32-wasip1
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - id: rustc
         run: echo "version=$(rustc --version)" >> "$GITHUB_OUTPUT"
       - name: Build
         run: |
           cargo build --locked --release
-      - uses: ComlineProject/observatory/.github/actions/report-size@v1
+      - uses: ComlineProject/observatory/.github/actions/report-size@8d21b1fbe68f8b639676153ce1a308eaafdcc6a7 # v1
         with:
           output: reports/cli.size.json
           toolchain: ${{ steps.rustc.outputs.version }}
           artifacts: |
             cli/x86_64-linux-release=target/release/comline
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: report-size
           path: reports/cli.size.json
@@ -54,18 +61,25 @@ jobs:
 
   coverage:
     name: coverage
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: 1.99.1
           targets: wasm32-wasip1
-      - uses: Swatinem/rust-cache@v2
-      - uses: ComlineProject/observatory/.github/actions/report-rust-coverage@v1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: ComlineProject/observatory/.github/actions/report-rust-coverage@8d21b1fbe68f8b639676153ce1a308eaafdcc6a7 # v1
         with:
           output: reports/cli.coverage.json
           args: --workspace
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: report-coverage
           path: reports/cli.coverage.json
@@ -73,17 +87,24 @@ jobs:
 
   compile:
     name: compile time
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: 1.99.1
           targets: wasm32-wasip1
-      - uses: ComlineProject/observatory/.github/actions/report-rust-compile@v1
+      - uses: ComlineProject/observatory/.github/actions/report-rust-compile@8d21b1fbe68f8b639676153ce1a308eaafdcc6a7 # v1
         with:
           output: reports/cli.compile.json
           args: --workspace --release
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: report-compile
           path: reports/cli.compile.json
@@ -93,19 +114,24 @@ jobs:
     name: publish
     needs: [size, coverage, compile]
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      # The one checkout that keeps its credentials: publish-report pushes.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: report-*
           path: reports
           merge-multiple: true
-      - uses: ComlineProject/observatory/.github/actions/publish-report@v1
+      - uses: ComlineProject/observatory/.github/actions/publish-report@8d21b1fbe68f8b639676153ce1a308eaafdcc6a7 # v1
         with:
           reports: reports/cli.size.json reports/cli.coverage.json reports/cli.compile.json
           readme: .github/reports-branch.md
