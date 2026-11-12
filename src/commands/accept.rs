@@ -217,40 +217,71 @@ pub fn with_acceptance(
         ));
     }
 
+    Ok(with_line(manifest, entry_close, &line))
+}
+
+/// `manifest` with `line` added as the last line of the entry whose `}` is at
+/// `entry_close`, in the indentation of the fields above it; an entry written
+/// on one line stays on one line.
+pub(crate) fn with_line(manifest: &str, entry_close: usize, line: &str) -> String {
     let line_start = manifest[..entry_close].rfind('\n').map_or(0, |i| i + 1);
     if manifest[line_start..entry_close].trim().is_empty() {
         // `}` on its own line: a new line before it, indented like the fields.
         let close_indent = indent_of(manifest, entry_close);
-        let field_indent = format!("{close_indent}{}", unit(close_indent));
-        Ok(format!(
+        // The line above, if it's a field further in than the `}`, sets it.
+        let above = manifest[..line_start].trim_end_matches('\n');
+        let above = &above[above.rfind('\n').map_or(0, |i| i + 1)..];
+        let above_indent = &above[..above.len() - above.trim_start_matches([' ', '\t']).len()];
+        let field_indent = match above.trim().is_empty() || above_indent.len() <= close_indent.len()
+        {
+            true => format!("{close_indent}{}", unit(close_indent)),
+            false => above_indent.to_string(),
+        };
+        format!(
             "{}{field_indent}{line}\n{}",
             &manifest[..line_start],
             &manifest[line_start..]
-        ))
+        )
     } else {
         // A one-line entry (`a = { path = "../a" }`): keep it on one line.
-        Ok(format!(
+        format!(
             "{} {line} {}",
             manifest[..entry_close].trim_end(),
             &manifest[entry_close..]
-        ))
+        )
     }
 }
 
 /// The `{` and `}` of `name = { ... }` directly inside the block.
-fn entry(manifest: &str, open: usize, close: usize, name: &str) -> Option<(usize, usize)> {
+pub(crate) fn entry(
+    manifest: &str,
+    open: usize,
+    close: usize,
+    name: &str,
+) -> Option<(usize, usize)> {
+    entry_at(manifest, open, close, name).map(|(_, open, close)| (open, close))
+}
+
+/// [`entry`], and where its name starts too.
+pub(crate) fn entry_at(
+    manifest: &str,
+    open: usize,
+    close: usize,
+    name: &str,
+) -> Option<(usize, usize, usize)> {
     let toks: Vec<_> = tokens(manifest)
         .into_iter()
         .filter(|&(_, at)| at > open && at < close)
         .collect();
     let mut depth = 0usize;
-    for (i, &(token, _)) in toks.iter().enumerate() {
+    for (i, &(token, at)) in toks.iter().enumerate() {
         match token {
             Token::Open => depth += 1,
             Token::Close => depth = depth.saturating_sub(1),
             Token::Word(word) if depth == 0 && word == name => {
                 if let [(Token::Equals, _), (Token::Open, entry_open), ..] = toks[i + 1..] {
-                    return matching(&toks[i + 2..]).map(|entry_close| (entry_open, entry_close));
+                    return matching(&toks[i + 2..])
+                        .map(|entry_close| (at, entry_open, entry_close));
                 }
             }
             _ => {}

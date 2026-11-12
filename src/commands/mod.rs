@@ -13,8 +13,11 @@ pub mod doc;
 pub mod fix;
 pub mod generate;
 pub mod inspect;
+pub mod list;
 pub mod new;
+pub mod pin;
 pub mod release;
+pub mod remove;
 pub mod reset;
 pub mod targets;
 

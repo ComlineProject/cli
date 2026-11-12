@@ -192,6 +192,22 @@ fn run(cli: Cli) -> Result<()> {
                 commands::add::run(&work_dir, &name, source, !no_hash, accept_unverified)
             }
             DepsCommand::Accept { target, yes } => commands::accept::run(&work_dir, &target, yes),
+            DepsCommand::Pin {
+                name,
+                commit,
+                version,
+                accept_unverified,
+            } => {
+                // clap makes them come together.
+                let to = commit
+                    .zip(version)
+                    .map(|(commit, version)| commands::pin::Move { commit, version });
+                commands::pin::run(&work_dir, &name, to, accept_unverified)
+            }
+            DepsCommand::List { json } => commands::list::run(&work_dir, json),
+            DepsCommand::Remove { name, dry_run } => {
+                commands::remove::run(&work_dir, &name, dry_run)
+            }
         },
         Commands::Release {
             version,
