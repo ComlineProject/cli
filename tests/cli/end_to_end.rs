@@ -1,5 +1,5 @@
 //! The whole pipeline, for real: a `.comline` schema with a `protocol` →
-//! `comline generate --mode lib` → the emitted crate is compiled against
+//! `comline generation --mode lib` → the emitted crate is compiled against
 //! `comline-runtime` and a hand-written driver runs a client ⇆ provider
 //! round-trip over an in-memory transport, through the package's `serve` and
 //! `connect` (a request/response call, a raised
@@ -121,7 +121,13 @@ fn a_generated_protocol_crate_runs_a_real_round_trip() {
     comline_cmd()
         .current_dir(&project)
         .args([
-            "generate", "--target", "rust", "--mode", "lib", "--out", "gen",
+            "generation",
+            "--target",
+            "rust",
+            "--mode",
+            "lib",
+            "--out",
+            "gen",
         ])
         .assert()
         .success();
@@ -210,7 +216,7 @@ fn a_call_with_arguments_failing_their_checks_is_refused() {
 }
 "#;
 
-/// `@validators` through `comline generate` itself: std's `StringBounds`
+/// `@validators` through `comline generation` itself: std's `StringBounds`
 /// reached by `use`, carried by a `type` alias, run by the generated
 /// `validate()` - and, with `validate_on_decode = "collect"` in
 /// `comline.toml`, a call whose arguments fail is refused by the provider.
@@ -222,7 +228,13 @@ fn generated_validators_run_end_to_end() {
     comline_cmd()
         .current_dir(&project)
         .args([
-            "generate", "--target", "rust", "--mode", "lib", "--out", "gen",
+            "generation",
+            "--target",
+            "rust",
+            "--mode",
+            "lib",
+            "--out",
+            "gen",
         ])
         .assert()
         .success();

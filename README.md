@@ -22,7 +22,7 @@ cargo install --path .
 comline new my-api          # scaffold a project
 cd my-api
 comline build               # compile + freeze version 0.1.0-dev.1
-comline generate            # write generated code for each configured target
+comline generation         # write generated code for each configured target
 ```
 
 ## Commands
@@ -30,13 +30,13 @@ comline generate            # write generated code for each configured target
 | Command | What it does |
 |---|---|
 | `comline new <name> [--git]` | Scaffold `<name>/` with `config.idp`, `comline.toml`, `src/main.ids` and a `.gitignore`. `--git` also runs `git init`. |
-| `comline add <name> <dir>` / `comline add <name> --git <uri> --commit <sha> --version <v>` | Add a dependency to `config.idp`: resolved first (a git pin is fetched), then written with its content `hash` pinned. `--no-hash` skips the pin. |
+| `comline deps add <name> <dir>` / `comline deps add <name> --git <uri> --commit <sha> --version <v>` | Add a dependency to `config.idp`: resolved first (a git pin is fetched), then written with its content `hash` pinned. `--no-hash` skips the pin. |
 | `comline check` | Parse, resolve and validate every schema. No `.comline/` writes (beyond fetching git dependencies), no version bump — safe for editors, hooks and CI. |
 | `comline build [--release] [--watch]` | Compile, validate, and freeze a new immutable version into `.comline/`. Prints the changelog and the version bump. |
-| `comline generate [--target <lang>] [--out <dir>] [--layout <tpl>] [--mode <m>] [--watch]` | Validate (no freeze), then write generated code. Output location/layout come from `comline.toml` `[generate]`; targets from there or `config.idp`. |
+| `comline generation [--target <lang>] [--out <dir>] [--layout <tpl>] [--mode <m>] [--watch]` | Validate (no freeze), then write generated code. Output location/layout come from `comline.toml` `[generate]`; targets from there or `config.idp`. `gen` is short for `generation`. |
 | `comline diff <old> <new>` | Show the schema changes between two built versions. Each argument is a version (`0.2.0`), a commit hash, or `HEAD` (the default for `<new>`). |
 | `comline conformance --impl <cmd> [--encoding <name>] [--corpus <dir>]` | Run an encoding's implementation (a process speaking the conformance ops protocol) against the vectors its package ships beside each profile (`profiles/x.json` → `profiles/x.vectors.json`). Reports proven facts and failed cases with byte diffs; exits `1` on any failure. |
-| `comline clean [--dry-run]` | Remove the `generate` output (the output root, or the individual files). Leaves `.comline/` alone. |
+| `comline generation clean [--dry-run] [--target <lang>]` | Remove the `generation` output (the output root, or the individual files), or just one language's with `--target`. Leaves `.comline/` alone. |
 | `comline reset [--force] [--dry-run]` | Discard the version history: delete `.comline/` and generated code. Asks for confirmation on a terminal; needs `--force` otherwise. No undo — the next build restarts at `0.1.0-dev.1`. |
 | `comline completions <shell>` | Print a shell completion script to stdout. |
 
@@ -91,7 +91,7 @@ The `comline` CLI is licensed under the **GNU General Public License v3.0 only**
 `comline-core` and the code generators, which are GPL.
 
 Copyleft covers the *toolchain*, not what you build with it. Running `comline
-generate` no more licenses your project than compiling it with GCC does; the
+generation` no more licenses your project than compiling it with GCC does; the
 code it emits is yours and links only `comline-runtime` (MPL-2.0). See
 [`design/licensing.md`](https://github.com/ComlineProject/docs) for the
 rationale and per-repo split.

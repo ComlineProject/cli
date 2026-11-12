@@ -1,4 +1,4 @@
-//! `comline generate`
+//! `comline generation`
 
 use std::fs;
 
@@ -13,7 +13,7 @@ fn writes_one_file_per_schema_under_the_default_layout() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success()
         .stderr(predicate::str::contains("language: rust, version:"))
@@ -37,7 +37,7 @@ fn honours_out_flag_and_a_flat_layout() {
     comline_cmd()
         .current_dir(&project)
         .args([
-            "generate",
+            "generation",
             "--target",
             "rust",
             "--out",
@@ -61,7 +61,7 @@ fn reads_out_from_comline_toml() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success();
 
@@ -77,7 +77,7 @@ fn env_out_overrides_the_file() {
     comline_cmd()
         .current_dir(&project)
         .env("COMLINE_GENERATE_OUT", "envgen")
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success();
 
@@ -93,7 +93,7 @@ fn out_flag_beats_env_out() {
     comline_cmd()
         .current_dir(&project)
         .env("COMLINE_GENERATE_OUT", "envgen")
-        .args(["generate", "--target", "rust", "--out", "flaggen"])
+        .args(["generation", "--target", "rust", "--out", "flaggen"])
         .assert()
         .success();
 
@@ -118,7 +118,7 @@ fn env_out_applies_in_a_multi_target_config() {
     comline_cmd()
         .current_dir(&project)
         .env("COMLINE_GENERATE_OUT", "envgen")
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success();
 
@@ -133,7 +133,7 @@ fn plain_uses_ascii_output() {
     // The default tree, drawn with ASCII branches.
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust", "--plain"])
+        .args(["generation", "--target", "rust", "--plain"])
         .assert()
         .success()
         .stderr(predicate::str::contains("|- api.rs").or(predicate::str::contains("\\- api.rs")))
@@ -143,7 +143,7 @@ fn plain_uses_ascii_output() {
     // And `--list`'s arrow.
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust", "--plain", "--list"])
+        .args(["generation", "--target", "rust", "--plain", "--list"])
         .assert()
         .success()
         .stderr(predicate::str::contains("api.ids -> generated/rust/api.rs"))
@@ -164,11 +164,25 @@ fn out_flag_needs_target_when_several_are_configured() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--out", "x"])
+        .args(["generation", "--out", "x"])
         .assert()
         .failure()
         .code(1)
         .stderr(predicate::str::contains("need `--target"));
+}
+
+#[test]
+fn gen_is_short_for_generation() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["gen", "--target", "rust"])
+        .assert()
+        .success();
+
+    assert!(project.join("generated/rust/api.rs").exists());
 }
 
 #[test]
@@ -178,7 +192,7 @@ fn rejects_an_unconfigured_target() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "python"])
+        .args(["generation", "--target", "python"])
         .assert()
         .failure()
         .code(1)
@@ -204,7 +218,7 @@ fn config_idp_wire_framing_reaches_the_rust_generator() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success();
 
@@ -226,7 +240,7 @@ fn config_idp_wire_format_reaches_the_rust_generator() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success();
 
@@ -244,7 +258,7 @@ fn without_a_wire_key_a_protocol_is_on_a_packed_connection() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success();
 
@@ -284,7 +298,7 @@ fn protocols_on_different_framings_get_no_package_serve() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success()
         .stderr(predicate::str::contains("no package `serve` / `connect`"))
@@ -310,7 +324,7 @@ fn protocols_on_no_connection_say_why_there_is_no_package_serve() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success()
         .stderr(predicate::str::contains(
@@ -332,7 +346,7 @@ fn a_package_without_protocols_gets_no_serve_note() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success()
         .stderr(predicate::str::contains("`Services` / `serve`").not())
@@ -351,7 +365,7 @@ fn comline_toml_default_framing_says_it_moved() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .failure()
         .stderr(predicate::str::contains(
@@ -376,7 +390,7 @@ fn lib_mode_flatten_skips_the_language_directory() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate"])
+        .args(["generation"])
         .assert()
         .success();
 
@@ -402,7 +416,7 @@ fn lib_mode_warns_that_layout_has_no_effect() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate"])
+        .args(["generation"])
         .assert()
         .success()
         .stderr(predicate::str::contains(
@@ -417,7 +431,7 @@ fn dylib_mode_is_rejected() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust", "--mode", "dylib"])
+        .args(["generation", "--target", "rust", "--mode", "dylib"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("mode `dylib` is not supported"));
@@ -461,7 +475,7 @@ fn latest_stamps_the_last_committed_version() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success();
 
@@ -477,7 +491,7 @@ fn list_names_the_schema_each_file_came_from() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust", "--list"])
+        .args(["generation", "--target", "rust", "--list"])
         .assert()
         .success()
         .stderr(predicate::str::contains("api.ids → generated/rust/api.rs"))
@@ -498,7 +512,7 @@ fn dry_run_and_list_combine() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust", "--dry-run", "--list"])
+        .args(["generation", "--target", "rust", "--dry-run", "--list"])
         .assert()
         .success()
         .stderr(predicate::str::contains("api.ids → generated/rust/api.rs"))
@@ -525,7 +539,7 @@ fn package_versions_all_generates_every_release() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success()
         // One tree per version. `layout` has to carry `{{package_version}}`
@@ -542,7 +556,7 @@ fn package_versions_all_generates_every_release() {
     // `--list` tags each line with the version it belongs to.
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust", "--list"])
+        .args(["generation", "--target", "rust", "--list"])
         .assert()
         .success()
         .stderr(predicate::str::contains("[0.1.0]"))
@@ -563,7 +577,7 @@ fn package_versions_list_generates_only_the_named_versions() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success();
 
@@ -584,7 +598,7 @@ fn multiple_versions_need_package_version_in_the_layout() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .failure()
         .code(1)
@@ -604,7 +618,7 @@ fn package_versions_all_without_a_build_errors() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("run `comline build` first"));
@@ -641,7 +655,7 @@ fn external_std_flag_qualifies_the_reference_and_omits_stds_own_file() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust", "--external-std"])
+        .args(["generation", "--target", "rust", "--external-std"])
         .assert()
         .success();
 
@@ -665,7 +679,7 @@ fn external_std_off_by_default_still_inlines_std() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success();
 
@@ -686,7 +700,7 @@ fn external_std_lib_mode_adds_the_comline_std_dependency() {
     comline_cmd()
         .current_dir(&project)
         .args([
-            "generate",
+            "generation",
             "--target",
             "rust",
             "--mode",
@@ -715,7 +729,7 @@ fn comline_toml_external_std_is_honoured_without_the_flag() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success();
 
@@ -737,7 +751,7 @@ fn env_external_std_beats_comline_toml() {
     comline_cmd()
         .current_dir(&project)
         .env("COMLINE_GENERATE_EXTERNAL_STD", "true")
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success();
 
@@ -754,7 +768,7 @@ fn the_target_line_names_the_mode() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success()
         .stderr(predicate::str::contains(
@@ -763,7 +777,7 @@ fn the_target_line_names_the_mode() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust", "--mode", "lib"])
+        .args(["generation", "--target", "rust", "--mode", "lib"])
         .assert()
         .success()
         .stderr(predicate::str::contains("mode: lib"));
@@ -779,7 +793,14 @@ fn dry_run_prints_the_tree_and_writes_nothing() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust", "--mode", "lib", "--dry-run"])
+        .args([
+            "generation",
+            "--target",
+            "rust",
+            "--mode",
+            "lib",
+            "--dry-run",
+        ])
         .assert()
         .success()
         .stderr(predicate::str::contains("dry run, nothing written"))
@@ -805,7 +826,7 @@ fn lib_mode_links_comline_std_instead_of_inlining_it() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust", "--mode", "lib"])
+        .args(["generation", "--target", "rust", "--mode", "lib"])
         .assert()
         .success();
 
@@ -833,7 +854,7 @@ fn code_mode_still_inlines_std_and_the_flag_overrides_lib() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success();
     assert!(
@@ -844,7 +865,7 @@ fn code_mode_still_inlines_std_and_the_flag_overrides_lib() {
     comline_cmd()
         .current_dir(&project)
         .args([
-            "generate",
+            "generation",
             "--target",
             "rust",
             "--mode",
@@ -878,7 +899,7 @@ fn an_ignored_feature_is_a_warning() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "typescript"])
+        .args(["generation", "--target", "typescript"])
         .assert()
         .success()
         .stderr(predicate::str::contains("`typescript` ignores validators: the types are generated; the checks aren't run yet (core#96)"))
@@ -900,7 +921,7 @@ fn async_generates_connection_protocols_for_the_async_driver() {
     let generate = |project: &std::path::Path| {
         comline_cmd()
             .current_dir(project)
-            .args(["generate", "--target", "rust"])
+            .args(["generation", "--target", "rust"])
             .assert()
             .success();
         fs::read_to_string(project.join("generated/rust/link.rs")).unwrap()
@@ -948,7 +969,7 @@ fn async_without_a_connection_protocol_warns() {
     add_to_config(&project, "wire = { framing = \"datagram\" }");
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success()
         .stderr(predicate::str::contains(warning));
@@ -957,7 +978,7 @@ fn async_without_a_connection_protocol_warns() {
     fs::write(project.join("config.idp"), config).unwrap();
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success()
         .stderr(predicate::str::contains(warning).not());
@@ -1040,7 +1061,7 @@ fn a_dependencys_framing_writing_json_encodes_with_json() {
     let generate = || {
         comline_cmd()
             .current_dir(&app)
-            .args(["generate", "--target", "rust"])
+            .args(["generation", "--target", "rust"])
             .assert()
             .success();
     };
@@ -1077,7 +1098,7 @@ fn a_dependencys_framing_generates_its_mapped_type() {
     let generate = || {
         comline_cmd()
             .current_dir(&app)
-            .args(["generate", "--target", "rust"])
+            .args(["generation", "--target", "rust"])
             .assert()
     };
 
@@ -1116,7 +1137,7 @@ fn an_unmapped_dependency_framing_is_an_error_naming_it() {
     let app = acme_and_app(temp.path(), "typescript = { type = \"LinesFraming\" }");
     comline_cmd()
         .current_dir(&app)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .failure()
         .stderr(predicate::str::contains(
@@ -1139,7 +1160,7 @@ fn a_bad_comline_toml_encoding_entry_is_refused() {
     .unwrap();
     comline_cmd()
         .current_dir(&app)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .failure();
 }
@@ -1163,7 +1184,7 @@ fn an_unknown_framing_is_an_error() {
     .unwrap();
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("com.acme.pigeon@1"));
@@ -1191,7 +1212,7 @@ fn an_unsupported_format_gives_the_support_tables_message() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "typescript"])
+        .args(["generation", "--target", "typescript"])
         .assert()
         .failure()
         .stderr(predicate::str::contains(
@@ -1217,7 +1238,7 @@ fn validate_on_decode_off_needs_a_reason_and_is_shown() {
     .unwrap();
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .failure()
         .stderr(predicate::str::contains(
@@ -1231,7 +1252,7 @@ fn validate_on_decode_off_needs_a_reason_and_is_shown() {
     .unwrap();
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success()
         .stderr(predicate::str::contains(
@@ -1254,7 +1275,7 @@ fn validate_on_decode_off_needs_a_reason_and_is_shown() {
     fs::remove_file(project.join("comline.toml")).unwrap();
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success()
         .stderr(predicate::str::contains("given up").not());
@@ -1294,7 +1315,7 @@ fn datagram3_and_comline2_take_their_facts_from_the_last_build() {
     let generate = || {
         comline_cmd()
             .current_dir(&project)
-            .args(["generate", "--target", "rust"])
+            .args(["generation", "--target", "rust"])
             .assert()
     };
 

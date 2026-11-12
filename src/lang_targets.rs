@@ -5,7 +5,7 @@
 //! oldest toolchain its generated code must build on: `rust#1.85.0`. That
 //! declaration is a promise consumers rely on, so `comline build` proves
 //! every one before a version is frozen ([`check_declared`]), and
-//! `comline generate` holds each target to the same rules ([`resolve`]):
+//! `comline generation` holds each target to the same rules ([`resolve`]):
 //!
 //! - A generator in this binary handles the version: not below its floor,
 //!   and dotted numbers.

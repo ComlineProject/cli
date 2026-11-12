@@ -1,4 +1,4 @@
-//! Shared `--watch` loop for `build` and `generate`.
+//! Shared `--watch` loop for `build` and `generation`.
 
 use std::path::Path;
 use std::sync::mpsc::channel;

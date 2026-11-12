@@ -1,6 +1,6 @@
-//! `comline clean` — remove generated code.
+//! `comline generation clean` — remove generated code.
 //!
-//! Only the output of `comline generate`. The `.comline/` store (the version
+//! Only the output of `comline generation`. The `.comline/` store (the version
 //! history) is left alone — [`super::reset`] is the command that discards that.
 
 use std::path::{Path, PathBuf};
@@ -14,12 +14,12 @@ use crate::gen_config::Destination;
 use crate::ui;
 use comline_codegen::config::{self as gen_config, ComlineToml, DeclaredLang, Overrides};
 
-pub fn run(work_dir: &Path, dry_run: bool) -> Result<()> {
+pub fn run(work_dir: &Path, dry_run: bool, target: Option<&str>) -> Result<()> {
     ensure_project(work_dir)?;
 
     ui::step(format!("Cleaning{}", ui::at_path(work_dir)));
 
-    let mut targets: Vec<PathBuf> = generated_files(work_dir);
+    let mut targets: Vec<PathBuf> = generated_files_for(work_dir, target)?;
     targets.sort();
     targets.dedup();
 
@@ -46,27 +46,34 @@ pub fn run(work_dir: &Path, dry_run: bool) -> Result<()> {
     Ok(())
 }
 
-/// Best-effort list of what `generate` would have written, resolved the same way
-/// `generate` resolves it (`comline.toml` `[generate]`, else the congregation's
+/// Best-effort list of what `generation` would have written, resolved the same way
+/// it resolves it (`comline.toml` `[generate]`, else the congregation's
 /// declared languages). For each target this is the whole output root when it is
 /// a real sub-directory, otherwise the individual rendered files. Empty if the
 /// project does not currently compile or `comline.toml` does not parse.
 ///
 /// Shared with [`super::reset`], which removes these too.
 pub(crate) fn generated_files(work_dir: &Path) -> Vec<PathBuf> {
+    generated_files_for(work_dir, None).unwrap_or_default()
+}
+
+/// [`generated_files`] for one language (`--target`), matched the way
+/// `generation --target` matches it. A language no target matches is an error;
+/// with no `target`, nothing here fails.
+fn generated_files_for(work_dir: &Path, target: Option<&str>) -> Result<Vec<PathBuf>> {
     let cfg = match ComlineToml::load(work_dir) {
         Ok(cfg) => cfg,
         Err(e) => {
             ui::note(format!("skipping generated-file cleanup: {e}"));
-            return Vec::new();
+            return Ok(Vec::new());
         }
     };
     let Ok(context) = build::compile_package(work_dir) else {
         ui::note("skipping generated-file cleanup: project does not compile");
-        return Vec::new();
+        return Ok(Vec::new());
     };
     let Some(config_units) = &context.config_frozen else {
-        return Vec::new();
+        return Ok(Vec::new());
     };
 
     let declared: Vec<DeclaredLang> = config_units
@@ -89,21 +96,39 @@ pub(crate) fn generated_files(work_dir: &Path) -> Vec<PathBuf> {
         })
         .unwrap_or_default();
 
-    let Ok(targets) = gen_config::resolve(&cfg, &declared, work_dir, &Overrides::default()) else {
-        return Vec::new();
+    let overrides = Overrides {
+        target,
+        ..Overrides::default()
+    };
+    let targets = match gen_config::resolve(&cfg, &declared, work_dir, &overrides) {
+        Ok(targets) => targets,
+        Err(e) if target.is_some() => return Err(e),
+        Err(_) => return Ok(Vec::new()),
+    };
+    // The targets `target` leaves out. One whose output root is a selected
+    // target's root, or inside it, keeps that root: only the selected files go.
+    let others = match target {
+        Some(_) => gen_config::resolve(&cfg, &declared, work_dir, &Overrides::default())
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|o| !targets.iter().any(|t| t.language == o.language))
+            .collect(),
+        None => Vec::new(),
     };
 
     let registry = super::generate::generator_registry();
     let mut files = Vec::new();
     for t in &targets {
         // A dedicated output directory: remove it wholesale (stale files too).
-        if t.out != work_dir && t.out.is_dir() {
+        if t.out != work_dir && t.out.is_dir() && !others.iter().any(|o| o.out.starts_with(&t.out))
+        {
             files.push(t.out.clone());
             continue;
         }
-        // Output lands among the sources — only touch the exact files. This
-        // covers the single-version (`latest`) case; a multi-version tree lives
-        // under a dedicated `out` dir and is removed by the branch above.
+        // Output lands among the sources, or in a root another target shares —
+        // only touch the exact files. This covers the single-version (`latest`)
+        // case; a multi-version tree lives under a dedicated `out` dir and is
+        // removed by the branch above.
         let Some((_, ext)) = registry.find(&t.language, &t.lang_version) else {
             continue;
         };
@@ -118,7 +143,7 @@ pub(crate) fn generated_files(work_dir: &Path) -> Vec<PathBuf> {
             }
         }
     }
-    files
+    Ok(files)
 }
 
 fn remove(path: &Path) -> Result<()> {

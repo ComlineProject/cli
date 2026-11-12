@@ -199,7 +199,10 @@ Examples:
     },
 
     /// Validate the project and write generated code for each configured target
-    #[command(long_about = "\
+    #[command(
+        visible_alias = "gen",
+        args_conflicts_with_subcommands = true,
+        long_about = "\
 Validate the project (no version bump, no `.comline/` write), then write \
 generated code for each target.
 
@@ -216,10 +219,12 @@ Defaults: out `generated`, layout `{{language}}/{{namespace}}.{{ext}}`, mode \
 Each target's files are drawn as a tree. `--list` prints them one per line instead, with the schema each came from. `--dry-run` writes nothing, and reports the same way.
 
 Examples:
-  comline generate
-  comline generate --target rust --out ./bindings
-  comline generate --watch")]
-    Generate {
+  comline generation
+  comline gen --target rust --out ./bindings
+  comline generation --watch
+  comline generation clean"
+    )]
+    Generation {
         /// Only generate for this language (e.g. `rust`); default: every configured target
         #[arg(short, long, value_name = "LANG")]
         target: Option<String>,
@@ -263,6 +268,9 @@ Examples:
         /// Regenerate automatically when a schema or `config.idp` changes
         #[arg(short, long)]
         watch: bool,
+
+        #[command(subcommand)]
+        command: Option<GenerationCommand>,
     },
 
     /// Show the schema changes between two built versions
@@ -284,18 +292,6 @@ Examples:
         /// Target version: a version string, a commit hash, or `HEAD`
         #[arg(value_name = "NEW", default_value = "HEAD")]
         new: String,
-    },
-
-    /// Remove generated code
-    #[command(long_about = "\
-Remove the files `comline generate` writes — the whole output root when it is a \
-dedicated directory (e.g. `generated/`), otherwise the individual generated \
-files. Does not touch `.comline/`; use `comline reset` to discard the version \
-history.")]
-    Clean {
-        /// List what would be removed without deleting anything
-        #[arg(long)]
-        dry_run: bool,
     },
 
     /// Release the builds since the last release as a version
@@ -367,81 +363,17 @@ pass `--force`.")]
         git: bool,
     },
 
-    /// Add a dependency to `config.idp`, resolved and pinned
+    /// Manage the package's dependencies
     #[command(long_about = "\
-Declare another Comline package as a dependency. It is resolved first, the way \
-`check` resolves it (a git pin is fetched into `.comline/deps-cache/`, then \
-compiled), so an entry that wouldn't resolve is never written. Its entry then \
-goes into `config.idp`'s `dependencies` block, with `hash` pinned to the content \
-just compiled: if the dependency changes later, the build fails until the pin is \
-updated. The rest of `config.idp` is left as written.
-
-Its schemas are imported under NAME: `use NAME::models::Thing`.
-
-If it has `@unverified` protocols, what each gives up is shown and, on a \
-terminal, you are asked to accept it (see `comline accept`); otherwise pass \
-`--accept-unverified`. Nothing is written unless it's accepted.
+Declare, resolve and accept the other Comline packages this one depends on, \
+recorded in `config.idp`'s `dependencies` block.
 
 Examples:
-  comline add shared_types ../shared-types
-  comline add net --git https://github.com/acme/net --commit 4f2c9e1 --version 1.2.0")]
-    Add {
-        /// Name to import it under (`use <NAME>::...`)
-        name: String,
-
-        /// A package on disk, relative to this package's directory
-        #[arg(
-            value_name = "DIR",
-            required_unless_present = "git",
-            conflicts_with = "git"
-        )]
-        dir: Option<PathBuf>,
-
-        /// Fetch it from this git repository instead
-        #[arg(long, value_name = "URI", requires_all = ["commit", "version"])]
-        git: Option<String>,
-
-        /// Commit to pin (with `--git`)
-        #[arg(long, value_name = "SHA", requires = "git")]
-        commit: Option<String>,
-
-        /// Version that commit stands for (with `--git`)
-        #[arg(long, value_name = "VERSION", requires = "git")]
-        version: Option<String>,
-
-        /// Don't pin its content hash (say, a path dependency still being worked on)
-        #[arg(long)]
-        no_hash: bool,
-
-        /// Accept what its `@unverified` protocols give up without being asked
-        #[arg(long)]
-        accept_unverified: bool,
-    },
-
-    /// Accept what a dependency's `@unverified` protocols give up
-    #[command(long_about = "\
-A protocol marked `@unverified` gives up guarantees Comline otherwise gives its \
-peers (a `none` handshake gives up schema and encoding agreement), and a \
-package depending on it has to accept that in its own `config.idp`, for exactly \
-what's given up. This shows what each protocol gives up and why, then writes \
-`accept_unverified` into the dependency's entry. The rest of `config.idp` is \
-left as written.
-
-Run it again when a dependency's update gives up more: the build stops until \
-the new set is accepted.
-
-Requires confirmation: on a terminal you are asked; otherwise pass `--yes`.
-
-Examples:
-  comline accept billing            every unverified protocol in `billing`
-  comline accept billing::Billing   just `Billing`")]
-    Accept {
-        /// The dependency, or one protocol in it: `NAME` or `NAME::PROTOCOL`
-        target: String,
-
-        /// Accept without being asked
-        #[arg(long, short)]
-        yes: bool,
+  comline deps add shared_types ../shared-types
+  comline deps accept billing")]
+    Deps {
+        #[command(subcommand)]
+        command: DepsCommand,
     },
 
     /// Run an encoding's implementation against its vectors
@@ -560,5 +492,111 @@ Examples:
         /// `html`, `markdown` or `json`; default `html` if configured or already rendered, else the first configured format
         #[arg(value_name = "FORMAT")]
         format: Option<String>,
+    },
+}
+
+/// `comline deps <subcommand>`.
+#[derive(Debug, clap::Subcommand)]
+pub enum DepsCommand {
+    /// Add a dependency to `config.idp`, resolved and pinned
+    #[command(long_about = "\
+Declare another Comline package as a dependency. It is resolved first, the way \
+`check` resolves it (a git pin is fetched into `.comline/deps-cache/`, then \
+compiled), so an entry that wouldn't resolve is never written. Its entry then \
+goes into `config.idp`'s `dependencies` block, with `hash` pinned to the content \
+just compiled: if the dependency changes later, the build fails until the pin is \
+updated. The rest of `config.idp` is left as written.
+
+Its schemas are imported under NAME: `use NAME::models::Thing`.
+
+If it has `@unverified` protocols, what each gives up is shown and, on a \
+terminal, you are asked to accept it (see `comline deps accept`); otherwise pass \
+`--accept-unverified`. Nothing is written unless it's accepted.
+
+Examples:
+  comline deps add shared_types ../shared-types
+  comline deps add net --git https://github.com/acme/net --commit 4f2c9e1 --version 1.2.0")]
+    Add {
+        /// Name to import it under (`use <NAME>::...`)
+        name: String,
+
+        /// A package on disk, relative to this package's directory
+        #[arg(
+            value_name = "DIR",
+            required_unless_present = "git",
+            conflicts_with = "git"
+        )]
+        dir: Option<PathBuf>,
+
+        /// Fetch it from this git repository instead
+        #[arg(long, value_name = "URI", requires_all = ["commit", "version"])]
+        git: Option<String>,
+
+        /// Commit to pin (with `--git`)
+        #[arg(long, value_name = "SHA", requires = "git")]
+        commit: Option<String>,
+
+        /// Version that commit stands for (with `--git`)
+        #[arg(long, value_name = "VERSION", requires = "git")]
+        version: Option<String>,
+
+        /// Don't pin its content hash (say, a path dependency still being worked on)
+        #[arg(long)]
+        no_hash: bool,
+
+        /// Accept what its `@unverified` protocols give up without being asked
+        #[arg(long)]
+        accept_unverified: bool,
+    },
+
+    /// Accept what a dependency's `@unverified` protocols give up
+    #[command(long_about = "\
+A protocol marked `@unverified` gives up guarantees Comline otherwise gives its \
+peers (a `none` handshake gives up schema and encoding agreement), and a \
+package depending on it has to accept that in its own `config.idp`, for exactly \
+what's given up. This shows what each protocol gives up and why, then writes \
+`accept_unverified` into the dependency's entry. The rest of `config.idp` is \
+left as written.
+
+Run it again when a dependency's update gives up more: the build stops until \
+the new set is accepted.
+
+Requires confirmation: on a terminal you are asked; otherwise pass `--yes`.
+
+Examples:
+  comline deps accept billing            every unverified protocol in `billing`
+  comline deps accept billing::Billing   just `Billing`")]
+    Accept {
+        /// The dependency, or one protocol in it: `NAME` or `NAME::PROTOCOL`
+        target: String,
+
+        /// Accept without being asked
+        #[arg(long, short)]
+        yes: bool,
+    },
+}
+
+/// `comline generation <subcommand>`.
+#[derive(Debug, clap::Subcommand)]
+pub enum GenerationCommand {
+    /// Remove generated code
+    #[command(long_about = "\
+Remove the files `comline generation` writes — the whole output root when it is a \
+dedicated directory (e.g. `generated/`), otherwise the individual generated \
+files. `--target` limits it to one language's output. Does not touch \
+`.comline/`; use `comline reset` to discard the version history.
+
+Examples:
+  comline generation clean
+  comline generation clean --dry-run
+  comline generation clean --target rust")]
+    Clean {
+        /// List what would be removed without deleting anything
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Only remove this language's output (e.g. `rust`); default: every configured target
+        #[arg(short, long, value_name = "LANG")]
+        target: Option<String>,
     },
 }

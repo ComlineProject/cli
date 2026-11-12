@@ -1,4 +1,4 @@
-//! `comline add` — declare a dependency in `config.idp`, resolved and pinned.
+//! `comline deps add` — declare a dependency in `config.idp`, resolved and pinned.
 //!
 //! The dependency is resolved first, the way `comline check` resolves it (a
 //! git pin is fetched into `.comline/deps-cache/`, then compiled), so an entry
@@ -163,7 +163,7 @@ pub fn run(
             *h = hash.clone()
         }
         DependencySource::Registry { .. } => {
-            unreachable!("`comline add` never builds a registry source")
+            unreachable!("`comline deps add` never builds a registry source")
         }
     }
 
@@ -221,7 +221,7 @@ fn entry_fields(dependency: &DependencyConfig) -> Result<Vec<(&'static str, Stri
             ]
         }
         DependencySource::Registry { .. } => {
-            unreachable!("`comline add` never builds a registry source")
+            unreachable!("`comline deps add` never builds a registry source")
         }
     };
     if let Some(hash) = dependency.declared_hash() {

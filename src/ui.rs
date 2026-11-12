@@ -220,7 +220,7 @@ pub fn finish_spinner(pb: ProgressBar) {
 }
 
 /// Print `paths` as a directory tree, rooted at their deepest common
-/// ancestor — what `generate --dry-run` shows in place of the file-by-file
+/// ancestor — what `generation --dry-run` shows in place of the file-by-file
 /// mapping a real run prints.
 ///
 /// A tree rather than a flat list because `lib` mode's output is a package:

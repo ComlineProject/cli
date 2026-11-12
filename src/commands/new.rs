@@ -37,7 +37,7 @@ docs/api/html/
 /// new project writes to `generated/{{language}}/{{namespace}}.{{ext}}`.
 const COMLINE_TOML: &str = "\
 #:schema https://comlineproject.github.io/docs/schemas/comline-toml/0.x.json
-# comline.toml — where `comline generate` writes code, and how.
+# comline.toml — where `comline generation` writes code, and how.
 #
 # Which languages are generated comes from `config.idp`'s
 # `code_generation.languages` — this file says where each one lands.

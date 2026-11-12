@@ -17,7 +17,7 @@ use clap::{CommandFactory, FromArgMatches};
 use miette::Result;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use cli::{Cli, Commands};
+use cli::{Cli, Commands, DepsCommand, GenerationCommand};
 
 fn main() -> ExitCode {
     reset_sigpipe();
@@ -143,7 +143,11 @@ fn run(cli: Cli) -> Result<()> {
                 },
             ),
         },
-        Commands::Generate {
+        Commands::Generation {
+            command: Some(GenerationCommand::Clean { dry_run, target }),
+            ..
+        } => commands::clean::run(&work_dir, dry_run, target.as_deref()),
+        Commands::Generation {
             target,
             out,
             layout,
@@ -154,6 +158,7 @@ fn run(cli: Cli) -> Result<()> {
             dry_run,
             list,
             watch,
+            command: None,
         } => {
             let overrides = comline_codegen::config::Overrides {
                 target: target.as_deref(),
@@ -171,22 +176,23 @@ fn run(cli: Cli) -> Result<()> {
             commands::generate::run(&work_dir, &overrides, dry_run, list, watch)
         }
         Commands::Diff { old, new } => commands::diff::run(&work_dir, &old, &new),
-        Commands::Clean { dry_run } => commands::clean::run(&work_dir, dry_run),
         Commands::Reset { force, dry_run } => commands::reset::run(&work_dir, force, dry_run),
         Commands::New { name, git } => commands::new::run(&work_dir, &name, git),
-        Commands::Add {
-            name,
-            dir,
-            git,
-            commit,
-            version,
-            no_hash,
-            accept_unverified,
-        } => {
-            let source = commands::add::Source::from_args(dir, git, commit, version)?;
-            commands::add::run(&work_dir, &name, source, !no_hash, accept_unverified)
-        }
-        Commands::Accept { target, yes } => commands::accept::run(&work_dir, &target, yes),
+        Commands::Deps { command } => match command {
+            DepsCommand::Add {
+                name,
+                dir,
+                git,
+                commit,
+                version,
+                no_hash,
+                accept_unverified,
+            } => {
+                let source = commands::add::Source::from_args(dir, git, commit, version)?;
+                commands::add::run(&work_dir, &name, source, !no_hash, accept_unverified)
+            }
+            DepsCommand::Accept { target, yes } => commands::accept::run(&work_dir, &target, yes),
+        },
         Commands::Release {
             version,
             raise,

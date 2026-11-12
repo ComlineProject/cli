@@ -94,7 +94,7 @@ fn builtin_output(mode: &str) -> Vec<(PathBuf, Vec<u8>)> {
     let project = fixture_project(temp.path());
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--mode", mode])
+        .args(["generation", "--mode", mode])
         .assert()
         .success();
     tree(&project.join("generated"))
@@ -113,7 +113,7 @@ fn matches_builtin(kind: Kind) {
         .unwrap();
         comline_cmd()
             .current_dir(&project)
-            .arg("generate")
+            .arg("generation")
             .assert()
             .success();
         let external = tree(&project.join("generated"));
@@ -149,7 +149,7 @@ fn refused(kind: Kind, mode: &str, extra: &str, expected: &str) -> String {
     .unwrap();
     let output = comline_cmd()
         .current_dir(&project)
-        .arg("generate")
+        .arg("generation")
         .assert()
         .failure()
         .get_output()
@@ -279,7 +279,7 @@ fn a_language_the_generator_does_not_offer_is_refused() {
     .unwrap();
     comline_cmd()
         .current_dir(&project)
-        .arg("generate")
+        .arg("generation")
         .assert()
         .failure()
         .stderr(predicate::str::contains(format!(
