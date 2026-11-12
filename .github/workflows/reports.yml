@@ -47,7 +47,7 @@ jobs:
       - name: Build
         run: |
           cargo build --locked --release
-      - uses: ComlineProject/observatory/.github/actions/report-size@8d21b1fbe68f8b639676153ce1a308eaafdcc6a7 # v1
+      - uses: ComlineProject/observatory/.github/actions/report-size@6544a11bdfb9e4def0a64d6cff1cf8c3df464951 # v1
         with:
           output: reports/cli.size.json
           toolchain: ${{ steps.rustc.outputs.version }}
@@ -75,7 +75,7 @@ jobs:
           toolchain: 1.99.1
           targets: wasm32-wasip1
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-      - uses: ComlineProject/observatory/.github/actions/report-rust-coverage@8d21b1fbe68f8b639676153ce1a308eaafdcc6a7 # v1
+      - uses: ComlineProject/observatory/.github/actions/report-rust-coverage@6544a11bdfb9e4def0a64d6cff1cf8c3df464951 # v1
         with:
           output: reports/cli.coverage.json
           args: --workspace
@@ -100,7 +100,7 @@ jobs:
         with:
           toolchain: 1.99.1
           targets: wasm32-wasip1
-      - uses: ComlineProject/observatory/.github/actions/report-rust-compile@8d21b1fbe68f8b639676153ce1a308eaafdcc6a7 # v1
+      - uses: ComlineProject/observatory/.github/actions/report-rust-compile@6544a11bdfb9e4def0a64d6cff1cf8c3df464951 # v1
         with:
           output: reports/cli.compile.json
           args: --workspace --release
@@ -131,7 +131,7 @@ jobs:
           pattern: report-*
           path: reports
           merge-multiple: true
-      - uses: ComlineProject/observatory/.github/actions/publish-report@8d21b1fbe68f8b639676153ce1a308eaafdcc6a7 # v1
+      - uses: ComlineProject/observatory/.github/actions/publish-report@6544a11bdfb9e4def0a64d6cff1cf8c3df464951 # v1
         with:
           reports: reports/cli.size.json reports/cli.coverage.json reports/cli.compile.json
           readme: .github/reports-branch.md
