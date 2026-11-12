@@ -197,7 +197,28 @@ pub(crate) fn declared_dependencies(manifest: &str) -> Result<Vec<DependencyConf
     })?;
     let declared = DependencyConfig::parse_dependencies(&congregation.assignments)
         .map_err(|e| miette::miette!("config.idp: {e}"))?;
-    Ok(declared.into_values().collect())
+    // By name: the map has no order of its own.
+    let mut declared: Vec<_> = declared.into_values().collect();
+    declared.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(declared)
+}
+
+/// The declared dependency called `name`, or an error that lists the ones
+/// that are declared.
+pub(crate) fn declared_named<'a>(
+    declared: &'a [DependencyConfig],
+    name: &str,
+) -> Result<&'a DependencyConfig> {
+    declared.iter().find(|d| d.name == name).ok_or_else(|| {
+        let names: Vec<&str> = declared.iter().map(|d| d.name.as_str()).collect();
+        miette::miette!(
+            "`{name}` isn't a dependency in config.idp; {}",
+            match names.as_slice() {
+                [] => "it declares none".to_string(),
+                names => format!("it declares: {}", names.join(", ")),
+            }
+        )
+    })
 }
 
 /// The entry's `key = "value"` lines, in the order the docs write them.

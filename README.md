@@ -31,6 +31,9 @@ comline generation         # write generated code for each configured target
 |---|---|
 | `comline new <name> [--git]` | Scaffold `<name>/` with `config.idp`, `comline.toml`, `src/main.ids` and a `.gitignore`. `--git` also runs `git init`. |
 | `comline deps add <name> <dir>` / `comline deps add <name> --git <uri> --commit <sha> --version <v>` | Add a dependency to `config.idp`: resolved first (a git pin is fetched), then written with its content `hash` pinned. `--no-hash` skips the pin. |
+| `comline deps pin <name> [--commit <sha> --version <v>]` | Re-pin a dependency's `hash` to the content it has now (after it changed on purpose), resolving it first. With `--commit`/`--version`, moves a git dependency to another commit at the same time. |
+| `comline deps list [--json]` | List the declared dependencies: source, pin and what's accepted. Reads only `config.idp`; nothing is fetched or written. |
+| `comline deps remove <name> [--dry-run]` | Remove a dependency from `config.idp`; refused, listing each use, while a schema still imports it. |
 | `comline check` | Parse, resolve and validate every schema. No `.comline/` writes (beyond fetching git dependencies), no version bump — safe for editors, hooks and CI. |
 | `comline build [--release] [--watch]` | Compile, validate, and freeze a new immutable version into `.comline/`. Prints the changelog and the version bump. |
 | `comline generation [--target <lang>] [--out <dir>] [--layout <tpl>] [--mode <m>] [--watch]` | Validate (no freeze), then write generated code. Output location/layout come from `comline.toml` `[generate]`; targets from there or `config.idp`. `gen` is short for `generation`. |

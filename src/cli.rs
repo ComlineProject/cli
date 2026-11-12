@@ -365,12 +365,16 @@ pass `--force`.")]
 
     /// Manage the package's dependencies
     #[command(long_about = "\
-Declare, resolve and accept the other Comline packages this one depends on, \
-recorded in `config.idp`'s `dependencies` block.
+Declare, resolve, pin, accept, list and remove the other Comline packages this \
+one depends on, recorded in `config.idp`'s `dependencies` block. The commands that \
+write change only the affected entry; the rest of `config.idp` is left as written.
 
 Examples:
   comline deps add shared_types ../shared-types
-  comline deps accept billing")]
+  comline deps accept billing
+  comline deps pin shared_types
+  comline deps list
+  comline deps remove shared_types")]
     Deps {
         #[command(subcommand)]
         command: DepsCommand,
@@ -573,6 +577,83 @@ Examples:
         /// Accept without being asked
         #[arg(long, short)]
         yes: bool,
+    },
+
+    /// Re-pin a dependency's `hash` to the content it has now
+    #[command(long_about = "\
+Resolve the dependency the way `add` does (a git pin is fetched into \
+`.comline/deps-cache/`, then compiled) and write its `hash` as the content just \
+compiled. Use it when a dependency's content changed on purpose: the build \
+fails on the old pin until it's updated. A dependency that doesn't resolve is \
+never pinned, and an entry written without a hash (`add --no-hash`) gains one. \
+The old and new hash are printed; if they're the same, nothing is written.
+
+`--commit` and `--version` (both, git dependencies only) move the dependency \
+to another commit in the same step.
+
+If the new content gives up more through `@unverified` than the entry already \
+accepts, what it gives up is shown and, on a terminal, you are asked to accept \
+it (see `comline deps accept`); otherwise pass `--accept-unverified`. Nothing \
+is written unless it's accepted.
+
+Examples:
+  comline deps pin shared_types
+  comline deps pin net --commit 9b1d3e7 --version 1.3.0")]
+    Pin {
+        /// The dependency to pin
+        name: String,
+
+        /// Move a git dependency to this commit (with `--version`)
+        #[arg(long, value_name = "SHA", requires = "version")]
+        commit: Option<String>,
+
+        /// Version that commit stands for (with `--commit`)
+        #[arg(long, value_name = "VERSION", requires = "commit")]
+        version: Option<String>,
+
+        /// Accept what its `@unverified` protocols give up without being asked
+        #[arg(long)]
+        accept_unverified: bool,
+    },
+
+    /// List the declared dependencies
+    #[command(long_about = "\
+One line per dependency in `config.idp`: its name, where it comes from (a path, \
+or a git URI at a commit and its version), what its hash is pinned to \
+(`unpinned` if it isn't) and what `accept_unverified` accepts of it.
+
+It only reads `config.idp`: nothing is resolved or fetched, and nothing is \
+written, `.comline/` included. `--json` prints the same as JSON, with every \
+commit and hash in full.
+
+Examples:
+  comline deps list
+  comline deps list --json")]
+    List {
+        /// Print the dependencies as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Remove a dependency from `config.idp`
+    #[command(long_about = "\
+Take NAME's entry out of `config.idp`'s `dependencies` block. The rest of \
+`config.idp` is left as written.
+
+A dependency a schema still imports (`use NAME::...`) isn't removed: the error \
+lists each use, by file and line, and nothing is written. Remove or change \
+those first.
+
+Examples:
+  comline deps remove shared_types
+  comline deps remove shared_types --dry-run")]
+    Remove {
+        /// The dependency to remove
+        name: String,
+
+        /// Show what would be removed without writing anything
+        #[arg(long)]
+        dry_run: bool,
     },
 }
 

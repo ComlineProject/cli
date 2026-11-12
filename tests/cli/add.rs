@@ -1,42 +1,12 @@
 //! `comline deps add`
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command as Process;
 
 use predicates::prelude::*;
 
 use crate::util::*;
-
-/// A minimal package at `dir`, declaring `Thing` in `src/models.ids`.
-fn write_package(dir: &Path, name: &str) {
-    fs::create_dir_all(dir.join("src")).unwrap();
-    fs::write(
-        dir.join("config.idp"),
-        with_bounds(&format!("congregation {name}\nspecification_version = 1\n")),
-    )
-    .unwrap();
-    fs::write(
-        dir.join("src/models.ids"),
-        "struct Thing {\n    id: u64\n}\n",
-    )
-    .unwrap();
-}
-
-/// The fixture project, with a `shared` package next to it.
-fn project_with_sibling(temp: &Path) -> PathBuf {
-    let project = fixture_project(temp);
-    write_package(&temp.join("shared"), "shared");
-    project
-}
-
-fn uses_thing_from(project: &Path, dependency: &str) {
-    fs::write(
-        project.join("src/holder.ids"),
-        format!("use {dependency}::models::Thing\n\nstruct Holder {{\n    thing: Thing\n}}\n"),
-    )
-    .unwrap();
-}
 
 fn check(project: &Path) -> assert_cmd::assert::Assert {
     comline_cmd().current_dir(project).arg("check").assert()

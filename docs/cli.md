@@ -15,6 +15,9 @@ This is the long-form reference. For a two-minute tour see the
 - [Commands](#commands)
   - [`new`](#comline-new)
   - [`deps add`](#comline-deps-add)
+  - [`deps pin`](#comline-deps-pin)
+  - [`deps list`](#comline-deps-list)
+  - [`deps remove`](#comline-deps-remove)
   - [`check`](#comline-check)
   - [`inspect`](#comline-inspect)
   - [`build`](#comline-build)
@@ -177,6 +180,110 @@ comline deps add net --git https://github.com/acme/net --commit 4f2c9e1 --versio
 Exit `0` once added, `1` if the dependency doesn't resolve or can't be added
 (the name is already declared, isn't an identifier, or is already one of this
 package's own namespaces), `2` if the directory is not a Comline project.
+
+### `comline deps pin`
+
+```
+comline deps pin <name> [--commit <sha> --version <version>] [--accept-unverified]
+```
+
+Pin a dependency's `hash` to the content it has now. For a dependency that
+changed on purpose: `check` and `build` fail on the old pin
+(`hash mismatch`) until it's updated. The dependency is resolved first, the way
+[`deps add`](#comline-deps-add) resolves it (a git pin is fetched into
+`.comline/deps-cache/`, then compiled), so a dependency that doesn't resolve is
+never pinned. Only its entry in `config.idp` changes; every other line is left
+as written. An entry written without a hash (`deps add --no-hash`) gains one.
+
+The old and new hash are printed. If they're the same, it says so and writes
+nothing.
+
+- `--commit <sha> --version <version>` — move a git dependency to another
+  commit in the same step (both together, git dependencies only).
+- `--accept-unverified` — if the new content gives up more through
+  `@unverified` than the entry already accepts, what it gives up is shown and,
+  on a terminal, you are asked to accept it; without a terminal this flag
+  accepts it. The same steps as `deps add`. Nothing is written unless it's
+  accepted.
+
+```bash
+comline deps pin shared_types
+comline deps pin net --commit 9b1d3e7 --version 1.3.0
+```
+
+```
+$ comline --plain deps pin shared_types
+Resolving shared_types
+Pinned shared_types in config.idp
+  was: blake3:4b2c2573d7022c99ff9c66922673441b9b4cc36b79e5e6bdfee2251cf3ad10d1
+  now: blake3:b9684859cabadf2f66d72f47811581ec4fdbd2821816008d3e85bf550f3fae7a
+```
+
+Exit `0` once pinned or already pinned, `1` if the dependency isn't declared,
+doesn't resolve or can't be written, `2` if it needs accepting and there's no
+terminal and no flag, or the directory is not a Comline project.
+
+### `comline deps list`
+
+```
+comline deps list [--json]
+```
+
+One line per dependency in `config.idp`: its name, where it comes from (a path,
+or a git URI at a short commit and its version), what its hash is pinned to
+(`unpinned` if there is none), and what `accept_unverified` accepts of it, if
+anything.
+
+```
+$ comline --plain deps list
+billing  path ../billing                                  blake3:4b2c2573d702  accepts Billing (schema agreement and encoding agreement)
+net      git https://github.com/acme/net@9b1d3e7 (1.3.0)  blake3:d476bafdea0f
+scratch  path ../scratch                                  unpinned
+```
+
+It only reads `config.idp`: nothing is resolved or fetched, so it never uses
+the network, and nothing is written, `.comline/` included. What it shows is what
+the file says, not whether the dependency still matches it (that's `check`).
+
+`--json` prints the same as `{ "dependencies": [...] }` on stdout, one object
+per dependency with the full values: `name`, `source` (`{ "kind": "path",
+"path" }` or `{ "kind": "git", "uri", "commit", "version" }`), `hash` (`null` if
+unpinned), and `accept_unverified` (each accepted protocol with its guarantees,
+as `config.idp` names them). With none declared the text report is empty and
+the JSON's list is `[]`.
+
+Exit `0`, or `2` if the directory is not a Comline project.
+
+### `comline deps remove`
+
+```
+comline deps remove <name> [--dry-run]
+```
+
+Take `<name>`'s entry out of `config.idp`'s `dependencies` block. Only that
+entry goes; every other line is left as written.
+
+If a schema still imports it (`use <name>::...`), it isn't removed: the error
+lists each use by file and line, and nothing is written, `--dry-run` or not.
+
+- `--dry-run` — show the entry that would be removed without writing anything.
+
+```bash
+comline deps remove shared_types
+comline deps remove shared_types --dry-run
+```
+
+```
+$ comline --plain deps remove shared
+error: can't remove `shared`: 1 schema statement still imports it:
+  src/holder.ids:1  use shared::models::Thing
+
+remove or change those first; config.idp is unchanged
+```
+
+A name that isn't declared is an error that lists the ones that are. Exit `0`
+once removed, `1` if it's still imported, isn't declared or can't be removed,
+`2` if the directory is not a Comline project.
 
 ### `comline check`
 
