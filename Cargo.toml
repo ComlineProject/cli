@@ -63,7 +63,7 @@ tokio = { version = "1", default-features = false, optional = true }
 [features]
 # Which language generators are compiled in. Drop one to shed its whole
 # dependency tree from the build. A build with neither can compile but
-# `comline generate` will find no generator.
+# `comline generation` will find no generator.
 default = ["gen-rust", "gen-typescript", "gen-wasm"]
 gen-rust = ["dep:comline-codegen-rust"]
 gen-typescript = ["dep:comline-codegen-typescript"]

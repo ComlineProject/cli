@@ -89,7 +89,7 @@ pub fn run(work_dir: &Path, json: bool) -> Result<()> {
 
 /// The targets in comline.toml whose decoding doesn't run `@validators`
 /// checks, with the reason each gives (`validate_on_decode = { off = "why" }`).
-/// Empty without a comline.toml, or one that doesn't resolve: `generate`
+/// Empty without a comline.toml, or one that doesn't resolve: `generation`
 /// reports that.
 fn validators_given_up(
     work_dir: &Path,

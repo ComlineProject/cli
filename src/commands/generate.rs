@@ -1,4 +1,4 @@
-//! `comline generate` — validate, then write generated code for each target.
+//! `comline generation` — validate, then write generated code for each target.
 //!
 //! Output location, layout, mode and version selection come from `comline.toml`
 //! `[generate]` (`--out` / `--layout` / `--mode` override per run). The target

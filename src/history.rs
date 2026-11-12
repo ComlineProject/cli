@@ -1,4 +1,4 @@
-//! Reading the CAS commit chain — shared by `diff` and `generate`.
+//! Reading the CAS commit chain — shared by `diff` and `generation`.
 //!
 //! Comline's CAS is an append-only linear chain (no branches), so we walk it
 //! once from `refs/heads/main` and resolve specs against that list.

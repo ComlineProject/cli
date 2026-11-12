@@ -1,10 +1,10 @@
-//! `comline accept` — accept what a dependency's `@unverified` protocols give
+//! `comline deps accept` — accept what a dependency's `@unverified` protocols give
 //! up, by writing `accept_unverified` into its `config.idp` entry.
 //!
 //! Accepting is a choice the consumer writes down, so it's never silent: what
 //! each protocol gives up, and why, is shown first, and on a terminal the
 //! user is asked (default no). Without a terminal there's nobody to ask, and
-//! it takes a flag. `comline add` uses the same steps for a new dependency.
+//! it takes a flag. `comline deps add` uses the same steps for a new dependency.
 
 use std::collections::BTreeMap;
 use std::io::{self, IsTerminal, Write};
@@ -116,7 +116,7 @@ pub fn render(accepted: &BTreeMap<String, Vec<Guarantee>>) -> String {
     format!("{{ {} }}", entries.join(" "))
 }
 
-/// `comline accept DEPENDENCY[::PROTOCOL]`.
+/// `comline deps accept DEPENDENCY[::PROTOCOL]`.
 pub fn run(work_dir: &Path, target: &str, yes: bool) -> Result<()> {
     ensure_project(work_dir)?;
     let (name, only) = match target.split_once("::") {

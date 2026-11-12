@@ -1,4 +1,4 @@
-//! `comline accept`, and `comline add` on a dependency with `@unverified`
+//! `comline deps accept`, and `comline deps add` on a dependency with `@unverified`
 //! protocols.
 
 use std::fs;
@@ -43,7 +43,7 @@ fn add_shows_what_is_given_up_and_needs_it_accepted() {
     let before = fs::read_to_string(project.join("config.idp")).unwrap();
 
     // No terminal to ask: refused, with what it gives up and the way through.
-    comline(&project, &["add", "billing", "../billing"])
+    comline(&project, &["deps", "add", "billing", "../billing"])
         .failure()
         .code(PRECONDITION)
         .stderr(predicate::str::contains(
@@ -57,7 +57,13 @@ fn add_shows_what_is_given_up_and_needs_it_accepted() {
 
     comline(
         &project,
-        &["add", "billing", "../billing", "--accept-unverified"],
+        &[
+            "deps",
+            "add",
+            "billing",
+            "../billing",
+            "--accept-unverified",
+        ],
     )
     .success()
     .stderr(predicate::str::contains("Added billing to config.idp"));
@@ -80,6 +86,7 @@ fn accept_takes_in_what_an_update_gives_up() {
     comline(
         &project,
         &[
+            "deps",
             "add",
             "billing",
             "../billing",
@@ -95,14 +102,14 @@ fn accept_takes_in_what_an_update_gives_up() {
         .failure()
         .stderr(predicate::str::contains("protocol `Ledger` is unverified"));
 
-    comline(&project, &["accept", "billing"])
+    comline(&project, &["deps", "accept", "billing"])
         .failure()
         .code(PRECONDITION)
         .stderr(predicate::str::contains("Ledger gives up"))
         .stderr(predicate::str::contains("Billing gives up").not())
         .stderr(predicate::str::contains("--yes"));
 
-    comline(&project, &["accept", "billing", "--yes"])
+    comline(&project, &["deps", "accept", "billing", "--yes"])
         .success()
         .stderr(predicate::str::contains("Accepted Ledger from billing"));
     let manifest = fs::read_to_string(project.join("config.idp")).unwrap();
@@ -115,7 +122,7 @@ fn accept_takes_in_what_an_update_gives_up() {
     );
     comline(&project, &["check"]).success();
 
-    comline(&project, &["accept", "billing::Ledger", "--yes"])
+    comline(&project, &["deps", "accept", "billing::Ledger", "--yes"])
         .success()
         .stderr(predicate::str::contains("Nothing to accept"));
 }
@@ -127,14 +134,20 @@ fn accept_refuses_what_it_cant_find() {
     write_unverified_package(&temp.path().join("billing"), &["Billing"]);
     comline(
         &project,
-        &["add", "billing", "../billing", "--accept-unverified"],
+        &[
+            "deps",
+            "add",
+            "billing",
+            "../billing",
+            "--accept-unverified",
+        ],
     )
     .success();
 
-    comline(&project, &["accept", "nope", "--yes"])
+    comline(&project, &["deps", "accept", "nope", "--yes"])
         .failure()
         .stderr(predicate::str::contains("`nope` isn't a dependency"));
-    comline(&project, &["accept", "billing::Nope", "--yes"])
+    comline(&project, &["deps", "accept", "billing::Nope", "--yes"])
         .failure()
         .stderr(predicate::str::contains("no unverified protocol `Nope`"));
 }

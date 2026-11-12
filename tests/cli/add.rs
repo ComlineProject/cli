@@ -1,4 +1,4 @@
-//! `comline add`
+//! `comline deps add`
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -50,7 +50,7 @@ fn adds_a_path_dependency_pinned_and_importable() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["add", "shared", "../shared"])
+        .args(["deps", "add", "shared", "../shared"])
         .assert()
         .success()
         .stderr(predicate::str::contains("Added shared to config.idp"))
@@ -85,7 +85,7 @@ fn no_hash_leaves_it_unpinned() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["add", "shared", "../shared", "--no-hash"])
+        .args(["deps", "add", "shared", "../shared", "--no-hash"])
         .assert()
         .success()
         .stderr(predicate::str::contains("not pinned"));
@@ -108,27 +108,27 @@ fn refuses_what_it_cant_add_and_leaves_config_idp_alone() {
     let project = project_with_sibling(temp.path());
     comline_cmd()
         .current_dir(&project)
-        .args(["add", "shared", "../shared"])
+        .args(["deps", "add", "shared", "../shared"])
         .assert()
         .success();
     let before = fs::read_to_string(project.join("config.idp")).unwrap();
 
     for (args, message) in [
         (
-            vec!["add", "shared", "../shared"],
+            vec!["deps", "add", "shared", "../shared"],
             "`shared` is already a dependency",
         ),
         (
-            vec!["add", "elsewhere", "../nowhere"],
+            vec!["deps", "add", "elsewhere", "../nowhere"],
             "`../nowhere` isn't a Comline package",
         ),
         (
-            vec!["add", "shared-types", "../shared"],
+            vec!["deps", "add", "shared-types", "../shared"],
             "must be an identifier",
         ),
         // The fixture's own `src/other.ids`.
         (
-            vec!["add", "other", "../shared"],
+            vec!["deps", "add", "other", "../shared"],
             "already has a `other` namespace",
         ),
     ] {
@@ -156,7 +156,7 @@ fn a_package_that_doesnt_compile_isnt_added() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["add", "shared", "../shared"])
+        .args(["deps", "add", "shared", "../shared"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("couldn't resolve the dependency"));
@@ -173,7 +173,7 @@ fn git_needs_a_commit_and_a_version() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["add", "net", "--git", "https://example.test/net"])
+        .args(["deps", "add", "net", "--git", "https://example.test/net"])
         .assert()
         .failure()
         .code(2)
@@ -223,6 +223,7 @@ fn adds_a_git_dependency_at_a_pinned_commit() {
     comline_cmd()
         .current_dir(&project)
         .args([
+            "deps",
             "add",
             "net",
             "--git",

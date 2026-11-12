@@ -16,7 +16,7 @@ fn force_removes_the_store_and_generated_code() {
         .success();
     comline_cmd()
         .current_dir(&project)
-        .args(["generate", "--target", "rust"])
+        .args(["generation", "--target", "rust"])
         .assert()
         .success();
     assert!(project.join(".comline").is_dir());

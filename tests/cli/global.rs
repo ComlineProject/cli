@@ -139,3 +139,19 @@ fn path_flag_runs_outside_the_cwd() {
         .success()
         .stderr(predicate::str::contains("Check passed"));
 }
+
+#[test]
+fn the_old_top_level_names_are_gone() {
+    // `generate`, `clean`, `add` and `accept` moved under `generation` and
+    // `deps`; there are no aliases left at the top level.
+    for old in ["generate", "clean", "add", "accept"] {
+        comline_cmd()
+            .arg(old)
+            .assert()
+            .failure()
+            .code(2)
+            .stderr(predicate::str::contains(format!(
+                "unrecognized subcommand '{old}'"
+            )));
+    }
+}

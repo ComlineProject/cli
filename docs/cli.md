@@ -14,15 +14,15 @@ This is the long-form reference. For a two-minute tour see the
 - [Versioning model](#versioning-model)
 - [Commands](#commands)
   - [`new`](#comline-new)
-  - [`add`](#comline-add)
+  - [`deps add`](#comline-deps-add)
   - [`check`](#comline-check)
   - [`inspect`](#comline-inspect)
   - [`build`](#comline-build)
-  - [`generate`](#comline-generate)
+  - [`generation`](#comline-generation)
+    - [`generation clean`](#comline-generation-clean)
   - [`diff`](#comline-diff)
   - [`doc`](#comline-doc)
   - [`conformance`](#comline-conformance)
-  - [`clean`](#comline-clean)
   - [`reset`](#comline-reset)
   - [`completions`](#comline-completions)
 - [Global flags](#global-flags)
@@ -40,7 +40,7 @@ code-generation output. Running a command takes those inputs through:
 **parse → resolve imports → validate → (freeze into `.comline/`) → (generate code)**
 
 `check` stops after validation. `build` adds the freeze step and records a new
-version. `generate` stops after validation too — it does **not** freeze — and
+version. `generation` stops after validation too — it does **not** freeze — and
 writes generated code per `comline.toml`. `diff` reads two already-frozen
 versions and reports what changed between them.
 
@@ -65,7 +65,7 @@ completions are generated during the build — see
 ```
 my-api/
 ├── config.idp        # package manifest: name, spec version, code_generation targets
-├── comline.toml      # where `generate` writes code and how (all-commented by default)
+├── comline.toml      # where `generation` writes code and how (all-commented by default)
 ├── src/
 │   └── main.ids      # a sample enum + struct to build on
 └── .gitignore        # ignores .comline/deps-cache/
@@ -118,7 +118,7 @@ current version and does not add a commit. `comline diff` runs this same
 comparison between any two stored versions on demand.
 
 The chain in `.comline/` is the only copy of this history — there is no publish
-step yet. [`comline clean`](#comline-clean) does **not** touch it; only
+step yet. [`comline generation clean`](#comline-generation-clean) does **not** touch it; only
 [`comline reset`](#comline-reset) discards it, after which the next build starts
 over at `0.1.0-dev.1`.
 
@@ -144,11 +144,11 @@ comline new my-api
 comline new my-api --git
 ```
 
-### `comline add`
+### `comline deps add`
 
 ```
-comline add <name> <dir> [--no-hash]
-comline add <name> --git <uri> --commit <sha> --version <version> [--no-hash]
+comline deps add <name> <dir> [--no-hash]
+comline deps add <name> --git <uri> --commit <sha> --version <version> [--no-hash]
 ```
 
 Declare another Comline package as a dependency, imported under `<name>`:
@@ -170,8 +170,8 @@ dependency changes later, `check` and `build` fail until the pin is updated.
   on).
 
 ```bash
-comline add shared_types ../shared-types
-comline add net --git https://github.com/acme/net --commit 4f2c9e1 --version 1.2.0
+comline deps add shared_types ../shared-types
+comline deps add net --git https://github.com/acme/net --commit 4f2c9e1 --version 1.2.0
 ```
 
 Exit `0` once added, `1` if the dependency doesn't resolve or can't be added
@@ -287,11 +287,14 @@ comline build --watch
 comline build --reconcile 3f9a…  # the full 64-character hash
 ```
 
-### `comline generate`
+### `comline generation`
 
 ```
-comline generate [--target <lang>] [--out <dir>] [--layout <template>] [--mode <mode>] [--external-std] [--watch]
+comline generation [--target <lang>] [--out <dir>] [--layout <template>] [--mode <mode>] [--external-std] [--watch]
+comline generation clean [--dry-run] [--target <lang>]
 ```
+
+`gen` is short for `generation`.
 
 Validate the project, then write generated code for each target. Unlike `build`,
 this **does not** freeze a version or write to `.comline/` — it stops after
@@ -300,7 +303,7 @@ validation.
 **Wire numbers.** Protocols on `datagram@3` or `comline@2` (the defaults) need
 the package's facts: each protocol's and function's wire number, its line and
 its "since" versions. When the working tree is what the last build froze,
-`generate` uses that build's facts. Otherwise it works them out as the next
+`generation` uses that build's facts. Otherwise it works them out as the next
 `comline build` would, against the last release and every retired number,
 without writing anything. A package that was never built generates too. The
 numbers stay provisional until `comline release`, as a build's are.
@@ -330,7 +333,7 @@ variables: `{{language}}`, `{{namespace}}` (`/`-joined), `{{ext}}`,
 `{{lang_version}}`, `{{spec_version}}`, `{{package_version}}`.
 
 **Editor support.** `comline.toml` has a JSON Schema, generated from the
-same types `comline generate` parses it with, at
+same types `comline generation` parses it with, at
 `https://comlineproject.github.io/docs/schemas/comline-toml/0.x.json`. A
 `comline new` project's `comline.toml` starts with a line naming it:
 
@@ -344,7 +347,7 @@ an unknown key or a wrong value (`mode = "dylib"`) as you type. Add the line
 to an existing `comline.toml` to get the same.
 
 **`layout` only applies to `code` mode.** A `lib`-mode target ignores it
-entirely (`comline generate` warns if you set one) and always writes the
+entirely (`comline generation` warns if you set one) and always writes the
 crate's fixed internal shape (`Cargo.toml`, `src/lib.rs`, …) at
 `<out>/<language>/` — unless the target sets `flatten = true`, which writes it
 straight into `out` instead:
@@ -428,9 +431,9 @@ implemented for both and `lib` mode for `rust`. `dylib`, and `lib` for other
 languages, fail with a clear message.
 
 ```bash
-comline generate
-comline generate --target rust --out ./bindings
-comline -p ./schemas generate --target rust
+comline generation
+comline generation --target rust --out ./bindings
+comline -p ./schemas generation --target rust
 ```
 
 ```
@@ -443,6 +446,33 @@ comline -p ./schemas generate --target rust
 
 The working directory is named on the header; each line under a target maps a
 source schema to the file written for it (`--plain` uses `->`).
+
+#### `comline generation clean`
+
+```
+comline generation clean [--dry-run] [--target <lang>]
+```
+
+Remove what `generation` wrote — the whole output root when it is a dedicated
+directory (e.g. `generated/`), otherwise just the individual generated files.
+Resolved the same way `generation` resolves output (`comline.toml` `[generate]`,
+else `config.idp`'s declared languages).
+
+Does **not** touch `.comline/`. Generated code is regenerable; the version
+history is not — [`comline reset`](#comline-reset) is the command for that.
+
+- `--dry-run` — list what would be removed without deleting anything.
+- `--target <lang>`, `-t` — only remove that language's output; a language no
+  target matches is an error, as it is for `generation --target`.
+
+Needs the project to compile to know what `generation` would have written; if it
+does not, there is nothing to clean.
+
+```bash
+comline generation clean --dry-run
+comline generation clean
+comline generation clean --target rust
+```
 
 ### `comline diff`
 
@@ -671,30 +701,6 @@ comline conformance --impl ./target/release/acme-lines-conformance
 comline conformance --impl comline-reference --corpus ../specification --encoding packed@1
 ```
 
-### `comline clean`
-
-```
-comline clean [--dry-run]
-```
-
-Remove what `generate` wrote — the whole output root when it is a dedicated
-directory (e.g. `generated/`), otherwise just the individual generated files.
-Resolved the same way `generate` resolves output (`comline.toml` `[generate]`,
-else `config.idp`'s declared languages).
-
-Does **not** touch `.comline/`. Generated code is regenerable; the version
-history is not — [`comline reset`](#comline-reset) is the command for that.
-
-- `--dry-run` — list what would be removed without deleting anything.
-
-Needs the project to compile to know what `generate` would have written; if it
-does not, there is nothing to clean.
-
-```bash
-comline clean --dry-run
-comline clean
-```
-
 ### `comline reset`
 
 ```
@@ -778,14 +784,14 @@ fi
 
 ## Watch mode
 
-`comline build --watch` and `comline generate --watch` run the action once, then
+`comline build --watch` and `comline generation --watch` run the action once, then
 re-run it whenever a file under `src/` changes or `config.idp` / `comline.toml`
 is modified
 (300 ms debounce). A failing run is reported but does **not** stop the loop —
 fix the error and save again. Press Ctrl-C to exit.
 
 ```bash
-comline generate --watch --target rust
+comline generation --watch --target rust
 ```
 
 ## Shell completions and man pages
