@@ -115,6 +115,48 @@ fn target_removes_only_that_languages_output() {
 }
 
 #[test]
+fn target_keeps_another_targets_root_nested_inside_its_own() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    let config = project.join("config.idp");
+    let idp = std::fs::read_to_string(&config).unwrap();
+    std::fs::write(
+        &config,
+        idp.replace(
+            "rust#1.85.0 = {}",
+            "rust#1.85.0 = {}\n        typescript#5.0 = {}",
+        ),
+    )
+    .unwrap();
+    std::fs::write(
+        project.join("comline.toml"),
+        "[[generate.target]]\nlanguage = \"rust\"\nout = \"generated\"\n\n\
+         [[generate.target]]\nlanguage = \"typescript\"\nout = \"generated/ts\"\n",
+    )
+    .unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .arg("generation")
+        .assert()
+        .success();
+    assert!(project.join("generated/rust/api.rs").exists());
+    assert!(project.join("generated/ts/typescript/api.ts").exists());
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generation", "clean", "--target", "rust"])
+        .assert()
+        .success();
+
+    assert!(!project.join("generated/rust/api.rs").exists());
+    assert!(
+        project.join("generated/ts/typescript/api.ts").exists(),
+        "a root nested in the cleaned target's root must survive"
+    );
+}
+
+#[test]
 fn rejects_an_unconfigured_target() {
     let temp = tempfile::tempdir().unwrap();
     let project = fixture_project(temp.path());

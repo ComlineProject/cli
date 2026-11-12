@@ -105,8 +105,8 @@ fn generated_files_for(work_dir: &Path, target: Option<&str>) -> Result<Vec<Path
         Err(e) if target.is_some() => return Err(e),
         Err(_) => return Ok(Vec::new()),
     };
-    // The targets `target` leaves out. One that shares an output root with a
-    // selected target keeps that root: only the selected files go.
+    // The targets `target` leaves out. One whose output root is a selected
+    // target's root, or inside it, keeps that root: only the selected files go.
     let others = match target {
         Some(_) => gen_config::resolve(&cfg, &declared, work_dir, &Overrides::default())
             .unwrap_or_default()
@@ -120,7 +120,8 @@ fn generated_files_for(work_dir: &Path, target: Option<&str>) -> Result<Vec<Path
     let mut files = Vec::new();
     for t in &targets {
         // A dedicated output directory: remove it wholesale (stale files too).
-        if t.out != work_dir && t.out.is_dir() && !others.iter().any(|o| o.out == t.out) {
+        if t.out != work_dir && t.out.is_dir() && !others.iter().any(|o| o.out.starts_with(&t.out))
+        {
             files.push(t.out.clone());
             continue;
         }
