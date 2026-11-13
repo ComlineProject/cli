@@ -549,7 +549,6 @@ dependencies = [
 [[package]]
 name = "comline-core"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/core?rev=35ab4b801c9b35af591fb48972407468c8e8af24#35ab4b801c9b35af591fb48972407468c8e8af24"
 dependencies = [
  "ariadne",
  "blake3",
@@ -579,7 +578,6 @@ dependencies = [
 [[package]]
 name = "comline-core-stdlib"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/core?rev=35ab4b801c9b35af591fb48972407468c8e8af24#35ab4b801c9b35af591fb48972407468c8e8af24"
 
 [[package]]
 name = "comline-doc-html"

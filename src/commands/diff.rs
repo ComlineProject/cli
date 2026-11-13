@@ -47,6 +47,7 @@ pub fn run(work_dir: &Path, old: &str, new: &str) -> Result<()> {
         changes::render(&dependency.changes);
     }
     changes::render_config(&comparison.config_changes);
+    changes::render_unseen(&comparison.unseen);
     ui::detail(changes::bump_line(comparison.bump));
     Ok(())
 }

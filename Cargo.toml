@@ -32,7 +32,7 @@ eyre = "0.6.8"
 # needs real I/O (git fetch, filesystem), so it's off by default for
 # `comline-core`'s wasm32 consumers (the playground editor, the language
 # server); the CLI is the one consumer that actually runs `comline build`.
-comline-core = { git = "https://github.com/ComlineProject/core", rev = "35ab4b801c9b35af591fb48972407468c8e8af24", features = ["deps"] }
+comline-core = { git = "https://github.com/ComlineProject/core", rev = "07d86dae19a2f2b32a132efafd2406197fad12aa", features = ["deps"] }
 # All three pinned to revs that agree on one `comline-codegen`, and bumped
 # together: comline-rust and comline-typescript's codegen crates consume
 # `comline-codegen`'s types, so the rev below must be byte-identical to the
@@ -83,3 +83,7 @@ clap_complete = "4.5"
 assert_cmd = "2.0"
 predicates = "3.1"
 tempfile = "3.10"
+
+[patch."https://github.com/ComlineProject/core"]
+comline-core = { path = "/home/dev/.cargo/git/checkouts/core-d7ac35d662bc43dc/07d86da/core" }
+comline-core-stdlib = { path = "/home/dev/.cargo/git/checkouts/core-d7ac35d662bc43dc/07d86da/core_stdlib" }

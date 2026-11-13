@@ -5,11 +5,11 @@
 
 use std::path::Path;
 
-use comline_core::package::build::cas::object_store::CURRENT_IR_FORMAT_VERSION;
+use comline_core::package::build::cas::object_store::{ensure_compatible_store, StoreState};
 use comline_core::package::build::cas::objects::{Commit, EntryMode, Tree};
 use comline_core::package::build::cas::storage::Hash;
 use comline_core::package::build::cas::{refs, ObjectStore};
-use comline_core::package::config::ir::frozen::cas::blob::read_config;
+use comline_core::package::config::ir::frozen::cas::blob::{read_config, StoredConfigs};
 use comline_core::package::config::ir::frozen::FrozenUnit as ConfigUnit;
 use comline_core::schema::ir::frozen::cas::blob::load_schema_from_tree;
 use comline_core::schema::ir::frozen::unit::FrozenUnit;
@@ -23,34 +23,36 @@ pub struct Entry {
     pub commit: Commit,
 }
 
-/// Refuse to read a `.comline/` store written in another IR format.
+/// Refuse to use a `.comline/` store this comline can't read or write.
 ///
-/// The stamp (`.comline/FORMAT_VERSION`) says which format the store's
-/// objects are in. `build` migrates a mismatched store by rebuilding it;
-/// everything else only reads, and decoding another format's objects gives
-/// garbage or a confusing decode error, so each read goes through this
-/// first. [`load`] and [`open_store`] call it; a command that reads the
-/// store some other way calls it directly.
+/// The stamp (`.comline/FORMAT_VERSION`) says which IR format the store's
+/// objects are in. Decoding another format's objects gives garbage or a
+/// confusing decode error, so each read goes through this first, and a
+/// store of another format is refused by every command, `build` included:
+/// nothing here deletes, moves or rewrites it (core's
+/// [`ensure_compatible_store`] is read-only). [`load`] and [`open_store`]
+/// call it; a command that reads the store some other way calls it directly.
 ///
 /// No `.comline/`, or one with no stamp and no history, is "nothing built
 /// yet": fine here, and the caller reports it as it always did.
 pub fn ensure_readable(work_dir: &Path) -> Result<()> {
-    let comline = work_dir.join(".comline");
-    if !comline.exists() {
-        return Ok(());
+    match ensure_compatible_store(work_dir) {
+        Ok(StoreState::Fresh | StoreState::Current) => Ok(()),
+        Err(e) => Err(CliError::Store(e).into()),
     }
-    let stamp = std::fs::read_to_string(comline.join("FORMAT_VERSION")).ok();
-    let found = match stamp.as_deref().map(str::trim) {
-        Some(text) if text.parse() == Ok(CURRENT_IR_FORMAT_VERSION) => return Ok(()),
-        Some(text) => format!("`{text}`"),
-        None if !refs::ref_exists(work_dir, refs::main_ref()) => return Ok(()),
-        None => "unstamped".to_string(),
-    };
-    Err(CliError::StoreFormat {
-        found,
-        expected: CURRENT_IR_FORMAT_VERSION,
-    }
-    .into())
+}
+
+/// The configs a built version stored, with which are missing: what its
+/// encodings are read from when it is compared (`Encodings` come from
+/// [`StoredConfigs::encodings`]).
+pub fn load_stored_configs(store: &ObjectStore, commit: &Commit) -> Result<StoredConfigs> {
+    let root_bytes = store
+        .read(&commit.tree)
+        .map_err(|e| miette::miette!("failed to read root tree: {e:#}"))?;
+    let root =
+        Tree::from_bytes(&root_bytes).map_err(|e| miette::miette!("corrupt root tree: {e:#}"))?;
+    StoredConfigs::read(store, &root)
+        .map_err(|e| miette::miette!("failed to read the stored configs: {e:#}"))
 }
 
 /// The object store of `work_dir`, after [`ensure_readable`].
