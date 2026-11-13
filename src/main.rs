@@ -37,6 +37,10 @@ fn main() -> ExitCode {
             for cause in report.chain().skip(1) {
                 ui::error(format!("  caused by: {cause}"));
             }
+            // A diagnostic's own advice (`#[diagnostic(help(...))]`), last.
+            if let Some(help) = report.help() {
+                ui::help(help.to_string());
+            }
             ExitCode::from(code as u8)
         }
     }

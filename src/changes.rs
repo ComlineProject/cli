@@ -1,5 +1,6 @@
 //! Rendering for `comline_core`'s [`SchemaChanges`], shared by `build` and `diff`.
 
+use comline_core::package::build::cas::build::UnseenConfig;
 use comline_core::package::build::VersionBump;
 use comline_core::package::config::ir::diff::{ConfigChange, ConfigChanges};
 use comline_core::schema::ir::diff::{BreakingChange, Modification, NewFeature, SchemaChanges};
@@ -48,6 +49,34 @@ pub fn render_config(changes: &ConfigChanges) {
     for change in &changes.0 {
         ui::detail(config_line(change));
     }
+}
+
+/// Print the configs the comparison couldn't see, if any: they count as
+/// changed, so they're why a build with nothing else to show still moves
+/// the version.
+pub fn render_unseen(unseen: &[UnseenConfig]) {
+    if unseen.is_empty() {
+        return;
+    }
+    ui::group(heading("❔", "Configs not compared", unseen.len()));
+    for config in unseen {
+        ui::detail(unseen_line(config));
+    }
+}
+
+fn unseen_line(config: &UnseenConfig) -> String {
+    let whose = match config {
+        UnseenConfig::Own => "The package's config".to_string(),
+        UnseenConfig::Dependency(name) => format!("Dependency `{name}`'s config"),
+    };
+    mark(
+        "❔",
+        "?",
+        format!(
+            "{whose} isn't stored in an older build, so it counts as changed (at least a \
+             patch); `comline build` stores it from now on"
+        ),
+    )
 }
 
 fn config_line(change: &ConfigChange) -> String {
@@ -492,5 +521,22 @@ fn modification_line(modification: &Modification) -> String {
                 value_change(old_value, new_value)
             ),
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_unseen_config_says_it_counts_as_changed_and_how_it_stops() {
+        let own = unseen_line(&UnseenConfig::Own);
+        assert!(own.contains("The package's config isn't stored in an older build"));
+        assert!(own.contains("counts as changed (at least a patch)"));
+        assert!(own.contains("`comline build` stores it from now on"));
+
+        let dependency = unseen_line(&UnseenConfig::Dependency("shared_types".into()));
+        assert!(dependency.contains("Dependency `shared_types`'s config isn't stored"));
+        assert!(dependency.contains("`comline build` stores it from now on"));
     }
 }

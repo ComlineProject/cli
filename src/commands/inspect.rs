@@ -10,6 +10,7 @@ use std::io::Write as _;
 use std::path::Path;
 
 use anstyle::{AnsiColor, Color, Style};
+use comline_codegen::connections;
 use comline_core::compat::{self, PackageFacts};
 use comline_core::inspect::{self, Acceptance, Choice, ProtocolSummary, Source};
 use miette::{IntoDiagnostic, Result};
@@ -198,7 +199,7 @@ pub fn render(p: &ProtocolSummary, plain: bool) -> String {
         out += &format!(
             "  {key:<10} {:<24} {}\n",
             choice_value(choice),
-            style(DIM, &source(choice.source, key))
+            style(DIM, &source(choice.source, key, &p.framing.value))
         );
     }
     let reason = p.guarantees.iter().find_map(|g| g.reason.as_deref());
@@ -251,8 +252,9 @@ fn choice_value(choice: &Choice) -> String {
     format!("{} ({})", choice.value, params.join(", "))
 }
 
-/// Where a choice came from, for the header.
-fn source(source: Source, key: &str) -> String {
+/// Where a choice came from, for the header. `framing` is the protocol's
+/// framing, which a format it implies is named after.
+fn source(source: Source, key: &str, framing: &str) -> String {
     match source {
         Source::Annotation => format!("from @{key}"),
         Source::PackageDefault => match key {
@@ -260,6 +262,6 @@ fn source(source: Source, key: &str) -> String {
             _ => format!("from config.idp `wire.{key}`"),
         },
         Source::CoreDefault => "core's default".to_string(),
-        Source::Framing => "JSON-RPC's format".to_string(),
+        Source::Framing => format!("{}'s format", connections::framing_title(framing)),
     }
 }

@@ -317,13 +317,42 @@ fn protocols_on_no_connection_say_why_there_is_no_package_serve() {
         .stderr(predicate::str::contains(
             "no package `Services` / `serve` / `connect`",
         ))
+        // The framing's title in the catalog, and why it's lockstep.
         .stderr(predicate::str::contains(
-            "every protocol is server-provided on `datagram@1`",
+            "every protocol is server-provided on datagram (its frames go one way",
         ))
         .stderr(predicate::str::contains(
             "(https://comlineproject.github.io/docs/languages/rust/connections/#when-theyre-generated)",
         ));
     assert!(!project.join("generated/rust/connection.rs").exists());
+}
+
+/// JSON-RPC's frames go both ways but don't name the protocol, so with no
+/// protocol client-provided it's lockstep too: the note names its title and
+/// that reason, not the framing's spelling in the schema.
+#[test]
+fn the_no_connection_note_gives_json_rpc_its_title_and_reason() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = fixture_project(temp.path());
+    fs::write(
+        project.join("src/link.ids"),
+        "protocol Link {\n    function send(n: u32) -> u32;\n}\n",
+    )
+    .unwrap();
+    add_to_config(&project, "wire = { framing = \"jsonrpc\" }");
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generation", "--target", "rust"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "every protocol is server-provided on JSON-RPC (its frames don't name the protocol",
+        ))
+        .stderr(predicate::str::contains(
+            "none of its protocols is client-provided",
+        ))
+        .stderr(predicate::str::contains("and none is on a connection"));
 }
 
 /// The TypeScript generator names its own page too: the link comes from the
@@ -984,14 +1013,31 @@ fn async_without_a_connection_protocol_warns() {
     fs::write(project.join("comline.toml"), "[generate]\nasync = true\n").unwrap();
     let config = fs::read_to_string(project.join("config.idp")).unwrap();
 
-    // Every protocol lockstep: nothing for `async` to change.
+    // Every protocol lockstep: nothing for `async` to change. The warning
+    // names the framing's title and why it keeps a protocol off a connection.
     add_to_config(&project, "wire = { framing = \"datagram\" }");
     comline_cmd()
         .current_dir(&project)
         .args(["generation", "--target", "rust"])
         .assert()
         .success()
-        .stderr(predicate::str::contains(warning));
+        .stderr(predicate::str::contains(warning))
+        .stderr(predicate::str::contains(
+            "every protocol here is lockstep: on datagram (its frames go one way",
+        ));
+
+    // The same on JSON-RPC, whose frames don't name the protocol.
+    fs::write(project.join("config.idp"), &config).unwrap();
+    add_to_config(&project, "wire = { framing = \"jsonrpc\" }");
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generation", "--target", "rust"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(warning))
+        .stderr(predicate::str::contains(
+            "every protocol here is lockstep: on JSON-RPC (its frames don't name the protocol",
+        ));
 
     // The default: on a connection.
     fs::write(project.join("config.idp"), config).unwrap();
@@ -1011,7 +1057,8 @@ const LINES_PROFILE: &str = r#"{
     "calls": { "value": "by_name", "proven_by": ["lines/request"] },
     "directions": { "value": "both", "proven_by": ["lines/request"] },
     "errors": { "value": "by_name", "proven_by": ["lines/error"] },
-    "payload": { "value": "opaque", "proven_by": ["lines/request"] }
+    "payload": { "value": "opaque", "proven_by": ["lines/request"] },
+    "protocol": { "value": "unnamed", "proven_by": ["lines/request"] }
   }
 }"#;
 

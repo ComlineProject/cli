@@ -321,7 +321,7 @@ resolves to, with their parameters and where each came from:
 | `from @framing` / `from @handshake` | the protocol's own annotation |
 | `from config.idp ...` | the package's `wire.format`, `wire.framing` or `handshake` |
 | `core's default` | nothing named one: `packed@1`, `datagram@3`, `comline@2` (`comline@1` on any framing but `datagram@3`) |
-| `JSON-RPC's format` | the framing is JSON-RPC and the package names no format |
+| `JSON-RPC's format` | the framing implies a format (JSON-RPC's is JSON, and the line names the framing by its title) and the package names no format |
 
 Then one row per guarantee (schema agreement, encoding agreement, encoding
 conformance, version honesty), held or given up. A given-up row says why, and

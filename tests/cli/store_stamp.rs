@@ -50,13 +50,40 @@ fn a_wrong_stamp_is_refused_by_every_read_command() {
             .failure()
             .code(2)
             .stderr(predicate::str::contains(
-                "the version history in `.comline/` is in IR format `1`, but this comline \
+                "the version history in `.comline/` is in IR format 1, but this comline \
                  reads and writes format",
             ))
-            .stderr(predicate::str::contains("run `comline build`"));
+            .stderr(predicate::str::contains("Nothing was changed"));
     }
     // Refusing changed nothing.
     assert_eq!(fs::read_to_string(stamp(&project)).unwrap(), "1");
+}
+
+/// The store error carries help, which is printed after the message: what
+/// the refusal leaves the person to do.
+#[test]
+fn the_store_error_shows_its_help_after_the_message() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = built_project(temp.path());
+    fs::write(stamp(&project), "1").unwrap();
+
+    let output = comline_cmd()
+        .current_dir(&project)
+        .args(["--plain", "inspect"])
+        .assert()
+        .failure()
+        .code(2)
+        .get_output()
+        .clone();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let (message, help) = stderr
+        .split_once("\nhelp: ")
+        .unwrap_or_else(|| panic!("no help line in {stderr}"));
+    assert!(
+        message.starts_with("error: the version history"),
+        "{stderr}"
+    );
+    assert!(help.contains("`comline reset` deletes it"), "{stderr}");
 }
 
 #[test]
@@ -72,26 +99,37 @@ fn a_missing_stamp_with_history_is_refused() {
             .assert()
             .failure()
             .code(2)
-            .stderr(predicate::str::contains("is in IR format unstamped"));
+            .stderr(predicate::str::contains("no `FORMAT_VERSION` stamp"));
     }
 }
 
 #[test]
-fn build_migrates_a_wrong_stamp_and_reads_work_again() {
+fn build_refuses_a_wrong_stamp_and_changes_nothing() {
     let temp = tempfile::tempdir().unwrap();
     let project = built_project(temp.path());
     fs::write(stamp(&project), "1").unwrap();
+    let main_ref = project.join(".comline/refs/heads/main");
+    let head = fs::read(&main_ref).unwrap();
 
+    // `build` doesn't rebuild the store in the current format (that would
+    // delete its history): it refuses, like the readers do.
     comline_cmd()
         .current_dir(&project)
         .arg("build")
         .assert()
-        .success();
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains("is in IR format 1"))
+        .stderr(predicate::str::contains("Nothing was changed"));
+
+    assert_eq!(fs::read_to_string(stamp(&project)).unwrap(), "1");
+    assert_eq!(fs::read(&main_ref).unwrap(), head);
     comline_cmd()
         .current_dir(&project)
         .args(["diff", "0.1.0-dev.1", "HEAD"])
         .assert()
-        .success();
+        .failure()
+        .code(2);
 }
 
 #[test]

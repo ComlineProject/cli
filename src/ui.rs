@@ -186,6 +186,17 @@ pub fn warn(msg: impl AsRef<str>) {
     }
 }
 
+/// The help a fatal error carries (a diagnostic's `help`), under the error.
+/// Always printed, even under `--quiet`, like the error it belongs to.
+pub fn help(msg: impl AsRef<str>) {
+    let msg = msg.as_ref();
+    if plain() {
+        anstream::eprintln!("help: {msg}");
+    } else {
+        anstream::eprintln!("{CYAN}help{CYAN:#} {msg}");
+    }
+}
+
 /// A fatal error. Always printed, even under `--quiet`.
 pub fn error(msg: impl AsRef<str>) {
     let msg = msg.as_ref();
