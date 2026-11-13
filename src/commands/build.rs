@@ -15,7 +15,7 @@ use miette::Result;
 
 use crate::bounds_migration;
 use crate::changes;
-use crate::commands::generate::generator_registry;
+use crate::commands::generation::generator_registry;
 use crate::commands::{core_err, ensure_project};
 use crate::lang_targets;
 use crate::ui;

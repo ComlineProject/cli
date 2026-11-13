@@ -116,7 +116,7 @@ fn generated_files_for(work_dir: &Path, target: Option<&str>) -> Result<Vec<Path
         None => Vec::new(),
     };
 
-    let registry = super::generate::generator_registry();
+    let registry = super::generation::generator_registry();
     let mut files = Vec::new();
     for t in &targets {
         // A dedicated output directory: remove it wholesale (stale files too).

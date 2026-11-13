@@ -11,7 +11,7 @@ pub mod conformance;
 pub mod diff;
 pub mod doc;
 pub mod fix;
-pub mod generate;
+pub mod generation;
 pub mod inspect;
 pub mod list;
 pub mod new;

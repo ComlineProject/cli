@@ -13,6 +13,15 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use crate::commands::{core_err, ensure_project};
+use crate::external::{self, External};
+use crate::gen_config::Destination;
+use crate::lang_targets::{self, TargetError};
+use crate::{history, ui, watch};
+
+use comline_codegen::config::{
+    self as gen_config, ComlineToml, DeclaredLang, Overrides, VersionSpec,
+};
 use comline_codegen::protocol::{Description, TargetLanguage};
 use comline_codegen::versions::LangVersion;
 use comline_codegen::{
@@ -24,15 +33,6 @@ use comline_core::schema::idl::constants::SCHEMA_EXTENSION;
 use comline_core::schema::ir::frozen::unit::{schema_namespace_as_path, FrozenUnit};
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
 
-use crate::commands::{core_err, ensure_project};
-use crate::external::{self, External};
-use crate::gen_config::Destination;
-use crate::lang_targets::{self, TargetError};
-use crate::{history, ui, watch};
-use comline_codegen::config::{
-    self as gen_config, ComlineToml, DeclaredLang, Overrides, VersionSpec,
-};
-
 /// The generator registry, composed from the per-language `comline-codegen-*`
 /// crates this CLI was built with — one `register()` per crate, each behind its
 /// `gen-<lang>` cargo feature (both on by default). A build without a feature
@@ -40,10 +40,13 @@ use comline_codegen::config::{
 pub(crate) fn generator_registry() -> Registry {
     #[allow(unused_mut)]
     let mut registry = Registry::new();
+
     #[cfg(feature = "gen-rust")]
     comline_codegen_rust::register(&mut registry);
+
     #[cfg(feature = "gen-typescript")]
     comline_codegen_typescript::register(&mut registry);
+
     registry
 }
 
@@ -69,9 +72,11 @@ pub fn run(
 struct GenVersion {
     package_version: String,
     schemas: Vec<(String, Vec<FrozenUnit>)>, // (namespace path, frozen units)
+
     /// The version's own `wire.format`: a built version keeps the format it
     /// was built with.
     wire_format: String,
+
     /// Where its facts come from (`comline_core::compat`), for a package that
     /// needs them: a built version's, or the working tree's.
     facts: FactsSource,
@@ -81,6 +86,7 @@ struct GenVersion {
 enum FactsSource {
     /// This commit's.
     Commit(comline_core::package::build::cas::storage::Hash),
+
     /// The working tree's, as its next build would record them.
     WorkingTree,
 }
@@ -101,7 +107,9 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
 
     let spinner = ui::spinner("validating schemas");
     let context = build::compile_package(work_dir);
+
     ui::finish_spinner(spinner);
+
     let context = context.map_err(|e| core_err("code generation failed", e))?;
     for warning in context.rendered_warnings() {
         ui::warn(warning);
@@ -566,6 +574,7 @@ fn gen_version_from_commit(
             (ns, units)
         })
         .collect();
+
     let config = history::load_config(store, commit)?;
     Ok(GenVersion {
         package_version: version.to_owned(),
@@ -603,10 +612,12 @@ fn facts_for(
     }
     .map_err(|e| miette!("working out the package's facts: {e:#}"))?;
     // The same fields under the same names: the generator protocol's mirror.
+
     let facts = serde_json::to_value(&facts)
         .and_then(serde_json::from_value)
         .into_diagnostic()
         .wrap_err("the package's facts")?;
+
     Ok(Some(facts))
 }
 
@@ -619,10 +630,12 @@ fn warn_async_unused(language: &str, request: &GenerateRequest) {
     if !request.async_api {
         return;
     }
+
     let uses = features::used(&request.schemas, &features::Options::of(request));
     if uses.iter().any(|u| u.feature == features::Feature::Async) {
         return;
     }
+
     ui::warn(format!(
         "`{language}`: `async = true`, but no protocol runs on a connection, so the output \
          is the same as without it - every protocol here is lockstep: on the `datagram` \
@@ -657,9 +670,11 @@ fn note_no_connection_protocols(language: &str, request: &GenerateRequest) {
             }
         }
     }
+
     if framings.is_empty() {
         return;
     }
+
     let framings: Vec<String> = framings
         .into_iter()
         .map(|f| match f.as_str() {
@@ -669,6 +684,7 @@ fn note_no_connection_protocols(language: &str, request: &GenerateRequest) {
             _ => format!("`{f}`"),
         })
         .collect();
+
     let page = match language {
         "rust" => " (https://comlineproject.github.io/docs/languages/rust/connections/#when-theyre-generated)",
         "typescript" => {
@@ -676,6 +692,7 @@ fn note_no_connection_protocols(language: &str, request: &GenerateRequest) {
         }
         _ => "",
     };
+
     ui::note(format!(
         "`{language}`: no package `Services` / `serve` / `connect` - every protocol is \
          server-provided on {}, and none is on a connection{page}",
@@ -695,24 +712,30 @@ fn warn_ignored(language: &str, request: &GenerateRequest, resolved: &Resolved) 
             ignored.entry(u.feature).or_default().push(u);
         }
     }
+
     for (feature, uses) in ignored {
         let s = resolved.support(feature);
         let mut message = format!("`{language}` ignores {}", feature.title());
+
         if let Some(note) = s.note {
             message.push_str(&format!(": {note}"));
         }
+
         if let Some(tracking) = s.tracking {
             message.push_str(&format!(" ({tracking})"));
         }
+
         let first = uses[0];
         let place = match first.namespace.is_empty() {
             true => first.owner.clone(),
             false => format!("schema '{}', {}", first.namespace, first.owner),
         };
+
         message.push_str(&format!(" - used by {place}"));
         if uses.len() > 1 {
             message.push_str(&format!(" and {} more", uses.len() - 1));
         }
+
         ui::warn(message);
     }
 }

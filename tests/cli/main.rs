@@ -2,7 +2,7 @@
 //!
 //! Shared helpers live in [`util`]. Cargo compiles this directory as a single
 //! test target (`tests/cli/main.rs`), so `cargo test` runs the whole suite and
-//! `cargo test <module>::` scopes to one area (e.g. `cargo test generate::`).
+//! `cargo test <module>::` scopes to one area (e.g. `cargo test generation::`).
 
 mod util;
 
@@ -16,7 +16,7 @@ mod diff;
 mod doc;
 mod end_to_end;
 mod external;
-mod generate;
+mod generation;
 mod global;
 mod inspect;
 mod list;

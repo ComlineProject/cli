@@ -5,6 +5,8 @@
 
 use std::path::Path;
 
+use crate::error::CliError;
+
 use comline_core::package::build::cas::object_store::CURRENT_IR_FORMAT_VERSION;
 use comline_core::package::build::cas::objects::{Commit, EntryMode, Tree};
 use comline_core::package::build::cas::storage::Hash;
@@ -14,8 +16,6 @@ use comline_core::package::config::ir::frozen::FrozenUnit as ConfigUnit;
 use comline_core::schema::ir::frozen::cas::blob::load_schema_from_tree;
 use comline_core::schema::ir::frozen::unit::FrozenUnit;
 use miette::Result;
-
-use crate::error::CliError;
 
 /// One commit in the chain, with its object hash.
 pub struct Entry {
@@ -172,5 +172,6 @@ pub fn load_schemas(store: &ObjectStore, commit: &Commit) -> Result<Vec<Vec<Froz
             .map_err(|e| miette::miette!("failed to load schema `{}`: {e:#}", entry.name))?;
         schemas.push(units);
     }
+
     Ok(schemas)
 }
