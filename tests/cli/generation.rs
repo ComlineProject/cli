@@ -319,7 +319,7 @@ fn protocols_on_no_connection_say_why_there_is_no_package_serve() {
         ))
         // The framing's title in the catalog, and why it's lockstep.
         .stderr(predicate::str::contains(
-            "every protocol is server-provided on datagram (its frames go one way",
+            "every protocol is server-provided on datagram@1 (its frames go one way",
         ))
         .stderr(predicate::str::contains(
             "(https://comlineproject.github.io/docs/languages/rust/connections/#when-theyre-generated)",
@@ -1023,7 +1023,7 @@ fn async_without_a_connection_protocol_warns() {
         .success()
         .stderr(predicate::str::contains(warning))
         .stderr(predicate::str::contains(
-            "every protocol here is lockstep: on datagram (its frames go one way",
+            "every protocol here is lockstep: on datagram@1 (its frames go one way",
         ));
 
     // The same on JSON-RPC, whose frames don't name the protocol.
