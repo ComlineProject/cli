@@ -22,6 +22,7 @@ use crate::{history, ui, watch};
 use comline_codegen::config::{
     self as gen_config, ComlineToml, DeclaredLang, Overrides, VersionSpec,
 };
+use comline_codegen::docs::{self, Topic};
 use comline_codegen::protocol::{Description, TargetLanguage};
 use comline_codegen::versions::LangVersion;
 use comline_codegen::{
@@ -212,7 +213,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
             ));
         }
 
-        let (source, ext) = match &t.generator {
+        let (source, ext, connections_doc) = match &t.generator {
             Some(path) => {
                 let (generator, description) = externals.get(path, t.timeout)?;
                 let info =
@@ -232,7 +233,9 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
                     }
                 }
                 let ext = info.ext.clone();
-                (Source::External(generator), ext)
+                // The page the generator itself names for its connections.
+                let connections_doc = info.doc(Topic::Connections).map(str::to_owned);
+                (Source::External(generator), ext, connections_doc)
             }
             None => {
                 // Reached for every language the congregation declares now, not only
@@ -266,7 +269,9 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
                     Err(error) => return Err(miette!("target `{}`: {error}", t.language)),
                 }
                 let ext = resolved.generator.ext.to_string();
-                (Source::Builtin(resolved), ext)
+                let connections_doc =
+                    docs::link(resolved.generator.docs, Topic::Connections).map(str::to_owned);
+                (Source::Builtin(resolved), ext, connections_doc)
             }
         };
 
@@ -368,7 +373,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
                 warn_ignored(&t.language, &request, resolved);
             }
             warn_async_unused(&t.language, &request);
-            warn_no_package_connection(&t.language, &request);
+            warn_no_package_connection(&t.language, &request, connections_doc.as_deref());
             // Both kinds answer the same protocol request, and either
             // response is checked whole - every path, the total size -
             // before anything below writes a file.
@@ -647,21 +652,30 @@ fn warn_async_unused(language: &str, request: &GenerateRequest) {
 /// The package's `serve` / `connect` need its protocols on one connection;
 /// when they disagree on the framing or handshake, the generators leave them
 /// out, which would otherwise look like they forgot.
-fn warn_no_package_connection(language: &str, request: &GenerateRequest) {
+fn warn_no_package_connection(
+    language: &str,
+    request: &GenerateRequest,
+    connections_doc: Option<&str>,
+) {
     match connections::package_connection(&request.schemas) {
         Err(reason) => ui::warn(format!(
             "`{language}`: no package `serve` / `connect` - {reason}; each protocol still has \
              its own"
         )),
-        Ok(None) => note_no_connection_protocols(language, request),
+        Ok(None) => note_no_connection_protocols(language, request, connections_doc),
         Ok(Some(_)) => {}
     }
 }
 
 /// The silent case: protocols are declared, but none is on a connection, so
 /// there is no `Services` / `serve` to look for. A package with no protocols
-/// has nothing to serve and gets no note.
-fn note_no_connection_protocols(language: &str, request: &GenerateRequest) {
+/// has nothing to serve and gets no note. `connections_doc` is the generator's
+/// own page on connections, which the note links to when it has one.
+fn note_no_connection_protocols(
+    language: &str,
+    request: &GenerateRequest,
+    connections_doc: Option<&str>,
+) {
     let mut framings = std::collections::BTreeSet::new();
     for (_, units) in &request.schemas {
         for unit in units {
@@ -685,13 +699,9 @@ fn note_no_connection_protocols(language: &str, request: &GenerateRequest) {
         })
         .collect();
 
-    let page = match language {
-        "rust" => " (https://comlineproject.github.io/docs/languages/rust/connections/#when-theyre-generated)",
-        "typescript" => {
-            " (https://comlineproject.github.io/docs/languages/typescript/connections/#when-theyre-generated)"
-        }
-        _ => "",
-    };
+    let page = connections_doc
+        .map(|url| format!(" ({url})"))
+        .unwrap_or_default();
 
     ui::note(format!(
         "`{language}`: no package `Services` / `serve` / `connect` - every protocol is \

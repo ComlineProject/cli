@@ -1,9 +1,11 @@
-//! A generator that misbehaves, one way per name: the tests copy it to
+//! A generator that misbehaves, one way per name (`docs` and `plain` behave): the tests copy it to
 //! `<mode>.wasm` or `<mode>` and the mode is `argv[0]`'s file stem, since a
 //! generator gets no other arguments and no environment.
 
+use std::collections::BTreeMap;
 use std::io::{Read, Write};
 
+use comline_codegen::docs::Topic;
 use comline_codegen::protocol::{
     decode, encode, Description, FileOut, Generated, LanguageInfo, Request, RequestBody, Response,
     VersionsInfo, IR_FORMAT, PROTOCOL_VERSION,
@@ -44,6 +46,15 @@ fn describe(mode: &str) -> Response {
                 forward_compatible: true,
             },
             support: vec![],
+            // `docs` names a page for the topics the CLI links to.
+            docs: if mode == "docs" {
+                BTreeMap::from([(
+                    Topic::Connections.id().to_string(),
+                    "https://hostile.example/connections#generated".to_string(),
+                )])
+            } else {
+                BTreeMap::new()
+            },
         }],
         protocols: (protocol, protocol),
         ir_formats: vec![IR_FORMAT],
@@ -67,6 +78,9 @@ fn files(paths: &[&str]) -> Response {
 fn generate(mode: &str) -> Response {
     match mode {
         // A good file first: nothing at all may be written.
+        // Well-behaved: the same one file, with a docs entry (`docs`) or
+        // without (`plain`).
+        "docs" | "plain" => files(&["api.rs"]),
         "dotdot" => files(&["api.rs", "../escape.rs"]),
         "absolute" => files(&["api.rs", "/tmp/comline-hostile-absolute.rs"]),
         "oversized" => {

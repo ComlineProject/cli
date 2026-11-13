@@ -24,6 +24,26 @@ pub fn fixture_project(temp: &Path) -> PathBuf {
     copy_fixture("simple_project", temp)
 }
 
+/// Appends `line` to the project's `config.idp`.
+pub fn add_to_config(project: &Path, line: &str) {
+    let path = project.join("config.idp");
+    let config = fs::read_to_string(&path).unwrap();
+    fs::write(&path, format!("{config}\n{line}\n")).unwrap();
+}
+
+/// The fixture with a protocol that is on no connection (lockstep on the
+/// `datagram` framing), so the package has no `serve` and generating says why.
+pub fn lockstep_project(temp: &Path) -> PathBuf {
+    let project = fixture_project(temp);
+    add_to_config(&project, "wire = { framing = \"datagram\" }");
+    fs::write(
+        project.join("src/link.ids"),
+        "protocol Link {\n    function send(n: u32) -> u32;\n}\n",
+    )
+    .unwrap();
+    project
+}
+
 /// Like [`fixture_project`] for an arbitrary fixture under `tests/fixtures/`.
 pub fn copy_fixture(name: &str, temp: &Path) -> PathBuf {
     let dest = temp.join("proj");
