@@ -104,6 +104,7 @@ pub fn run(
             ui::group(format!("In dependency `{}`:", dependency.name));
             changes::render(&dependency.changes);
         }
+        changes::render_unseen(&changes.unseen);
     }
     let record = &released.record;
     if record.stable {
