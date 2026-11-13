@@ -249,8 +249,8 @@ pub fn check_declared(context: &ProjectContext, registry: &Registry) -> eyre::Re
 
     // JSON-RPC protocols on one connection whose bare method names a side
     // couldn't tell apart: no generator can emit them.
-    for clash in comline_codegen::connections::bare_name_clashes(&schemas, &framings) {
-        problems.push(format!("every target: {clash}"));
+    for clash in comline_codegen::checks::method_name_clashes(&schemas, &framings) {
+        problems.push(format!("every target: {}", clash.message));
     }
 
     if problems.is_empty() {
