@@ -14,7 +14,7 @@ use comline_codegen::features::{self, Column, Feature};
 use comline_codegen::versions::Versions;
 use miette::{IntoDiagnostic, Result};
 
-use crate::commands::generate::generator_registry;
+use crate::commands::generation::generator_registry;
 
 pub fn run(with_features: bool, json: bool) -> Result<()> {
     let registry = generator_registry();

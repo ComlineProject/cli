@@ -203,13 +203,6 @@ fn rejects_an_unconfigured_target() {
 
 // -------- lib mode --------
 
-/// Appends `line` to the project's `config.idp`.
-fn add_to_config(project: &std::path::Path, line: &str) {
-    let path = project.join("config.idp");
-    let config = fs::read_to_string(&path).unwrap();
-    fs::write(&path, format!("{config}\n{line}\n")).unwrap();
-}
-
 #[test]
 fn config_idp_wire_framing_reaches_the_rust_generator() {
     let temp = tempfile::tempdir().unwrap();
@@ -314,13 +307,7 @@ fn protocols_on_different_framings_get_no_package_serve() {
 #[test]
 fn protocols_on_no_connection_say_why_there_is_no_package_serve() {
     let temp = tempfile::tempdir().unwrap();
-    let project = fixture_project(temp.path());
-    add_to_config(&project, "wire = { framing = \"datagram\" }");
-    fs::write(
-        project.join("src/link.ids"),
-        "protocol Link {\n    function send(n: u32) -> u32;\n}\n",
-    )
-    .unwrap();
+    let project = lockstep_project(temp.path());
 
     comline_cmd()
         .current_dir(&project)
@@ -333,8 +320,40 @@ fn protocols_on_no_connection_say_why_there_is_no_package_serve() {
         .stderr(predicate::str::contains(
             "every protocol is server-provided on `datagram@1`",
         ))
-        .stderr(predicate::str::contains("#when-theyre-generated"));
+        .stderr(predicate::str::contains(
+            "(https://comlineproject.github.io/docs/languages/rust/connections/#when-theyre-generated)",
+        ));
     assert!(!project.join("generated/rust/connection.rs").exists());
+}
+
+/// The TypeScript generator names its own page too: the link comes from the
+/// generator, not from the language's name.
+#[test]
+fn the_typescript_generator_links_its_own_connections_page() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = lockstep_project(temp.path());
+    let config = project.join("config.idp");
+    let idp = fs::read_to_string(&config).unwrap();
+    fs::write(
+        &config,
+        idp.replace(
+            "rust#1.85.0 = {}",
+            "rust#1.85.0 = {}\n        typescript#5.0 = {}",
+        ),
+    )
+    .unwrap();
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["generation", "--target", "typescript"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "no package `Services` / `serve` / `connect`",
+        ))
+        .stderr(predicate::str::contains(
+            "(https://comlineproject.github.io/docs/languages/typescript/connections/#when-theyre-generated)",
+        ));
 }
 
 /// No protocols at all: nothing to serve, so nothing is said.

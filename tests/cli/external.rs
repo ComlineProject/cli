@@ -361,3 +361,52 @@ fn a_generator_that_offers_no_renderer_is_refused_as_one() {
             "doesn't render `markdown`; it offers none",
         ));
 }
+
+/// The note that a package has no connection links to the page the external
+/// generator's own description names for connections.
+#[test]
+fn an_external_generators_connections_link_is_shown() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = lockstep_project(temp.path());
+    let file = install(&project, Kind::Native, "hostile", "docs");
+    fs::write(
+        project.join("comline.toml"),
+        format!("[[generate.target]]\nlanguage = \"rust\"\ngenerator = \"{file}\"\n"),
+    )
+    .unwrap();
+    comline_cmd()
+        .current_dir(&project)
+        .arg("generation")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "no package `Services` / `serve` / `connect`",
+        ))
+        .stderr(predicate::str::contains(
+            "(https://hostile.example/connections#generated)",
+        ));
+}
+
+/// A generator that names no connections page gets the note without a link,
+/// whatever its language is called.
+#[test]
+fn an_external_generator_without_a_connections_link_gets_none() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = lockstep_project(temp.path());
+    let file = install(&project, Kind::Native, "hostile", "plain");
+    fs::write(
+        project.join("comline.toml"),
+        format!("[[generate.target]]\nlanguage = \"rust\"\ngenerator = \"{file}\"\n"),
+    )
+    .unwrap();
+    let output = comline_cmd()
+        .current_dir(&project)
+        .arg("generation")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("and none is on a connection"))
+        .get_output()
+        .clone();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!stderr.contains("http"), "{stderr}");
+}

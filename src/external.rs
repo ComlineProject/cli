@@ -36,13 +36,17 @@ use miette::{miette, Result};
 /// How long one call to a generator may take, unless the target sets
 /// `timeout` (in seconds).
 pub const DEFAULT_TIMEOUT: Duration = comline_codegen::config::DEFAULT_TIMEOUT;
+
 /// The most a generator may write to stdout: one encoded response.
 pub const STDOUT_CAP: usize = 256 * 1024 * 1024;
+
 /// The most generated file contents one response may carry, all files
 /// together.
 pub const GENERATED_CAP: usize = 256 * 1024 * 1024;
+
 /// The most of a generator's stderr that's shown; the rest is dropped.
 pub const STDERR_CAP: usize = 64 * 1024;
+
 /// The most linear memory a `.wasm` generator may grow to.
 #[cfg(feature = "gen-wasm")]
 pub const WASM_MEMORY: usize = 1024 * 1024 * 1024;

@@ -5,7 +5,7 @@ use std::process::Command;
 
 use miette::{IntoDiagnostic, Result, WrapErr};
 
-use crate::commands::generate::generator_registry;
+use crate::commands::generation::generator_registry;
 use crate::ui;
 
 const GREETING_IDS: &str = "\

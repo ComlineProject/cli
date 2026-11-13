@@ -173,7 +173,7 @@ fn run(cli: Cli) -> Result<()> {
                     .or(no_external_std.then_some(false)),
                 validate_on_decode: validate_on_decode.as_deref(),
             };
-            commands::generate::run(&work_dir, &overrides, dry_run, list, watch)
+            commands::generation::run(&work_dir, &overrides, dry_run, list, watch)
         }
         Commands::Diff { old, new } => commands::diff::run(&work_dir, &old, &new),
         Commands::Reset { force, dry_run } => commands::reset::run(&work_dir, force, dry_run),
