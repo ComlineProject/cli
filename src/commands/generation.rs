@@ -628,9 +628,10 @@ fn facts_for(
 
 /// `async = true` changes only protocols on a connection; with none, the
 /// output is the same as without it, which looks like the setting did nothing.
-/// Every protocol is on one by default, so that's a package whose protocols
-/// are all lockstep: on the `datagram` framing, or on JSON-RPC with none of
-/// them client-provided.
+/// A protocol is on one by default when its framing's frames go both ways and
+/// name the protocol, so that's a package whose protocols are all lockstep:
+/// each on a framing that keeps it off a connection
+/// ([`connections::why_lockstep`]), which the warning names.
 fn warn_async_unused(language: &str, request: &GenerateRequest) {
     if !request.async_api {
         return;
@@ -641,12 +642,63 @@ fn warn_async_unused(language: &str, request: &GenerateRequest) {
         return;
     }
 
+    let lockstep: Vec<String> = framings_in_use(request)
+        .iter()
+        .filter_map(|framing| lockstep_description(framing))
+        .collect();
+
+    let why = if lockstep.is_empty() {
+        "the package has no protocols".to_owned()
+    } else {
+        format!(
+            "every protocol here is lockstep: on {}",
+            lockstep.join(" or ")
+        )
+    };
+
     ui::warn(format!(
         "`{language}`: `async = true`, but no protocol runs on a connection, so the output \
-         is the same as without it - every protocol here is lockstep: on the `datagram` \
-         framing (the default, `datagram@3`, is a connection), or on JSON-RPC with none of \
-         the package's JSON-RPC protocols client-provided"
+         is the same as without it - {why}"
     ));
+}
+
+/// The framings the package's protocols are on, canonical (`jsonrpc`,
+/// `datagram@2`, `com.acme.lines@1`), once each.
+fn framings_in_use(request: &GenerateRequest) -> std::collections::BTreeSet<String> {
+    let mut framings = std::collections::BTreeSet::new();
+    for (_, units) in &request.schemas {
+        for unit in units {
+            if let FrozenUnit::Protocol { parameters, .. } = unit {
+                framings.insert(connections::framing_name(parameters));
+            }
+        }
+    }
+
+    framings
+}
+
+/// A framing for a message about protocols that aren't on a connection: its
+/// title, and why its protocols stay off one unless the client provides
+/// them. `None` for a framing that has no such reason (its frames go both
+/// ways and name the protocol), where a protocol is on a connection already.
+fn lockstep_description(framing: &str) -> Option<String> {
+    let reason = match connections::why_lockstep(framing)? {
+        connections::Lockstep::OneDirection => {
+            "its frames go one way, so the server can't call the client"
+        }
+        connections::Lockstep::UnnamedServerProvided => {
+            "its frames don't name the protocol, and none of its protocols is client-provided"
+        }
+        connections::Lockstep::Unknown => {
+            "a framing of the package's own: a protocol on it is on a connection only when \
+             the client provides it"
+        }
+    };
+
+    Some(format!(
+        "{} ({reason})",
+        connections::framing_title(framing)
+    ))
 }
 
 /// The package's `serve` / `connect` need its protocols on one connection;
@@ -676,27 +728,17 @@ fn note_no_connection_protocols(
     request: &GenerateRequest,
     connections_doc: Option<&str>,
 ) {
-    let mut framings = std::collections::BTreeSet::new();
-    for (_, units) in &request.schemas {
-        for unit in units {
-            if let FrozenUnit::Protocol { parameters, .. } = unit {
-                framings.insert(connections::framing_name(parameters));
-            }
-        }
-    }
+    let framings = framings_in_use(request);
 
     if framings.is_empty() {
         return;
     }
 
+    // Each framing's title and why it keeps its protocols off a connection;
+    // one with no such reason (not expected here) is just its title.
     let framings: Vec<String> = framings
-        .into_iter()
-        .map(|f| match f.as_str() {
-            "jsonrpc" => "JSON-RPC (with none of its protocols client-provided)".to_owned(),
-            // Canonical, `datagram` is the lockstep `datagram@1`.
-            "datagram" => "`datagram@1`".to_owned(),
-            _ => format!("`{f}`"),
-        })
+        .iter()
+        .map(|f| lockstep_description(f).unwrap_or_else(|| connections::framing_title(f)))
         .collect();
 
     let page = connections_doc
