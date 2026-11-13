@@ -504,13 +504,13 @@ dependencies = [
 
 [[package]]
 name = "comline-catalog"
-version = "0.10.0"
-source = "git+https://github.com/ComlineProject/runtime?rev=3b9cc9dc53a83fb2830d91b267bd5f477f0a1e51#3b9cc9dc53a83fb2830d91b267bd5f477f0a1e51"
+version = "0.11.0"
+source = "git+https://github.com/ComlineProject/specification?rev=69882e92971e243b6b74a539a13b534d95b3abf7#69882e92971e243b6b74a539a13b534d95b3abf7"
 
 [[package]]
 name = "comline-catalog"
 version = "0.11.0"
-source = "git+https://github.com/ComlineProject/specification?rev=69882e92971e243b6b74a539a13b534d95b3abf7#69882e92971e243b6b74a539a13b534d95b3abf7"
+source = "git+https://github.com/ComlineProject/runtime?rev=8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d#8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d"
 
 [[package]]
 name = "comline-codegen"
@@ -555,7 +555,7 @@ dependencies = [
  "blake3",
  "chumsky",
  "ciborium",
- "comline-catalog 0.11.0",
+ "comline-catalog 0.11.0 (git+https://github.com/ComlineProject/specification?rev=69882e92971e243b6b74a539a13b534d95b3abf7)",
  "comline-core-stdlib",
  "downcast-rs",
  "eyre",
@@ -606,7 +606,7 @@ dependencies = [
 [[package]]
 name = "comline-runtime"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/runtime?rev=3b9cc9dc53a83fb2830d91b267bd5f477f0a1e51#3b9cc9dc53a83fb2830d91b267bd5f477f0a1e51"
+source = "git+https://github.com/ComlineProject/runtime?rev=8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d#8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d"
 dependencies = [
  "bytemuck",
  "rmp",
@@ -618,9 +618,9 @@ dependencies = [
 [[package]]
 name = "comline-runtime-conformance"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/runtime?rev=3b9cc9dc53a83fb2830d91b267bd5f477f0a1e51#3b9cc9dc53a83fb2830d91b267bd5f477f0a1e51"
+source = "git+https://github.com/ComlineProject/runtime?rev=8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d#8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d"
 dependencies = [
- "comline-catalog 0.10.0",
+ "comline-catalog 0.11.0 (git+https://github.com/ComlineProject/runtime?rev=8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d)",
  "comline-runtime",
  "serde",
  "serde_json",
