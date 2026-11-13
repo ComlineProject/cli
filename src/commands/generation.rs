@@ -615,7 +615,7 @@ fn facts_for(
         }
         FactsSource::WorkingTree => comline_core::compat::facts_of_working_tree(work_dir, context),
     }
-    .map_err(|e| miette!("working out the package's facts: {e:#}"))?;
+    .map_err(|e| crate::error::from_core("working out the package's facts", e))?;
     // The same fields under the same names: the generator protocol's mirror.
 
     let facts = serde_json::to_value(&facts)

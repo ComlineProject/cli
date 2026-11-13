@@ -7,6 +7,7 @@
 
 use std::path::Path;
 
+use comline_core::package::build::cas::object_store::StoreError;
 use comline_core::package::build::cas::objects::Commit;
 use comline_core::package::build::cas::reconcile::{self, Heads};
 use comline_core::package::build::cas::{main_ref, read_ref, ref_exists, Hash, ObjectStore};
@@ -17,6 +18,7 @@ use crate::bounds_migration;
 use crate::changes;
 use crate::commands::generation::generator_registry;
 use crate::commands::{core_err, ensure_project};
+use crate::error;
 use crate::lang_targets;
 use crate::ui;
 use crate::watch;
@@ -116,6 +118,11 @@ fn build_once(work_dir: &Path, offer_migration: bool) -> Result<()> {
 
     let result = match result {
         Ok(result) => result,
+        // A store core refuses (another IR format, no stamp) is a
+        // precondition, reported as core words it, with nothing written.
+        Err(e) if e.downcast_ref::<StoreError>().is_some() => {
+            return Err(error::from_core("build failed", e));
+        }
         Err(e) => {
             let detail = format!("{e:#}");
             let unbounded = bounds_migration::Unbounded::of(&detail);

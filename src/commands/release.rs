@@ -18,8 +18,8 @@ use miette::{IntoDiagnostic, Result};
 
 use crate::changes;
 use crate::cli::ReleaseLevel as Level;
-use crate::commands::{core_err, ensure_project};
-use crate::error::CliError;
+use crate::commands::ensure_project;
+use crate::error::{self, CliError};
 use crate::history;
 use crate::ui;
 
@@ -39,8 +39,9 @@ pub fn run(
     yes: bool,
 ) -> Result<()> {
     ensure_project(work_dir)?;
-    // `build` below would rebuild a mismatched store, dropping its history;
-    // a release is made on top of that history, so refuse instead.
+    // A store this comline can't read is refused here, before anything is
+    // built: `build` below refuses it too (core never rewrites a mismatched
+    // store), but a release is made on top of the history, so say so first.
     history::ensure_readable(work_dir)?;
     let stable = match version {
         None => false,
@@ -62,7 +63,7 @@ pub fn run(
     let spinner = ui::spinner("compiling schemas");
     let built = build::build(work_dir);
     ui::finish_spinner(spinner);
-    let built = built.map_err(|e| core_err("build failed", e))?;
+    let built = built.map_err(|e| error::from_core("build failed", e))?;
     for warning in built.context.rendered_warnings() {
         ui::warn(warning);
     }
@@ -90,7 +91,7 @@ pub fn run(
         stable,
     };
     let released =
-        build::release(work_dir, &request).map_err(|e| core_err("couldn't release", e))?;
+        build::release(work_dir, &request).map_err(|e| error::from_core("couldn't release", e))?;
 
     ui::success(format!("Released {}", released.version));
     match &released.previous_release {
