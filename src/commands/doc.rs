@@ -52,7 +52,8 @@ use comline_core::doc::{self, ChangelogSpan, DocModel, FrozenDocs, DOC_MODEL_VER
 use comline_core::package::build::cas::objects::{Commit, Tree};
 use comline_core::package::build::cas::refs;
 use comline_core::package::build::cas::storage::Hash;
-use comline_core::package::config::ir::frozen::FrozenUnit as ConfigUnit;
+use comline_core::package::config::ir::context::ProjectContext;
+use comline_core::package::config::ir::frozen::cas::blob::StoredConfigs;
 use comline_core::schema::ir::frozen::unit::FrozenUnit;
 use miette::{miette, IntoDiagnostic, Result, WrapErr};
 use serde::{Deserialize, Serialize};
@@ -96,8 +97,9 @@ struct Version {
     model: DocModel,
     /// Its own frozen schemas: not its dependencies' or `std`'s.
     schemas: Vec<Vec<FrozenUnit>>,
-    /// Its frozen config, whose `wire` its changelogs are measured under.
-    config: Vec<ConfigUnit>,
+    /// Its frozen configs, own and its dependencies': the `wire` and the
+    /// encodings its changelogs are measured under.
+    configs: StoredConfigs,
     /// The commits its changelogs are computed from, for the cache key.
     changelog_from: Vec<Hash>,
     /// What its documentation lacks.
@@ -217,12 +219,12 @@ pub fn run(work_dir: &Path, flags: Flags) -> Result<()> {
             let commit = history::resolve(&history, from)?;
             let store = history::open_store(work_dir)?;
             let old = history::load_schemas(&store, commit)?;
-            let old_config = history::load_config(&store, commit)?;
-            version.model.changelog.push(doc::changelog(
+            let old_configs = history::load_stored_configs(&store, commit)?;
+            version.model.changelog.push(changelog(
                 &commit.version,
-                (&old, &old_config),
+                (&old, &old_configs),
                 &version.id,
-                (&version.schemas, &version.config),
+                (&version.schemas, &version.configs),
             ));
         }
         let first = document_one(&out, &formats, &renderers, &cfg, version)?;
@@ -616,7 +618,7 @@ fn every_version(work_dir: &Path, select: Option<&DocVersions>) -> Result<Vec<Ve
             commit: None,
             model: doc::model(&context, None),
             schemas,
-            config: doc::frozen_config(&context),
+            configs: compiled_configs(&context),
             changelog_from: vec![],
             notes: vec![],
         });
@@ -639,11 +641,11 @@ fn every_version(work_dir: &Path, select: Option<&DocVersions>) -> Result<Vec<Ve
             };
             if let Some(span) = span {
                 let release = &versions[r];
-                let mut log = doc::changelog(
+                let mut log = changelog(
                     &release.id,
-                    (&release.schemas, &release.config),
+                    (&release.schemas, &release.configs),
                     &version.id,
-                    (&version.schemas, &version.config),
+                    (&version.schemas, &version.configs),
                 );
                 log.span = span;
                 since_release[i] = Some((log, release.commit));
@@ -681,11 +683,11 @@ fn every_version(work_dir: &Path, select: Option<&DocVersions>) -> Result<Vec<Ve
     let mut out: Vec<Version> = Vec::with_capacity(versions.len());
     for (mut version, since) in versions {
         if let Some(previous) = out.last() {
-            let step = doc::changelog(
+            let step = changelog(
                 &previous.id,
-                (&previous.schemas, &previous.config),
+                (&previous.schemas, &previous.configs),
                 &version.id,
-                (&version.schemas, &version.config),
+                (&version.schemas, &version.configs),
             );
             version.model.changelog = vec![step];
             version.changelog_from.extend(previous.commit);
@@ -707,6 +709,33 @@ fn kind_of(version: &str) -> (VersionKind, String) {
     }
 }
 
+/// What a compiled package's changelogs are measured under: its own config and
+/// its dependencies', all of which a compile has.
+fn compiled_configs(context: &ProjectContext) -> StoredConfigs {
+    StoredConfigs {
+        own: doc::frozen_config(context),
+        own_stored: true,
+        dependencies: context.dependency_configs.clone(),
+        unstored: vec![],
+    }
+}
+
+/// What changed from one version to the next, each given as its frozen schemas
+/// and configs, the encodings read from the configs.
+fn changelog(
+    from: &str,
+    old: (&[Vec<FrozenUnit>], &StoredConfigs),
+    to: &str,
+    new: (&[Vec<FrozenUnit>], &StoredConfigs),
+) -> doc::Changelog {
+    doc::changelog(
+        from,
+        (old.0, &old.1.own, &old.1.encodings()),
+        to,
+        (new.0, &new.1.own, &new.1.encodings()),
+    )
+}
+
 /// `--version`'s one built version.
 fn frozen_version(work_dir: &Path, spec: &str) -> Result<Version> {
     let history = history::load(work_dir)?;
@@ -726,10 +755,10 @@ fn frozen(work_dir: &Path, hash: Hash, commit: &Commit) -> Result<(Version, Froz
     let store = history::open_store(work_dir)?;
     // Every compiled schema: the package's own, its dependencies' and std's.
     let all_schemas = history::load_schemas(&store, commit)?;
-    let config = history::load_config(&store, commit)?;
+    let configs = history::load_stored_configs(&store, commit)?;
     // A built version's config doesn't always freeze the package's name;
     // the working tree's is the same unless the package was renamed.
-    let name = comline_core::package::config::ir::frozen::namespace(&config)
+    let name = comline_core::package::config::ir::frozen::namespace(&configs.own)
         .map(str::to_string)
         .or_else(|| {
             comline_core::package::build::compile_package_without_fetching(work_dir)
@@ -791,7 +820,7 @@ fn frozen(work_dir: &Path, hash: Hash, commit: &Commit) -> Result<(Version, Froz
             commit: Some(hash),
             model,
             schemas,
-            config,
+            configs,
             changelog_from: vec![],
             notes,
         },
