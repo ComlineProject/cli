@@ -59,6 +59,33 @@ fn a_wrong_stamp_is_refused_by_every_read_command() {
     assert_eq!(fs::read_to_string(stamp(&project)).unwrap(), "1");
 }
 
+/// The store error carries help, which is printed after the message: what
+/// the refusal leaves the person to do.
+#[test]
+fn the_store_error_shows_its_help_after_the_message() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = built_project(temp.path());
+    fs::write(stamp(&project), "1").unwrap();
+
+    let output = comline_cmd()
+        .current_dir(&project)
+        .args(["--plain", "inspect"])
+        .assert()
+        .failure()
+        .code(2)
+        .get_output()
+        .clone();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let (message, help) = stderr
+        .split_once("\nhelp: ")
+        .unwrap_or_else(|| panic!("no help line in {stderr}"));
+    assert!(
+        message.starts_with("error: the version history"),
+        "{stderr}"
+    );
+    assert!(help.contains("`comline reset` deletes it"), "{stderr}");
+}
+
 #[test]
 fn a_missing_stamp_with_history_is_refused() {
     let temp = tempfile::tempdir().unwrap();
