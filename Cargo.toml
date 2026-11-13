@@ -55,7 +55,7 @@ opener = { version = "=0.9.0", default-features = false }
 # Runs a `generator = "<path>.wasm"` target (see src/external.rs): no
 # preopened directories, no environment, no network. Exact pins, bumped
 # together.
-wasmtime = { version = "=49.0.3", optional = true, default-features = false, features = ["cranelift", "runtime", "std"] }
+wasmtime = { version = "=50.0.1", optional = true, default-features = false, features = ["cranelift", "runtime", "std"] }
 wasmtime-wasi = { version = "=49.0.3", optional = true, default-features = false, features = ["p1"] }
 # Only for the `AsyncWrite` trait wasmtime-wasi's stdio streams implement.
 tokio = { version = "1", default-features = false, optional = true }
