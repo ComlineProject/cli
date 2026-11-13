@@ -9,7 +9,6 @@
 //! `compile_package` — no `.comline/` write, no version bump. `"all"` or an
 //! explicit list reads committed versions from the CAS chain instead.
 
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -26,8 +25,9 @@ use comline_codegen::docs::{self, Topic};
 use comline_codegen::protocol::{Description, TargetLanguage};
 use comline_codegen::versions::LangVersion;
 use comline_codegen::{
-    connections, features, GenerateRequest, Mode, PackageMeta, Registry, Resolved, Unresolved,
+    checks, features, GenerateRequest, Mode, PackageMeta, Registry, Resolved, Unresolved,
 };
+use comline_core::diagnostics::{Diagnostic, Severity};
 use comline_core::package::build::{self, cas::ObjectStore};
 use comline_core::package::config::ir::frozen::{self, FrozenUnit as ConfigUnit};
 use comline_core::schema::idl::constants::SCHEMA_EXTENSION;
@@ -369,11 +369,17 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
             // schema and a parent of deeper schemas), not source *text* -
             // they carry no span to render a snippet against, so there's
             // nothing for the multi-line branch there to do.
-            if let Source::Builtin(resolved) = &source {
-                warn_ignored(&t.language, &request, resolved);
+            // What there is to know about this target before it generates:
+            // what its generator ignores (a built-in one's table is the only
+            // one known here), an `async` that does nothing, and the
+            // package's connection.
+            let resolved = match &source {
+                Source::Builtin(resolved) => Some(resolved),
+                Source::External(_) => None,
+            };
+            for diagnostic in checks::generation(&request, resolved, connections_doc.as_deref()) {
+                report(&t.language, &diagnostic)?;
             }
-            warn_async_unused(&t.language, &request);
-            warn_no_package_connection(&t.language, &request, connections_doc.as_deref());
             // Both kinds answer the same protocol request, and either
             // response is checked whole - every path, the total size -
             // before anything below writes a file.
@@ -626,168 +632,24 @@ fn facts_for(
     Ok(Some(facts))
 }
 
-/// `async = true` changes only protocols on a connection; with none, the
-/// output is the same as without it, which looks like the setting did nothing.
-/// A protocol is on one by default when its framing's frames go both ways and
-/// name the protocol, so that's a package whose protocols are all lockstep:
-/// each on a framing that keeps it off a connection
-/// ([`connections::why_lockstep`]), which the warning names.
-fn warn_async_unused(language: &str, request: &GenerateRequest) {
-    if !request.async_api {
-        return;
-    }
-
-    let uses = features::used(&request.schemas, &features::Options::of(request));
-    if uses.iter().any(|u| u.feature == features::Feature::Async) {
-        return;
-    }
-
-    let lockstep: Vec<String> = framings_in_use(request)
-        .iter()
-        .filter_map(|framing| lockstep_description(framing))
-        .collect();
-
-    let why = if lockstep.is_empty() {
-        "the package has no protocols".to_owned()
-    } else {
-        format!(
-            "every protocol here is lockstep: on {}",
-            lockstep.join(" or ")
-        )
+/// Show one of generation's checks for the target `language`, as the severity
+/// its code has: a warning, a note, or an error that stops generation.
+///
+/// The messages are written for a reader who has the target named beside
+/// them, so this puts the language in front. The diagnostic's `unit` (where
+/// in the package it is) isn't shown yet; nothing here drops it before then.
+fn report(language: &str, diagnostic: &Diagnostic) -> Result<()> {
+    // The message of an ignored feature continues "ignores".
+    let message = match diagnostic.code.id == checks::IGNORED_FEATURE.id {
+        true => format!("`{language}` ignores {}", diagnostic.message),
+        false => format!("`{language}`: {}", diagnostic.message),
     };
 
-    ui::warn(format!(
-        "`{language}`: `async = true`, but no protocol runs on a connection, so the output \
-         is the same as without it - {why}"
-    ));
-}
-
-/// The framings the package's protocols are on, canonical (`jsonrpc`,
-/// `datagram@2`, `com.acme.lines@1`), once each.
-fn framings_in_use(request: &GenerateRequest) -> std::collections::BTreeSet<String> {
-    let mut framings = std::collections::BTreeSet::new();
-    for (_, units) in &request.schemas {
-        for unit in units {
-            if let FrozenUnit::Protocol { parameters, .. } = unit {
-                framings.insert(connections::framing_name(parameters));
-            }
-        }
+    match diagnostic.effective_severity() {
+        Severity::Error => return Err(miette!("{message}")),
+        Severity::Warning => ui::warn(message),
+        Severity::Info | Severity::Hint => ui::note(message),
     }
 
-    framings
-}
-
-/// A framing for a message about protocols that aren't on a connection: its
-/// title, and why its protocols stay off one unless the client provides
-/// them. `None` for a framing that has no such reason (its frames go both
-/// ways and name the protocol), where a protocol is on a connection already.
-fn lockstep_description(framing: &str) -> Option<String> {
-    let reason = match connections::why_lockstep(framing)? {
-        connections::Lockstep::OneDirection => {
-            "its frames go one way, so the server can't call the client"
-        }
-        connections::Lockstep::UnnamedServerProvided => {
-            "its frames don't name the protocol, and none of its protocols is client-provided"
-        }
-        connections::Lockstep::Unknown => {
-            "a framing of the package's own: a protocol on it is on a connection only when \
-             the client provides it"
-        }
-    };
-
-    Some(format!(
-        "{} ({reason})",
-        connections::framing_title(framing)
-    ))
-}
-
-/// The package's `serve` / `connect` need its protocols on one connection;
-/// when they disagree on the framing or handshake, the generators leave them
-/// out, which would otherwise look like they forgot.
-fn warn_no_package_connection(
-    language: &str,
-    request: &GenerateRequest,
-    connections_doc: Option<&str>,
-) {
-    match connections::package_connection(&request.schemas) {
-        Err(reason) => ui::warn(format!(
-            "`{language}`: no package `serve` / `connect` - {reason}; each protocol still has \
-             its own"
-        )),
-        Ok(None) => note_no_connection_protocols(language, request, connections_doc),
-        Ok(Some(_)) => {}
-    }
-}
-
-/// The silent case: protocols are declared, but none is on a connection, so
-/// there is no `Services` / `serve` to look for. A package with no protocols
-/// has nothing to serve and gets no note. `connections_doc` is the generator's
-/// own page on connections, which the note links to when it has one.
-fn note_no_connection_protocols(
-    language: &str,
-    request: &GenerateRequest,
-    connections_doc: Option<&str>,
-) {
-    let framings = framings_in_use(request);
-
-    if framings.is_empty() {
-        return;
-    }
-
-    // Each framing's title and why it keeps its protocols off a connection;
-    // one with no such reason (not expected here) is just its title.
-    let framings: Vec<String> = framings
-        .iter()
-        .map(|f| lockstep_description(f).unwrap_or_else(|| connections::framing_title(f)))
-        .collect();
-
-    let page = connections_doc
-        .map(|url| format!(" ({url})"))
-        .unwrap_or_default();
-
-    ui::note(format!(
-        "`{language}`: no package `Services` / `serve` / `connect` - every protocol is \
-         server-provided on {}, and none is on a connection{page}",
-        framings.join(" or ")
-    ));
-}
-
-/// A warning per feature `request` uses that this generator ignores - it
-/// generates, but without the feature (a TypeScript target with
-/// `@validators` gets the types, not the checks). An unsupported feature
-/// needs nothing here: the generator refuses it, naming every use.
-fn warn_ignored(language: &str, request: &GenerateRequest, resolved: &Resolved) {
-    let uses = features::used(&request.schemas, &features::Options::of(request));
-    let mut ignored: BTreeMap<features::Feature, Vec<&features::FeatureUse>> = BTreeMap::new();
-    for u in &uses {
-        if resolved.support(u.feature).state == features::State::Ignored {
-            ignored.entry(u.feature).or_default().push(u);
-        }
-    }
-
-    for (feature, uses) in ignored {
-        let s = resolved.support(feature);
-        let mut message = format!("`{language}` ignores {}", feature.title());
-
-        if let Some(note) = s.note {
-            message.push_str(&format!(": {note}"));
-        }
-
-        if let Some(tracking) = s.tracking {
-            message.push_str(&format!(" ({tracking})"));
-        }
-
-        let first = uses[0];
-        let place = match first.namespace.is_empty() {
-            true => first.owner.clone(),
-            false => format!("schema '{}', {}", first.namespace, first.owner),
-        };
-
-        message.push_str(&format!(" - used by {place}"));
-        if uses.len() > 1 {
-            message.push_str(&format!(" and {} more", uses.len() - 1));
-        }
-
-        ui::warn(message);
-    }
+    Ok(())
 }
