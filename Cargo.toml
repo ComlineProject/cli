@@ -59,8 +59,8 @@ comline-codegen = { git = "https://github.com/ComlineProject/generation", rev = 
 # `comline-codegen`.
 comline-doc-markdown = { git = "https://github.com/ComlineProject/generation", rev = "da81b688c949a0ebad4f213d6fdb648920cf641d" }
 comline-doc-html = { git = "https://github.com/ComlineProject/generation", rev = "da81b688c949a0ebad4f213d6fdb648920cf641d" }
-comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "df91e2e0a416cab594303f11d44a6555a72f891b", optional = true }
-comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "8d829be859feac26d775f4877f098fedc38fdd9f", optional = true }
+comline-codegen-rust = { git = "https://github.com/ComlineProject/comline-rust", rev = "6db2757b6d1e7df44df8c47adc8cad5bec1559c1", optional = true }
+comline-codegen-typescript = { git = "https://github.com/ComlineProject/comline-typescript", rev = "bcec31dd13320613bcc1dcb10dcbc72f9a1011f9", optional = true }
 # `comline conformance`: the conformance runner (corpus loading, judging,
 # profile proofs) and its case format, a public spec. Pinned by git rev.
 comline-runtime-conformance = { git = "https://github.com/ComlineProject/runtime", rev = "8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d" }
