@@ -476,7 +476,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "clap_mangen",
- "comline-codegen",
+ "comline-codegen 0.1.0 (git+https://github.com/ComlineProject/generation?rev=da81b688c949a0ebad4f213d6fdb648920cf641d)",
  "comline-codegen-rust",
  "comline-codegen-typescript",
  "comline-core",
@@ -527,11 +527,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "comline-codegen"
+version = "0.1.0"
+source = "git+https://github.com/ComlineProject/generation?rev=da81b688c949a0ebad4f213d6fdb648920cf641d#da81b688c949a0ebad4f213d6fdb648920cf641d"
+dependencies = [
+ "comline-core",
+ "eyre",
+ "miette",
+ "schemars",
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
 name = "comline-codegen-rust"
 version = "0.1.0"
 source = "git+https://github.com/ComlineProject/comline-rust?rev=df91e2e0a416cab594303f11d44a6555a72f891b#df91e2e0a416cab594303f11d44a6555a72f891b"
 dependencies = [
- "comline-codegen",
+ "comline-codegen 0.1.0 (git+https://github.com/ComlineProject/generation?rev=05771e0679ff514da3ba73a3b0b94643e5262fe5)",
  "comline-core",
  "eyre",
 ]
@@ -541,7 +555,7 @@ name = "comline-codegen-typescript"
 version = "0.1.0"
 source = "git+https://github.com/ComlineProject/comline-typescript?rev=8d829be859feac26d775f4877f098fedc38fdd9f#8d829be859feac26d775f4877f098fedc38fdd9f"
 dependencies = [
- "comline-codegen",
+ "comline-codegen 0.1.0 (git+https://github.com/ComlineProject/generation?rev=05771e0679ff514da3ba73a3b0b94643e5262fe5)",
  "comline-core",
  "eyre",
 ]
@@ -584,9 +598,9 @@ source = "git+https://github.com/ComlineProject/core?rev=868e8310e33df317e3cba4f
 [[package]]
 name = "comline-doc-html"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=05771e0679ff514da3ba73a3b0b94643e5262fe5#05771e0679ff514da3ba73a3b0b94643e5262fe5"
+source = "git+https://github.com/ComlineProject/generation?rev=da81b688c949a0ebad4f213d6fdb648920cf641d#da81b688c949a0ebad4f213d6fdb648920cf641d"
 dependencies = [
- "comline-codegen",
+ "comline-codegen 0.1.0 (git+https://github.com/ComlineProject/generation?rev=da81b688c949a0ebad4f213d6fdb648920cf641d)",
  "eyre",
  "pulldown-cmark",
  "serde_json",
@@ -595,9 +609,9 @@ dependencies = [
 [[package]]
 name = "comline-doc-markdown"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/generation?rev=05771e0679ff514da3ba73a3b0b94643e5262fe5#05771e0679ff514da3ba73a3b0b94643e5262fe5"
+source = "git+https://github.com/ComlineProject/generation?rev=da81b688c949a0ebad4f213d6fdb648920cf641d#da81b688c949a0ebad4f213d6fdb648920cf641d"
 dependencies = [
- "comline-codegen",
+ "comline-codegen 0.1.0 (git+https://github.com/ComlineProject/generation?rev=da81b688c949a0ebad4f213d6fdb648920cf641d)",
  "eyre",
  "serde",
  "serde_json",

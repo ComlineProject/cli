@@ -1438,3 +1438,101 @@ fn datagram3_and_comline2_take_their_facts_from_the_last_build() {
         assert!(code.contains(call), "missing `{call}` in:\n{code}");
     }
 }
+
+// -------- a dependency's protocols the package doesn't reach (generation#143) --------
+
+/// A package `app` that uses only the types of its dependency `greeting`,
+/// which declares a protocol under `datagram@3` and `comline@2`. Returns
+/// `app`'s directory, declaring Rust and TypeScript.
+fn app_using_a_dependencys_types(root: &std::path::Path) -> std::path::PathBuf {
+    let greeting = root.join("greeting");
+    comline_cmd()
+        .current_dir(root)
+        .args(["new", "greeting"])
+        .assert()
+        .success();
+    let config = fs::read_to_string(greeting.join("config.idp"))
+        .unwrap()
+        .replace(
+            "// wire = { format = \"packed@1\" framing = \"datagram@3\" }",
+            "wire = { format = \"packed@1\" framing = \"datagram@3\" }\n\
+             handshake = { name = \"comline@2\" newer_consumer = \"refuse\" }",
+        );
+    fs::write(greeting.join("config.idp"), config).unwrap();
+    fs::write(
+        greeting.join("src/greeting.ids"),
+        "struct Hello {\n    name: char[max 32]\n}\n\n\
+         protocol Greeter {\n    function greet(name: char[max 32]) -> u32;\n}\n",
+    )
+    .unwrap();
+
+    let app = fixture_project(root);
+    let config = fs::read_to_string(app.join("config.idp"))
+        .unwrap()
+        .replace(
+            "rust#1.85.0 = {}",
+            "rust#1.85.0 = {}\n        typescript#5.0 = {}",
+        );
+    fs::write(app.join("config.idp"), config).unwrap();
+    add_to_config(
+        &app,
+        "dependencies = {\n    greeting = { path = \"../greeting\" }\n}",
+    );
+    fs::write(
+        app.join("src/holder.ids"),
+        "use greeting::greeting::Hello\n\nstruct Holder {\n    hello: Hello\n}\n",
+    )
+    .unwrap();
+    app
+}
+
+fn generate_for(app: &std::path::Path, target: &str) {
+    comline_cmd()
+        .current_dir(app)
+        .args(["generation", "--target", target])
+        .assert()
+        .success();
+}
+
+/// The dependency's protocol isn't on the package's connection, and nothing
+/// of it is addressed: the package has none of its own, so there's no
+/// facts to take from a build either.
+#[test]
+fn a_dependencys_protocol_the_package_does_not_reach_is_left_alone() {
+    let temp = tempfile::tempdir().unwrap();
+    let app = app_using_a_dependencys_types(temp.path());
+
+    for target in ["rust", "typescript"] {
+        generate_for(&app, target);
+    }
+    assert!(app.join("generated/rust/holder.rs").exists());
+}
+
+/// The same from a built version: the package's dependencies come from the
+/// configs the build stored.
+#[test]
+fn a_built_versions_dependency_protocol_is_left_alone_too() {
+    let temp = tempfile::tempdir().unwrap();
+    let app = app_using_a_dependencys_types(temp.path());
+    comline_cmd()
+        .current_dir(&app)
+        .arg("build")
+        .assert()
+        .success();
+    comline_cmd()
+        .current_dir(&app)
+        .arg("release")
+        .assert()
+        .success();
+    fs::write(
+        app.join("comline.toml"),
+        "[generate]\npackage_versions = \"all\"\n\
+         layout = \"{{language}}/{{package_version}}/{{namespace}}.{{ext}}\"\n",
+    )
+    .unwrap();
+
+    for target in ["rust", "typescript"] {
+        generate_for(&app, target);
+    }
+    assert!(app.join("generated/rust/0.1.0/holder.rs").exists());
+}
