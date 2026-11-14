@@ -62,22 +62,29 @@ jobs:
           fi
           echo "tag $TAG matches Cargo.toml version $version"
 
-  # Linux is built against glibc (gnu), not musl: the musl targets need
-  # `musl-gcc` (and a cross compiler on the arm runner) for the C helpers in
-  # wasmtime's dependency tree, which the runner images don't ship.
+  # Linux is built for musl, fully static, so the binary runs on any
+  # distribution, whatever its glibc. That happens inside the org's ci-tools
+  # image (Rust stable and the musl target, `musl-tools`): the C helpers in
+  # wasmtime's dependency tree need `musl-gcc`, which the runner images don't
+  # ship. The image is multi-arch, so the arm runner pulls its arm64 variant.
+  # harden-runner does not run inside a container job, so those legs have none.
   build:
     name: Build ${{ matrix.target }}
     needs: verify-tag
     runs-on: ${{ matrix.os }}
+    # Empty on the macOS and Windows legs: they build on the runner itself.
+    container: ${{ matrix.container }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
             os: ubuntu-24.04
-          - target: aarch64-unknown-linux-gnu
+            container: ghcr.io/comlineproject/ci-tools@sha256:b9301f9caf3e47f0b839de85efda178f698a55daf7fc387b463adeec93ecd433
+          - target: aarch64-unknown-linux-musl
             os: ubuntu-24.04-arm
+            container: ghcr.io/comlineproject/ci-tools@sha256:b9301f9caf3e47f0b839de85efda178f698a55daf7fc387b463adeec93ecd433
           - target: aarch64-apple-darwin
             os: macos-15
           - target: x86_64-apple-darwin
@@ -91,10 +98,6 @@ jobs:
     env:
       TARGET: ${{ matrix.target }}
     steps:
-      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
-        if: runner.os == 'Linux'
-        with:
-          egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -110,10 +113,31 @@ jobs:
           fi
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
       - name: Install Rust
+        if: ${{ !matrix.container }}
         uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
           toolchain: ${{ steps.toolchain.outputs.channel }}
           targets: ${{ matrix.target }}
+      # The image carries rustup and a stable toolchain; make sure the one
+      # rust-toolchain.toml names, with this target, is what gets used.
+      - name: Install Rust (image)
+        if: ${{ matrix.container }}
+        env:
+          CHANNEL: ${{ steps.toolchain.outputs.channel }}
+        run: |
+          rustup toolchain install "$CHANNEL" --profile minimal --target "$TARGET" --no-self-update
+          rustup default "$CHANNEL"
+          rustc -vV
+          cargo -vV
+          rustup target list --installed
+      # `cc`-built C code (wasmtime's helpers) must be compiled against musl,
+      # not glibc. rustc's musl targets link statically (`crt-static`) by
+      # default.
+      - name: Compile C against musl
+        if: ${{ matrix.container }}
+        run: |
+          echo "CC_${TARGET//-/_}=musl-gcc" >> "$GITHUB_ENV"
+          command -v musl-gcc
       # Release builds don't read or write the cache: a tag build must not
       # ship what an earlier run left behind.
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -147,26 +171,68 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # Runs the packaged linux x86_64 archive, not a fresh build: what would be
-  # released has to start.
+  # Runs the packaged Linux archives, not a fresh build: what would be released
+  # has to be static and has to start on a system with a different (or no)
+  # glibc. Each arch runs on its own runner.
   smoke:
-    name: Smoke test
+    name: Smoke test ${{ matrix.target }}
     needs: build
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-24.04
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-24.04-arm
+    env:
+      TARGET: ${{ matrix.target }}
+      # Old and glibc-free userlands, by digest: Debian 9 (glibc 2.24, 2017)
+      # and BusyBox on uClibc (no glibc, no musl).
+      OLD_DISTRO: debian:9@sha256:c5c5200ff1e9c73ffbf188b4a67eb1c91531b644856b4aefe86a58d2f0cb05be
+      NO_GLIBC: busybox:1.37.0-uclibc@sha256:7aa3d3c53cc1ed823c6a5967ebaac87700a5b0766af45ff599dbca3506c8b072
     steps:
       - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: comline-x86_64-unknown-linux-gnu
+          name: comline-${{ matrix.target }}
           path: dist
-      - name: Extract and run
+      - name: Extract
         run: |
-          tar -xzf dist/comline-x86_64-unknown-linux-gnu.tar.gz
-          ls -l comline-x86_64-unknown-linux-gnu
-          ./comline-x86_64-unknown-linux-gnu/comline --version
+          tar -xzf "dist/comline-$TARGET.tar.gz"
+          ls -l "comline-$TARGET"
+      - name: Run on the runner
+        run: ./comline-"$TARGET"/comline --version
+      - name: Statically linked
+        run: |
+          bin="comline-$TARGET/comline"
+          file "$bin"
+          echo "--- ldd"
+          ldd "$bin" || true
+          echo "--- program headers"
+          readelf -lW "$bin"
+          echo "--- dynamic section"
+          readelf -dW "$bin" || true
+          # No dynamic loader and no shared-library dependencies.
+          if readelf -lW "$bin" | grep -q INTERP; then
+            echo "::error::$bin requests a dynamic loader"
+            exit 1
+          fi
+          if readelf -dW "$bin" 2>/dev/null | grep -q NEEDED; then
+            echo "::error::$bin has shared-library dependencies"
+            exit 1
+          fi
+          file "$bin" | grep -E "statically linked|static-pie linked"
+      - name: Run on an old distribution
+        run: |
+          docker run --rm -v "$PWD:/w:ro" "$OLD_DISTRO" sh -c 'cat /etc/os-release | head -n 2; ldd --version | head -n 1; /w/comline-'"$TARGET"'/comline --version'
+      - name: Run where there is no glibc
+        run: |
+          docker run --rm -v "$PWD:/w:ro" "$NO_GLIBC" /w/comline-"$TARGET"/comline --version
 
   attest:
     name: Attest

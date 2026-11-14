@@ -13,7 +13,10 @@ categories = ["command-line-utilities", "development-tools"]
 # What `cargo binstall comline` downloads: the archives `release.yml` attaches
 # to the GitHub Release for tag `v<version>`, laid out as
 # `comline-<target>/comline[.exe]` inside `comline-<target>.tar.gz` (`.zip` on
-# Windows). Keep this and that workflow's packaging step in step.
+# Windows). Keep this and that workflow's packaging step in step. Linux is
+# only released as static musl builds: on a glibc host binstall tries the
+# `*-unknown-linux-gnu` target first and then falls back to the musl one, so no
+# override is needed.
 [package.metadata.binstall]
 pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }{ archive-suffix }"
 bin-dir = "{ name }-{ target }/{ bin }{ binary-ext }"
