@@ -130,6 +130,11 @@ jobs:
           rustc -vV
           cargo -vV
           rustup target list --installed
+      # The workspace is owned by another user than the container's, so git
+      # refuses it and build.rs would embed "unknown" in `--version`.
+      - name: Trust the workspace
+        if: ${{ matrix.container }}
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       # `cc`-built C code (wasmtime's helpers) must be compiled against musl,
       # not glibc. rustc's musl targets link statically (`crt-static`) by
       # default.
@@ -206,7 +211,10 @@ jobs:
           tar -xzf "dist/comline-$TARGET.tar.gz"
           ls -l "comline-$TARGET"
       - name: Run on the runner
-        run: ./comline-"$TARGET"/comline --version
+        run: |
+          ./comline-"$TARGET"/comline --version | tee version.txt
+          # build.rs embeds the commit; "unknown" means it could not read git.
+          ! grep -q 'commit-hash: unknown' version.txt
       - name: Statically linked
         run: |
           bin="comline-$TARGET/comline"
