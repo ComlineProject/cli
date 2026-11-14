@@ -54,11 +54,11 @@ pub fn open_store(work_dir: &Path) -> Result<ObjectStore> {
 /// and with [`CliError::Store`] if its store can't be used.
 pub fn load(work_dir: &Path) -> Result<Vec<Entry>> {
     ensure_readable(work_dir)?;
-    if !refs::ref_exists(work_dir, refs::main_ref()) {
+    if !refs::ref_exists(work_dir, refs::REF_HEAD_MAIN_FILENAME) {
         return Err(CliError::NothingBuilt(work_dir.to_path_buf()).into());
     }
     let store = open_store(work_dir)?;
-    let head = refs::read_ref(work_dir, refs::main_ref())
+    let head = refs::read_ref(work_dir, refs::REF_HEAD_MAIN_FILENAME)
         .map_err(|e| miette::miette!("failed to read HEAD ref: {e:#}"))?;
     walk(&store, head)
 }

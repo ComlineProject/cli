@@ -136,8 +136,8 @@ fn render_unchecked(unchecked: &[(String, String)], plain: bool) -> String {
 /// The latest build's facts, if the package was built. Read-only: the
 /// store is never created here.
 fn latest_facts(work_dir: &Path) -> Option<PackageFacts> {
-    use comline_core::package::build::cas::{main_ref, ref_exists};
-    if !ref_exists(work_dir, main_ref()) {
+    use comline_core::package::build::cas::{ref_exists, REF_HEAD_MAIN_FILENAME};
+    if !ref_exists(work_dir, REF_HEAD_MAIN_FILENAME) {
         return None;
     }
     compat::facts(work_dir, None).ok()
