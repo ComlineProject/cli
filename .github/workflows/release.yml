@@ -1,0 +1,301 @@
+name: Release
+
+# On a pushed `v<version>` tag: build `comline` for every supported target,
+# package each build, attest the archives, and attach them to a DRAFT GitHub
+# Release for a human to publish. The archive layout is what the
+# `[package.metadata.binstall]` table in Cargo.toml points `cargo binstall` at;
+# change one and the other together.
+#
+# A pull request that touches this file or the dependency graph, and a manual
+# run, do the build and packaging only (archives become workflow artifacts) and
+# smoke-test the linux x86_64 one. Neither creates a release.
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/release.yml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Not `lint-...` (see lint.yml). A release run is never cancelled by another.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # A tag that disagrees with Cargo.toml would publish a binary whose
+  # `--version` and archive name don't match the release, so fail it here.
+  verify-tag:
+    name: Verify tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Tag matches Cargo.toml
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)"
+          if [ -z "$version" ]; then
+            echo "::error::no package version found in Cargo.toml"
+            exit 1
+          fi
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::tag $TAG does not match Cargo.toml version $version (expected v$version)"
+            exit 1
+          fi
+          echo "tag $TAG matches Cargo.toml version $version"
+
+  # Linux is built for musl, fully static, so the binary runs on any
+  # distribution, whatever its glibc. That happens inside the org's ci-tools
+  # image (Rust stable and the musl target, `musl-tools`): the C helpers in
+  # wasmtime's dependency tree need `musl-gcc`, which the runner images don't
+  # ship. The image is multi-arch, so the arm runner pulls its arm64 variant.
+  # harden-runner does not run inside a container job, so those legs have none.
+  build:
+    name: Build ${{ matrix.target }}
+    needs: verify-tag
+    runs-on: ${{ matrix.os }}
+    # Empty on the macOS and Windows legs: they build on the runner itself.
+    container: ${{ matrix.container }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-24.04
+            container: ghcr.io/comlineproject/ci-tools@sha256:b9301f9caf3e47f0b839de85efda178f698a55daf7fc387b463adeec93ecd433
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-24.04-arm
+            container: ghcr.io/comlineproject/ci-tools@sha256:b9301f9caf3e47f0b839de85efda178f698a55daf7fc387b463adeec93ecd433
+          - target: aarch64-apple-darwin
+            os: macos-15
+          - target: x86_64-apple-darwin
+            os: macos-15
+          - target: x86_64-pc-windows-msvc
+            os: windows-2025
+            windows: true
+    defaults:
+      run:
+        shell: bash
+    env:
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # build.rs embeds the commit count in `--version`.
+          fetch-depth: 0
+      - name: Toolchain version from rust-toolchain.toml
+        id: toolchain
+        run: |
+          channel="$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)"
+          if [ -z "$channel" ]; then
+            echo "::error::no channel in rust-toolchain.toml"
+            exit 1
+          fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+      - name: Install Rust
+        if: ${{ !matrix.container }}
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: ${{ steps.toolchain.outputs.channel }}
+          targets: ${{ matrix.target }}
+      # The image carries rustup and a stable toolchain; make sure the one
+      # rust-toolchain.toml names, with this target, is what gets used.
+      - name: Install Rust (image)
+        if: ${{ matrix.container }}
+        env:
+          CHANNEL: ${{ steps.toolchain.outputs.channel }}
+        run: |
+          rustup toolchain install "$CHANNEL" --profile minimal --target "$TARGET" --no-self-update
+          rustup default "$CHANNEL"
+          rustc -vV
+          cargo -vV
+          rustup target list --installed
+      # The workspace is owned by another user than the container's, so git
+      # refuses it and build.rs would embed "unknown" in `--version`.
+      - name: Trust the workspace
+        if: ${{ matrix.container }}
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      # `cc`-built C code (wasmtime's helpers) must be compiled against musl,
+      # not glibc. rustc's musl targets link statically (`crt-static`) by
+      # default.
+      - name: Compile C against musl
+        if: ${{ matrix.container }}
+        run: |
+          echo "CC_${TARGET//-/_}=musl-gcc" >> "$GITHUB_ENV"
+          command -v musl-gcc
+      # Release builds don't read or write the cache: a tag build must not
+      # ship what an earlier run left behind.
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        with:
+          key: ${{ matrix.target }}
+      - name: Build
+        run: cargo build --locked --release --target "$TARGET"
+      - name: Package
+        env:
+          WINDOWS: ${{ matrix.windows }}
+        run: |
+          name="comline-$TARGET"
+          mkdir -p "stage/$name" dist
+          if [ "$WINDOWS" = "true" ]; then
+            cp "target/$TARGET/release/comline.exe" "stage/$name/"
+          else
+            cp "target/$TARGET/release/comline" "stage/$name/"
+          fi
+          cp LICENSE README.md "stage/$name/"
+          if [ "$WINDOWS" = "true" ]; then
+            (cd stage && 7z a -tzip "../dist/$name.zip" "$name")
+          else
+            tar -czf "dist/$name.tar.gz" -C stage "$name"
+          fi
+          ls -l dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: comline-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  # Runs the packaged Linux archives, not a fresh build: what would be released
+  # has to be static and has to start on a system with a different (or no)
+  # glibc. Each arch runs on its own runner.
+  smoke:
+    name: Smoke test ${{ matrix.target }}
+    needs: build
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-24.04
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-24.04-arm
+    env:
+      TARGET: ${{ matrix.target }}
+      # Old and glibc-free userlands, by digest: Debian 9 (glibc 2.24, 2017)
+      # and BusyBox on uClibc (no glibc, no musl).
+      OLD_DISTRO: debian:9@sha256:c5c5200ff1e9c73ffbf188b4a67eb1c91531b644856b4aefe86a58d2f0cb05be
+      NO_GLIBC: busybox:1.37.0-uclibc@sha256:7aa3d3c53cc1ed823c6a5967ebaac87700a5b0766af45ff599dbca3506c8b072
+    steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: comline-${{ matrix.target }}
+          path: dist
+      - name: Extract
+        run: |
+          tar -xzf "dist/comline-$TARGET.tar.gz"
+          ls -l "comline-$TARGET"
+      - name: Run on the runner
+        run: |
+          ./comline-"$TARGET"/comline --version | tee version.txt
+          # build.rs embeds the commit; "unknown" means it could not read git.
+          ! grep -q 'commit-hash: unknown' version.txt
+      - name: Statically linked
+        run: |
+          bin="comline-$TARGET/comline"
+          file "$bin"
+          echo "--- ldd"
+          ldd "$bin" || true
+          echo "--- program headers"
+          readelf -lW "$bin"
+          echo "--- dynamic section"
+          readelf -dW "$bin" || true
+          # No dynamic loader and no shared-library dependencies.
+          if readelf -lW "$bin" | grep -q INTERP; then
+            echo "::error::$bin requests a dynamic loader"
+            exit 1
+          fi
+          if readelf -dW "$bin" 2>/dev/null | grep -q NEEDED; then
+            echo "::error::$bin has shared-library dependencies"
+            exit 1
+          fi
+          file "$bin" | grep -E "statically linked|static-pie linked"
+      - name: Run on an old distribution
+        run: |
+          docker run --rm -v "$PWD:/w:ro" "$OLD_DISTRO" sh -c 'cat /etc/os-release | head -n 2; ldd --version | head -n 1; /w/comline-'"$TARGET"'/comline --version'
+      - name: Run where there is no glibc
+        run: |
+          docker run --rm -v "$PWD:/w:ro" "$NO_GLIBC" /w/comline-"$TARGET"/comline --version
+
+  attest:
+    name: Attest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: comline-*
+          merge-multiple: true
+          path: dist
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/comline-*.tar.gz
+            dist/comline-*.zip
+
+  release:
+    name: Draft release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [verify-tag, build, smoke, attest]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: comline-*
+          merge-multiple: true
+          path: dist
+      - name: Checksums
+        working-directory: dist
+        run: |
+          sha256sum comline-* > SHA256SUMS
+          cat SHA256SUMS
+      # A draft: a human reviews the assets and publishes it.
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          flags=()
+          case "$TAG" in *-*) flags+=(--prerelease) ;; esac
+          gh release create "$TAG" --draft --verify-tag --title "$TAG" --generate-notes "${flags[@]}" dist/*
