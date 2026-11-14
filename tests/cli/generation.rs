@@ -1534,3 +1534,93 @@ fn a_built_versions_dependency_protocol_is_left_alone_too() {
     }
     assert!(app.join("generated/rust/0.1.0/holder.rs").exists());
 }
+
+// -------- protocols in nested schemas (generation#148) --------
+
+/// A package with no dependencies, on the defaults (`datagram@3` and
+/// `comline@2`), whose protocol is in `src/chat/admin.ids`: its namespace is
+/// `chat/admin` in the generation request and `chat::admin` in the facts the
+/// build recorded, and the two have to meet. Declares Rust and TypeScript.
+fn package_with_a_nested_protocol(root: &std::path::Path) -> std::path::PathBuf {
+    comline_cmd()
+        .current_dir(root)
+        .args(["new", "chat"])
+        .assert()
+        .success();
+    let project = root.join("chat");
+    let config = fs::read_to_string(project.join("config.idp"))
+        .unwrap()
+        .replace(
+            "// wire = { format = \"packed@1\" framing = \"datagram@3\" }",
+            "wire = { format = \"packed@1\" framing = \"datagram@3\" }\n\
+             handshake = { name = \"comline@2\" newer_consumer = \"refuse\" }",
+        )
+        .replace(
+            "rust#1.85.0 = {}",
+            "rust#1.85.0 = {}\n        typescript#5.0 = {}",
+        );
+    fs::write(project.join("config.idp"), config).unwrap();
+    fs::create_dir_all(project.join("src/chat")).unwrap();
+    fs::write(
+        project.join("src/chat/admin.ids"),
+        "protocol Admin {\n    function kick(user: char[max 32]) -> u32;\n    \
+         function ban(user: char[max 32]) -> u32;\n}\n",
+    )
+    .unwrap();
+    project
+}
+
+/// The protocol is addressed by the facts the build recorded for
+/// `chat::admin`, found from the request's `chat/admin`: before
+/// generation#148 this was "the package's facts have none for it".
+#[test]
+fn a_protocol_in_a_nested_schema_finds_its_facts() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = package_with_a_nested_protocol(temp.path());
+    comline_cmd()
+        .current_dir(&project)
+        .arg("build")
+        .assert()
+        .success();
+
+    for target in ["rust", "typescript"] {
+        generate_for(&project, target);
+    }
+    let rust = fs::read_to_string(project.join("generated/rust/chat/admin.rs")).unwrap();
+    for call in ["Call::new(0, \"kick\")", "Call::new(1, \"ban\")"] {
+        assert!(rust.contains(call), "missing `{call}` in:\n{rust}");
+    }
+    assert!(project.join("generated/typescript/chat/admin.ts").exists());
+}
+
+/// The same from a built version: the facts come from the version's own
+/// record.
+#[test]
+fn a_built_versions_nested_protocol_finds_its_facts_too() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = package_with_a_nested_protocol(temp.path());
+    comline_cmd()
+        .current_dir(&project)
+        .arg("build")
+        .assert()
+        .success();
+    comline_cmd()
+        .current_dir(&project)
+        .arg("release")
+        .assert()
+        .success();
+    fs::write(
+        project.join("comline.toml"),
+        "[generate]\npackage_versions = \"all\"\n\
+         layout = \"{{language}}/{{package_version}}/{{namespace}}.{{ext}}\"\n",
+    )
+    .unwrap();
+
+    for target in ["rust", "typescript"] {
+        generate_for(&project, target);
+    }
+    assert!(project.join("generated/rust/0.1.0/chat/admin.rs").exists());
+    assert!(project
+        .join("generated/typescript/0.1.0/chat/admin.ts")
+        .exists());
+}

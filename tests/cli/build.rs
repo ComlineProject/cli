@@ -197,6 +197,49 @@ fn refuses_bare_jsonrpc_names_that_would_clash_on_a_connection() {
     build(&project).success();
 }
 
+/// A dependency's protocol isn't on the package's connection, so its
+/// function names are no clash for the package's own (generation#147). The
+/// package has a client-provided protocol, which puts its jsonrpc protocols
+/// on a connection.
+#[test]
+fn a_dependencys_jsonrpc_method_name_is_no_clash_for_the_packages_own() {
+    let allow_framing = "\nsettings = {\n    annotations = {\n        framing = {\n            allowed = true\n        }\n    }\n}\n";
+    let temp = tempfile::tempdir().unwrap();
+    let shared = temp.path().join("shared");
+    std::fs::create_dir_all(shared.join("src")).unwrap();
+    std::fs::write(
+        shared.join("config.idp"),
+        with_bounds(&format!(
+            "congregation shared\nspecification_version = 1\n{allow_framing}"
+        )),
+    )
+    .unwrap();
+    std::fs::write(
+        shared.join("src/chat.ids"),
+        "struct Message {\n    text: string\n}\n\n\
+         @framing = \"jsonrpc\"\nprotocol Chat {\n    function send(text: string) -> u64;\n}\n",
+    )
+    .unwrap();
+
+    let project = declaring(
+        temp.path(),
+        "rust#1.85.0 = {}",
+        &format!(
+            "{allow_framing}dependencies = {{\n    shared = {{\n        path = \"../shared\"\n    }}\n}}\n"
+        ),
+    );
+    std::fs::write(
+        project.join("src/admin.ids"),
+        "use shared::chat::Message\n\nstruct Note {\n    message: Message\n}\n\n\
+         @framing = \"jsonrpc\"\nprotocol Admin {\n    function send(text: string) -> u64;\n}\n\n\
+         @provider = Client\n@framing = \"jsonrpc\"\nprotocol Events {\n    function ping();\n}\n",
+    )
+    .unwrap();
+
+    build(&project).success();
+    assert!(project.join(".comline").is_dir());
+}
+
 /// A project from before bounds (core#98): every unbounded position is an
 /// error, and the build says what to add to config.idp, without guessing
 /// the maxima.

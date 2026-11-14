@@ -247,9 +247,20 @@ pub fn check_declared(context: &ProjectContext, registry: &Registry) -> eyre::Re
         }
     }
 
+    // The names the package gives its dependencies, the way `comline
+    // generation` fills `GenerateRequest::dependencies`: a dependency's
+    // protocols aren't on the package's connection.
+    let dependencies: Vec<String> = context
+        .dependency_configs
+        .iter()
+        .map(|(name, _)| name.clone())
+        .collect();
+
     // JSON-RPC protocols on one connection whose bare method names a side
     // couldn't tell apart: no generator can emit them.
-    for clash in comline_codegen::checks::method_name_clashes(&schemas, &framings) {
+    for clash in
+        comline_codegen::checks::method_name_clashes_among(&schemas, &dependencies, &framings)
+    {
         problems.push(format!("every target: {}", clash.message));
     }
 
