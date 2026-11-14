@@ -197,6 +197,43 @@ fn refuses_bare_jsonrpc_names_that_would_clash_on_a_connection() {
     build(&project).success();
 }
 
+/// A dependency's protocol isn't on the package's connection, so its
+/// function names are no clash for the package's own (generation#147).
+#[test]
+fn a_dependencys_jsonrpc_method_name_is_no_clash_for_the_packages_own() {
+    let temp = tempfile::tempdir().unwrap();
+    let shared = temp.path().join("shared");
+    std::fs::create_dir_all(shared.join("src")).unwrap();
+    std::fs::write(
+        shared.join("config.idp"),
+        with_bounds(
+            "congregation shared\nspecification_version = 1\n\n\
+             wire = { framing = \"jsonrpc\" }\n",
+        ),
+    )
+    .unwrap();
+    std::fs::write(
+        shared.join("src/chat.ids"),
+        "protocol Chat {\n    function send(text: string) -> u64;\n}\n",
+    )
+    .unwrap();
+
+    let project = declaring(
+        temp.path(),
+        "rust#1.85.0 = {}",
+        "\nwire = { framing = \"jsonrpc\" }\n\
+         dependencies = {\n    shared = {\n        path = \"../shared\"\n    }\n}\n",
+    );
+    std::fs::write(
+        project.join("src/admin.ids"),
+        "protocol Admin {\n    function send(text: string) -> u64;\n}\n",
+    )
+    .unwrap();
+
+    build(&project).success();
+    assert!(project.join(".comline").is_dir());
+}
+
 /// A project from before bounds (core#98): every unbounded position is an
 /// error, and the build says what to add to config.idp, without guessing
 /// the maxima.
