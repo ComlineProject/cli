@@ -583,7 +583,7 @@ fn latest(versions: &[Version]) -> &Version {
 fn every_version(work_dir: &Path, select: Option<&DocVersions>) -> Result<Vec<Version>> {
     let mut versions = vec![];
     let mut head: Option<(Vec<Vec<FrozenUnit>>, FrozenDocs)> = None;
-    if refs::ref_exists(work_dir, refs::main_ref()) {
+    if refs::ref_exists(work_dir, refs::REF_HEAD_MAIN_FILENAME) {
         let history = history::load(work_dir)?;
         let mut seen = std::collections::BTreeSet::new();
         for entry in &history {

@@ -10,7 +10,7 @@ use std::path::Path;
 use comline_core::package::build::cas::object_store::StoreError;
 use comline_core::package::build::cas::objects::Commit;
 use comline_core::package::build::cas::reconcile::{self, Heads};
-use comline_core::package::build::cas::{main_ref, read_ref, ref_exists, Hash, ObjectStore};
+use comline_core::package::build::cas::{read_ref, ref_exists, Hash, ObjectStore, REF_HEAD_MAIN_FILENAME};
 use comline_core::package::build::{self, VersionBump};
 use miette::Result;
 
@@ -53,7 +53,7 @@ fn mark_diverged(work_dir: &Path, other: &str) -> Result<()> {
 /// The two heads a Git merge left in `.comline/refs/heads/main`, if it holds
 /// two: this build reconciles them.
 fn diverged_heads(work_dir: &Path) -> Option<(Hash, Hash)> {
-    if !ref_exists(work_dir, main_ref()) {
+    if !ref_exists(work_dir, REF_HEAD_MAIN_FILENAME) {
         return None;
     }
     match reconcile::read_heads(work_dir) {
@@ -65,7 +65,7 @@ fn diverged_heads(work_dir: &Path) -> Option<(Hash, Hash)> {
 /// Say how a build joined two heads: which one the line continued from,
 /// and which one it recorded as the second parent.
 fn report_reconciled(work_dir: &Path, (ours, theirs): (Hash, Hash)) {
-    let parents = read_ref(work_dir, main_ref()).ok().and_then(|head| {
+    let parents = read_ref(work_dir, REF_HEAD_MAIN_FILENAME).ok().and_then(|head| {
         let bytes = ObjectStore::new(work_dir).read(&head).ok()?;
         Some((head, Commit::from_bytes(&bytes).ok()?.parents))
     });
