@@ -187,7 +187,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
             "lib" => Mode::Lib,
             other => {
                 return Err(miette!(
-                    "target `{}`: mode `{other}` is not supported yet (`code`, `lib`)",
+                    "target `{}`: mode `{other}` is not supported (available: `code`, `lib`)",
                     t.language
                 ))
             }
@@ -232,7 +232,9 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
                         ));
                     }
                 }
+
                 let ext = info.ext.clone();
+
                 // The page the generator itself names for its connections.
                 let connections_doc = info.doc(Topic::Connections).map(str::to_owned);
                 (Source::External(generator), ext, connections_doc)
@@ -296,11 +298,13 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
             "language: {}, version: {}, mode: {}",
             t.language, t.lang_version, t.mode,
         );
+
         ui::detail(if ui::plain() {
             label
         } else {
             format!("⚙️  {label}")
         });
+
         // A given-up guarantee, shown where it's given up.
         if let Some(reason) = &t.validate_on_decode_off {
             ui::note(format!(

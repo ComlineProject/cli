@@ -121,7 +121,8 @@ pub fn run(
     // Before fetching anything: the entry has to be writable.
     entry_fields(&dependency)?;
 
-    ui::step(format!("Resolving {name}{}", ui::at_path(work_dir)));
+    ui::step(format!("Resolving dependency '{name}'"));
+
     let spinner = ui::spinner(match source {
         Source::Path(_) => "compiling",
         Source::Git { .. } => "fetching and compiling",
@@ -132,8 +133,11 @@ pub fn run(
     let resolve = |dependency: &DependencyConfig| {
         accept::quietly(|| deps::resolve(dependency, work_dir, &cache_dir))
     };
+
     let mut resolved = resolve(&dependency);
+
     ui::finish_spinner(spinner);
+
     // A dependency with `@unverified` protocols resolves only once they're
     // accepted: show what they give up and ask, then try again.
     if resolved.is_err() {

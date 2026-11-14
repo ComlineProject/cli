@@ -56,6 +56,7 @@ pub fn run(work_dir: &Path, name: &str, to: Option<Move>, accept_unverified: boo
         }
         _ => {}
     }
+
     for value in [commit_of(&dependency), version_of(&dependency)]
         .into_iter()
         .flatten()
@@ -68,17 +69,20 @@ pub fn run(work_dir: &Path, name: &str, to: Option<Move>, accept_unverified: boo
     }
     set_hash(&mut dependency, None);
 
-    ui::step(format!("Resolving {name}{}", ui::at_path(work_dir)));
+    ui::step(format!("Resolving dependency '{name}'"));
+
     let spinner = ui::spinner(match dependency.source {
         DependencySource::Git { .. } => "fetching and compiling",
         _ => "compiling",
     });
+
     let cache_dir = work_dir.join(DEPS_CACHE_DIR);
     // Resolving without a hash warns that it's trusted, and suggests the very
     // pin this command writes: keep that out of a normal run.
     let resolve = |dependency: &DependencyConfig| {
         accept::quietly(|| deps::resolve(dependency, work_dir, &cache_dir))
     };
+
     let mut resolved = resolve(&dependency);
     ui::finish_spinner(spinner);
 
@@ -105,6 +109,7 @@ pub fn run(work_dir: &Path, name: &str, to: Option<Move>, accept_unverified: boo
             resolved = resolve(&dependency);
         }
     }
+
     let resolved = resolved.map_err(|e| core_err("couldn't resolve the dependency", e))?;
     let new_hash = format!("blake3:{}", resolved.content_hash.to_hex());
     set_hash(&mut dependency, Some(new_hash.clone()));
