@@ -1,12 +1,12 @@
 {
   "artifacts": {
     "cli/x86_64-linux-release": {
-      "bytes": 38565648,
-      "gzip_bytes": 11151627
+      "bytes": 38584944,
+      "gzip_bytes": 11158732
     }
   },
-  "commit": "c26b7ec29f27e79a43ecc03c5ea5b69f320a5606",
+  "commit": "69cb3c9f8ad6215ddd2f584c3ef30af1843972ad",
   "format": 1,
-  "run": "https://github.com/ComlineProject/cli/actions/runs/43632417440",
+  "run": "https://github.com/ComlineProject/cli/actions/runs/43644377177",
   "toolchain": "rustc 1.99.1 (58cf8f9c3 2026-10-13)"
 }
