@@ -1467,12 +1467,10 @@ fn app_using_a_dependencys_types(root: &std::path::Path) -> std::path::PathBuf {
     .unwrap();
 
     let app = fixture_project(root);
-    let config = fs::read_to_string(app.join("config.idp"))
-        .unwrap()
-        .replace(
-            "rust#1.85.0 = {}",
-            "rust#1.85.0 = {}\n        typescript#5.0 = {}",
-        );
+    let config = fs::read_to_string(app.join("config.idp")).unwrap().replace(
+        "rust#1.85.0 = {}",
+        "rust#1.85.0 = {}\n        typescript#5.0 = {}",
+    );
     fs::write(app.join("config.idp"), config).unwrap();
     add_to_config(
         &app,

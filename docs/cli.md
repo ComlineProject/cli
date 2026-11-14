@@ -704,7 +704,7 @@ formats = ["html", "markdown", "json"]
 versions = { last = 5 }                  # or "all" (the default), { since = "0.3.0" }, { releases_only = true }
 renderer = "renderers/my-renderer.wasm"  # optional: an external renderer
 timeout = 60                             # seconds per call to `renderer`
-links = { std = "https://comlineproject.github.io/docs/reference/schema/std/" }
+links = { std = "https://comlineproject.github.io/docs/reference/package/schema/std/" }
 changelog_from = "0.1.0"                 # with --version only
 ```
 
