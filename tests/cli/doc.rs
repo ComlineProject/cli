@@ -574,7 +574,7 @@ fn dependencies_are_listed_apart_by_reach() {
     let api = read(&site.join("html/0.1.0-dev.1/api.html"));
     assert!(
         api.contains(
-            "href=\"https://comlineproject.github.io/docs/reference/schema/std/http/#httpmethod\""
+            "href=\"https://comlineproject.github.io/docs/reference/package/schema/std/http/#httpmethod\""
         ),
         "{api}"
     );

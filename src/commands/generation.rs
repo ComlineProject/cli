@@ -74,6 +74,11 @@ struct GenVersion {
     package_version: String,
     schemas: Vec<(String, Vec<FrozenUnit>)>, // (namespace path, frozen units)
 
+    /// The names the version gives its dependencies. A dependency's schemas
+    /// are among `schemas`, under its name as the namespace's first segment;
+    /// this is how a generator tells them from the package's own.
+    dependencies: Vec<String>,
+
     /// The version's own `wire.format`: a built version keeps the format it
     /// was built with.
     wire_format: String,
@@ -162,6 +167,14 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
         })
         .collect();
 
+    // The names the package gives its dependencies, the way core splits a
+    // package's schemas from its dependencies'.
+    let live_dependencies: Vec<String> = context
+        .dependency_configs
+        .iter()
+        .map(|(name, _)| name.clone())
+        .collect();
+
     // External generators, described once each. A target that names one
     // and no `language` takes the one language it offers.
     let mut externals = Externals::default();
@@ -187,7 +200,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
             "lib" => Mode::Lib,
             other => {
                 return Err(miette!(
-                    "target `{}`: mode `{other}` is not supported yet (`code`, `lib`)",
+                    "target `{}`: mode `{other}` is not supported (available: `code`, `lib`)",
                     t.language
                 ))
             }
@@ -232,7 +245,9 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
                         ));
                     }
                 }
+
                 let ext = info.ext.clone();
+
                 // The page the generator itself names for its connections.
                 let connections_doc = info.doc(Topic::Connections).map(str::to_owned);
                 (Source::External(generator), ext, connections_doc)
@@ -275,7 +290,13 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
             }
         };
 
-        let versions = expand_versions(&t.versions, work_dir, &live_schemas, config_units)?;
+        let versions = expand_versions(
+            &t.versions,
+            work_dir,
+            &live_schemas,
+            &live_dependencies,
+            config_units,
+        )?;
         if mode == Mode::Lib && versions.len() > 1 {
             return Err(miette!(
                 "target `{}`: `lib` mode does not support multiple package versions yet",
@@ -296,11 +317,13 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
             "language: {}, version: {}, mode: {}",
             t.language, t.lang_version, t.mode,
         );
+
         ui::detail(if ui::plain() {
             label
         } else {
             format!("⚙️  {label}")
         });
+
         // A given-up guarantee, shown where it's given up.
         if let Some(reason) = &t.validate_on_decode_off {
             ui::note(format!(
@@ -335,6 +358,7 @@ fn generate_once(work_dir: &Path, overrides: &Overrides, dry_run: bool, list: bo
                 // Filled just below.
                 encodings: Default::default(),
                 facts: None,
+                dependencies: gv.dependencies.clone(),
             };
             // The type each encoding the package uses maps to in this
             // language: comline.toml's mapping, else the declaring package's
@@ -518,6 +542,7 @@ fn expand_versions(
     spec: &VersionSpec,
     work_dir: &Path,
     live: &[(String, Vec<FrozenUnit>)],
+    live_dependencies: &[String],
     live_config: &[ConfigUnit],
 ) -> Result<Vec<GenVersion>> {
     match spec {
@@ -533,6 +558,7 @@ fn expand_versions(
             Ok(vec![GenVersion {
                 package_version,
                 schemas: live.to_vec(),
+                dependencies: live_dependencies.to_vec(),
                 wire_format,
                 facts: FactsSource::WorkingTree,
             }])
@@ -587,9 +613,20 @@ fn gen_version_from_commit(
         .collect();
 
     let config = history::load_config(store, commit)?;
+    // The dependencies the build vendored, by the names it stored them under.
+    let configs = history::load_stored_configs(store, commit)?;
+    let mut dependencies: Vec<String> = configs
+        .dependencies
+        .into_iter()
+        .map(|(name, _)| name)
+        .chain(configs.unstored)
+        .collect();
+    dependencies.sort();
+    dependencies.dedup();
     Ok(GenVersion {
         package_version: version.to_owned(),
         schemas,
+        dependencies,
         wire_format: frozen::wire_format(&config).to_string(),
         facts: FactsSource::Commit(*hash),
     })
@@ -611,7 +648,7 @@ fn facts_for(
     request: &GenerateRequest,
     source: &FactsSource,
 ) -> Result<Option<comline_codegen::facts::PackageFacts>> {
-    if !comline_codegen::facts::needed(&request.schemas, &request.encodings) {
+    if !comline_codegen::facts::needed_in(request) {
         return Ok(None);
     }
     let facts = match source {
