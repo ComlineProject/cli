@@ -50,6 +50,13 @@ bump is the last step once the core PR has merged.)
 4. **cli**: `cargo publish` (a clean `cargo package` first to sanity-check the
    file list), then tag `vX.Y.Z` on the release commit and push the tag.
 
+Pushing the tag `vX.Y.Z` also runs `.github/workflows/release.yml`: it checks
+the tag against the `Cargo.toml` version, builds `comline` for the supported
+targets, attests the archives, and creates a **draft** GitHub Release holding
+`comline-<target>.tar.gz` (`.zip` on Windows) and `SHA256SUMS`. Review the
+draft and publish it by hand; `cargo binstall` reads those assets (see
+`[package.metadata.binstall]` in `Cargo.toml`).
+
 Until then, "release" just means `main` is green and
 `cargo install --path .` works.
 

@@ -10,6 +10,18 @@ keywords = ["comline", "schema", "codegen", "idl", "cli"]
 categories = ["command-line-utilities", "development-tools"]
 
 
+# What `cargo binstall comline` downloads: the archives `release.yml` attaches
+# to the GitHub Release for tag `v<version>`, laid out as
+# `comline-<target>/comline[.exe]` inside `comline-<target>.tar.gz` (`.zip` on
+# Windows). Keep this and that workflow's packaging step in step.
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }{ archive-suffix }"
+bin-dir = "{ name }-{ target }/{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-fmt = "zip"
+
 [dependencies]
 clap = { version = "4.5.4", features = ["derive", "cargo"] }
 clap_complete = "4.5"
