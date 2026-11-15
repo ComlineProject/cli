@@ -237,10 +237,12 @@ fn config_idp_wire_format_reaches_the_rust_generator() {
         .assert()
         .success();
 
-    let chat = fs::read_to_string(project.join("generated/rust/chat.rs")).unwrap();
+    // The package's wire format is defined once, in `connection.rs`; the
+    // protocol files re-export it.
+    let connection = fs::read_to_string(project.join("generated/rust/connection.rs")).unwrap();
     assert!(
-        chat.contains("pub type Format = comline_runtime::format::Json;"),
-        "{chat}"
+        connection.contains("pub type Format = comline_runtime::format::Json;"),
+        "{connection}"
     );
 }
 
@@ -256,8 +258,9 @@ fn without_a_wire_key_a_protocol_is_on_a_packed_connection() {
         .success();
 
     let chat = fs::read_to_string(project.join("generated/rust/chat.rs")).unwrap();
+    // `Format` is defined once, in `connection.rs`, and re-exported here.
     assert!(
-        chat.contains("pub type Format = comline_runtime::format::Packed;"),
+        chat.contains("pub use crate::connection::{CONNECTION_IR_HASH, Format};"),
         "{chat}"
     );
     assert!(
@@ -267,6 +270,10 @@ fn without_a_wire_key_a_protocol_is_on_a_packed_connection() {
     assert!(!chat.contains("JsonRpcFraming"), "{chat}");
     // The package's `Services` and `serve`, beside the schemas.
     let connection = fs::read_to_string(project.join("generated/rust/connection.rs")).unwrap();
+    assert!(
+        connection.contains("pub type Format = comline_runtime::format::Packed;"),
+        "{connection}"
+    );
     assert!(connection.contains("pub struct Services<"), "{connection}");
 }
 
