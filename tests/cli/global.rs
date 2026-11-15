@@ -28,6 +28,30 @@ fn plain_output_has_no_color_or_symbols() {
     assert!(stderr.contains("Project built"));
 }
 
+/// `--version` ends with the `comline-core` commit the CLI links, as a
+/// `core-rev: <40 hex>` line an editor reads, and it is the one `Cargo.toml`
+/// pins.
+#[test]
+fn version_reports_the_core_rev_it_links() {
+    let manifest = include_str!("../../Cargo.toml");
+    let pinned = manifest
+        .lines()
+        .find(|l| l.trim_start().starts_with("comline-core"))
+        .and_then(|l| l.split("rev = \"").nth(1))
+        .and_then(|rest| rest.split('"').next())
+        .expect("a pinned comline-core rev");
+
+    let out = comline_cmd().arg("--version").assert().success();
+    let stdout = String::from_utf8_lossy(&out.get_output().stdout).into_owned();
+    let reported = stdout
+        .lines()
+        .find_map(|l| l.strip_prefix("core-rev: "))
+        .unwrap_or_else(|| panic!("a `core-rev:` line in {stdout:?}"));
+
+    assert_eq!(reported.len(), 40, "{reported}");
+    assert!(reported.starts_with(pinned), "{reported} vs {pinned}");
+}
+
 #[test]
 fn completions_are_written_to_stdout() {
     comline_cmd()

@@ -47,7 +47,9 @@ fn main() -> ExitCode {
 }
 
 /// Parse CLI args with an enriched `--version` (`-V` stays the bare
-/// `CARGO_PKG_VERSION` `clap`'s derive attribute already gives `Cli`).
+/// `CARGO_PKG_VERSION` `clap`'s derive attribute already gives `Cli`). Its
+/// `core-rev:` line is the `comline-core` commit the CLI links, 40 hex digits,
+/// which an editor compares with the one its language server reports.
 /// Built as a `Command`, not the `#[command(long_version = ...)]` derive
 /// attribute, because `build.rs` also compiles `cli.rs` (via `#[path]`, for
 /// man-page/completion generation) *before* it has emitted these env vars
@@ -58,12 +60,13 @@ fn main() -> ExitCode {
 /// (`emit_version_info`) came up empty, rather than failing anything.
 fn parse_cli() -> Cli {
     let long_version = format!(
-        "{}\ncommit-hash: {}\ncommit-branch: {}\ncommit-count: {}\nbuild-date: {}",
+        "{}\ncommit-hash: {}\ncommit-branch: {}\ncommit-count: {}\nbuild-date: {}\ncore-rev: {}",
         env!("CARGO_PKG_VERSION"),
         option_env!("COMLINE_GIT_HASH").unwrap_or("unknown"),
         option_env!("COMLINE_GIT_BRANCH").unwrap_or("unknown"),
         option_env!("COMLINE_COMMIT_COUNT").unwrap_or("unknown"),
         option_env!("COMLINE_BUILD_DATE").unwrap_or("unknown"),
+        option_env!("COMLINE_CORE_REV").unwrap_or("unknown"),
     );
     // `Command::long_version` needs a `&'static str`, not an owned
     // `String` - leaking it is fine here, it lives for the process anyway.

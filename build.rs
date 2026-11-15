@@ -20,6 +20,7 @@ fn main() -> Result<(), Error> {
     println!("cargo:rerun-if-changed=src/cli.rs");
     println!("cargo:rerun-if-changed=build.rs");
     emit_version_info();
+    emit_core_rev();
 
     let Some(out_dir) = env::var_os("OUT_DIR").map(PathBuf::from) else {
         return Ok(());
@@ -76,6 +77,58 @@ fn emit_version_info() {
     println!("cargo:rustc-env=COMLINE_GIT_BRANCH={branch}");
     println!("cargo:rustc-env=COMLINE_COMMIT_COUNT={commit_count}");
     println!("cargo:rustc-env=COMLINE_BUILD_DATE={build_date}");
+}
+
+/// Sets `COMLINE_CORE_REV` to the `comline-core` commit this build links, for
+/// `--version`'s `core-rev:` line (`main.rs`). It is the `#<sha>` of the
+/// `comline-core` git source in `Cargo.lock`; a build that doesn't see a
+/// lock (`cargo install` without `--locked`) reads the full `rev` of
+/// `Cargo.toml`'s `comline-core` line instead, and a build with neither says
+/// `unknown`.
+fn emit_core_rev() {
+    println!("cargo:rerun-if-changed=Cargo.toml");
+    println!("cargo:rerun-if-changed=Cargo.lock");
+
+    let rev = fs::read_to_string("Cargo.lock")
+        .ok()
+        .and_then(|lock| core_rev_from_lock(&lock))
+        .or_else(|| {
+            let manifest = fs::read_to_string("Cargo.toml").ok()?;
+            core_rev_from_manifest(&manifest)
+        })
+        .unwrap_or_else(|| "unknown".to_string());
+    println!("cargo:rustc-env=COMLINE_CORE_REV={rev}");
+}
+
+fn is_sha(s: &str) -> bool {
+    s.len() == 40 && s.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+/// `source = "git+https://github.com/ComlineProject/core?rev=...#<sha>"` of
+/// the `comline-core` package.
+fn core_rev_from_lock(lock: &str) -> Option<String> {
+    let mut package = "";
+    for line in lock.lines() {
+        if let Some(name) = line.strip_prefix("name = \"") {
+            package = name.trim_end_matches('"');
+        } else if package == "comline-core" {
+            if let Some(source) = line.strip_prefix("source = \"git+") {
+                let sha = source.rsplit('#').next()?.trim_end_matches('"');
+                return is_sha(sha).then(|| sha.to_ascii_lowercase());
+            }
+        }
+    }
+    None
+}
+
+/// `comline-core = { git = "...", rev = "<sha>", ... }`.
+fn core_rev_from_manifest(manifest: &str) -> Option<String> {
+    let line = manifest
+        .lines()
+        .find(|l| l.trim_start().starts_with("comline-core"))?;
+    let rest = line.split("rev = \"").nth(1)?;
+    let sha = rest.split('"').next()?;
+    is_sha(sha).then(|| sha.to_ascii_lowercase())
 }
 
 /// Run a command, returning trimmed stdout on success - `None` on any
