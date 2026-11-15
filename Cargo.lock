@@ -529,7 +529,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-rust"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-rust?rev=2d2c8853727929a7b350b3017c9ff86cb2ec8911#2d2c8853727929a7b350b3017c9ff86cb2ec8911"
+source = "git+https://github.com/ComlineProject/comline-rust?rev=dd1c29e6560a0ffd7893c59715b31d43b88c585f#dd1c29e6560a0ffd7893c59715b31d43b88c585f"
 dependencies = [
  "comline-codegen",
  "comline-core",
@@ -539,7 +539,7 @@ dependencies = [
 [[package]]
 name = "comline-codegen-typescript"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/comline-typescript?rev=c44b39d68035bd968cec0cd75afb6c6230c4ab76#c44b39d68035bd968cec0cd75afb6c6230c4ab76"
+source = "git+https://github.com/ComlineProject/comline-typescript?rev=d377fbf07cf6c0f004e9d5dd4fbd6fa15ea9d0bc#d377fbf07cf6c0f004e9d5dd4fbd6fa15ea9d0bc"
 dependencies = [
  "comline-codegen",
  "comline-core",
