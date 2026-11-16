@@ -56,8 +56,10 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - name: rustfmt
         run: cargo fmt --check
+      # `--locked`: Cargo.lock is committed, and release.yml builds with it.
+      # A pin moved without the lock (cli#166) fails here, not at release.
       - name: clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets -- -D warnings
       - name: clippy (without gen-wasm)
         run: cargo clippy --all-targets --no-default-features --features gen-rust,gen-typescript -- -D warnings
       - name: rustfmt (fixture generators)
