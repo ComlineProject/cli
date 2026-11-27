@@ -12,5 +12,5 @@ publish = false
 [dependencies]
 # The runtime rev the CLI pins `comline-runtime-conformance` at, so the
 # reference answers as the vectors the CLI reads were blessed.
-comline-reference = { git = "https://github.com/ComlineProject/runtime", rev = "8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d" }
+comline-reference = { git = "https://github.com/ComlineProject/runtime", rev = "e7362217e95f8d22bbce181746562054974e659a" }
 serde_json = "1.0"

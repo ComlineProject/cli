@@ -31,12 +31,12 @@ dependencies = [
 [[package]]
 name = "comline-catalog"
 version = "0.11.0"
-source = "git+https://github.com/ComlineProject/runtime?rev=8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d#8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d"
+source = "git+https://github.com/ComlineProject/runtime?rev=e7362217e95f8d22bbce181746562054974e659a#e7362217e95f8d22bbce181746562054974e659a"
 
 [[package]]
 name = "comline-reference"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/runtime?rev=8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d#8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d"
+source = "git+https://github.com/ComlineProject/runtime?rev=e7362217e95f8d22bbce181746562054974e659a#e7362217e95f8d22bbce181746562054974e659a"
 dependencies = [
  "comline-runtime",
  "comline-runtime-conformance",
@@ -47,7 +47,7 @@ dependencies = [
 [[package]]
 name = "comline-runtime"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/runtime?rev=8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d#8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d"
+source = "git+https://github.com/ComlineProject/runtime?rev=e7362217e95f8d22bbce181746562054974e659a#e7362217e95f8d22bbce181746562054974e659a"
 dependencies = [
  "bytemuck",
  "rmp",
@@ -59,7 +59,7 @@ dependencies = [
 [[package]]
 name = "comline-runtime-conformance"
 version = "0.1.0"
-source = "git+https://github.com/ComlineProject/runtime?rev=8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d#8f8c0cb6fb0bc3a734aafbdbbf187fb9da73e00d"
+source = "git+https://github.com/ComlineProject/runtime?rev=e7362217e95f8d22bbce181746562054974e659a#e7362217e95f8d22bbce181746562054974e659a"
 dependencies = [
  "comline-catalog",
  "comline-runtime",
