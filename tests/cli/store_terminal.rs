@@ -10,7 +10,9 @@ use std::process::Command;
 use std::time::Duration;
 
 use comline_core::package::build::cas::migrate::{Consent, Engine, MigrateOptions, Point};
-use expectrl::{Eof, Expect, Session, WaitStatus};
+use expectrl::process::unix::WaitStatus;
+use expectrl::session::OsSession;
+use expectrl::{Eof, Expect};
 
 use crate::store::{
     built_project, current_format, current_format_of_unstamped, snapshot, stamp, unstamped_project,
@@ -19,17 +21,17 @@ use crate::util::*;
 
 /// `comline --plain <args>` in `project`, on a pseudo-terminal: stdin, stdout
 /// and stderr are all a terminal, so the command asks.
-fn on_a_terminal(project: &Path, args: &[&str]) -> Session {
+fn on_a_terminal(project: &Path, args: &[&str]) -> OsSession {
     let mut command = Command::new(env!("CARGO_BIN_EXE_comline"));
     command.current_dir(project).arg("--plain").args(args);
-    let mut session = Session::spawn(command).unwrap();
+    let mut session = OsSession::spawn(command).unwrap();
     session.set_expect_timeout(Some(Duration::from_secs(60)));
     session
 }
 
 /// Wait for the command to end: what it printed since the last `expect`, and
 /// its exit code.
-fn finish(mut session: Session) -> (String, i32) {
+fn finish(mut session: OsSession) -> (String, i32) {
     let rest = session.expect(Eof).unwrap();
     let output = String::from_utf8_lossy(rest.as_bytes()).into_owned();
     match session.get_process().wait().unwrap() {
@@ -39,7 +41,7 @@ fn finish(mut session: Session) -> (String, i32) {
 }
 
 /// Wait for the `[y/N]` that ends a question, and return the text before it.
-fn question(session: &mut Session) -> String {
+fn question(session: &mut OsSession) -> String {
     let before = session.expect("[y/N]").unwrap();
     String::from_utf8_lossy(before.before()).into_owned()
 }
@@ -191,7 +193,7 @@ fn interrupted_migration(temp: &Path) -> PathBuf {
     let project = unstamped_project(temp);
     let format: u32 = current_format_of_unstamped(&project).parse().unwrap();
     let mut engine = Engine::current().on_point(|point| match point {
-        Point::Claimed => eyre::bail!("stopped, as a crash would"),
+        Point::Claimed => Err(eyre::eyre!("stopped, as a crash would")),
         _ => Ok(()),
     });
     let options = MigrateOptions {
