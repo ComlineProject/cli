@@ -200,9 +200,12 @@ fn interrupted_migration(temp: &Path) -> PathBuf {
         assume_format: Some(format),
         ..MigrateOptions::default()
     };
-    engine
-        .migrate(&project, &options, Consent::Command)
-        .expect_err("the hook stops it");
+    assert!(
+        engine
+            .migrate(&project, &options, Consent::Command)
+            .is_err(),
+        "the hook stops it"
+    );
     assert!(project.join(".comline.migrating").is_dir());
     project
 }
