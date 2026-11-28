@@ -50,7 +50,14 @@ fn snapshot(project: &Path) -> BTreeMap<String, Vec<u8>> {
             if path.is_dir() {
                 walk(root, &path, into);
             } else {
-                let name = path.strip_prefix(root).unwrap().display().to_string();
+                // `/` between the parts on every platform, so a store path and its
+                // backup's compare by name.
+                let name = path
+                    .strip_prefix(root)
+                    .unwrap()
+                    .display()
+                    .to_string()
+                    .replace('\\', "/");
                 into.insert(name, fs::read(&path).unwrap());
             }
         }
