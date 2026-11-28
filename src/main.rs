@@ -209,7 +209,7 @@ fn run(cli: Cli) -> Result<()> {
                 },
             ),
             StoreCommand::Verify => commands::store::verify(&work_dir),
-            StoreCommand::Prune => commands::store::prune(&work_dir),
+            StoreCommand::Prune { force } => commands::store::prune(&work_dir, force),
             StoreCommand::Reset { force } => commands::store::reset(&work_dir, force),
         },
         Commands::New { name, git } => commands::new::run(&work_dir, &name, git),

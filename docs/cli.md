@@ -842,7 +842,7 @@ comline reset --force    # scripted
 comline store status
 comline store migrate [--check] [--assume-format <N>] [--map <FILE>] [--restart]
 comline store verify
-comline store prune
+comline store prune [--force]
 comline store reset [--force]
 ```
 
@@ -877,7 +877,10 @@ environment variable makes a command migrate or reset by itself.
   and every version decodes. A damaged store names the file (exit `1`). Reads
   only.
 - `prune` removes the `.comline.format-N.bak/` backups, only if the store that
-  replaced them passes `verify`. Nothing else removes one, however old.
+  replaced them passes `verify`. Nothing else removes one, however old. On a
+  terminal it lists exactly the backups it would remove and asks; without one it
+  refuses with exit `2` unless `--force` is given. With no backups it says so,
+  asks nothing and exits `0`.
 - `reset` moves `.comline/` to `.comline.format-N.bak/` and starts a new store
   at the next build. It is for a store with no path to the current format. It
   deletes nothing, `deps-cache/` stays, and a store written by a newer comline

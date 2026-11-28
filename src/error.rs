@@ -65,6 +65,13 @@ pub enum CliError {
     #[error("exit {0}")]
     Exit(i32),
 
+    #[error("refusing to remove the backups without confirmation")]
+    #[diagnostic(help(
+        "re-run in a terminal to be asked, or pass `--force`. Only the backups a migration or a \
+         reset left are removed, and only if the store that replaced them verifies"
+    ))]
+    PruneConfirmationRequired,
+
     #[error("refusing to reset the version history without confirmation")]
     #[diagnostic(help(
         "re-run in a terminal to be asked, or pass `--force`. Nothing is deleted either way: \
@@ -121,6 +128,7 @@ pub fn exit_code_for(report: &miette::Report) -> i32 {
         Some(CliError::StoreRefused(_)) => EXIT_PRECONDITION,
         Some(CliError::Exit(code)) => *code,
         Some(CliError::ResetConfirmationRequired) => EXIT_PRECONDITION,
+        Some(CliError::PruneConfirmationRequired) => EXIT_PRECONDITION,
         Some(CliError::ConfirmationRequired) => EXIT_PRECONDITION,
         Some(CliError::AcceptanceRequired { .. }) => EXIT_PRECONDITION,
         Some(CliError::ReleaseConfirmationRequired { .. }) => EXIT_PRECONDITION,

@@ -27,3 +27,6 @@ mod remove;
 mod reset;
 mod store;
 mod store_stamp;
+// The prompts are asked on a terminal, which these tests give the binary.
+#[cfg(unix)]
+mod store_terminal;

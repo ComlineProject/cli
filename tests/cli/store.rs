@@ -15,7 +15,7 @@ use predicates::prelude::*;
 
 use crate::util::*;
 
-fn built_project(temp: &Path) -> PathBuf {
+pub(crate) fn built_project(temp: &Path) -> PathBuf {
     let project = fixture_project(temp);
     comline_cmd()
         .current_dir(&project)
@@ -25,25 +25,25 @@ fn built_project(temp: &Path) -> PathBuf {
     project
 }
 
-fn stamp(project: &Path) -> PathBuf {
+pub(crate) fn stamp(project: &Path) -> PathBuf {
     project.join(".comline/FORMAT_VERSION")
 }
 
 /// The IR format the store was built in, which is the one this comline writes.
-fn current_format(project: &Path) -> String {
+pub(crate) fn current_format(project: &Path) -> String {
     fs::read_to_string(stamp(project))
         .unwrap()
         .trim()
         .to_string()
 }
 
-fn backup(project: &Path) -> PathBuf {
+pub(crate) fn backup(project: &Path) -> PathBuf {
     project.join(format!(".comline.format-{}.bak", current_format(project)))
 }
 
 /// Every file under the project's `.comline*` entries (the store, a backup, a
 /// migration's directory), by path.
-fn snapshot(project: &Path) -> BTreeMap<String, Vec<u8>> {
+pub(crate) fn snapshot(project: &Path) -> BTreeMap<String, Vec<u8>> {
     fn walk(root: &Path, dir: &Path, into: &mut BTreeMap<String, Vec<u8>>) {
         for entry in fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
@@ -77,7 +77,7 @@ fn snapshot(project: &Path) -> BTreeMap<String, Vec<u8>> {
 
 /// A store that has lost its stamp: the way to make one `migrate` has work
 /// on.
-fn unstamped_project(temp: &Path) -> PathBuf {
+pub(crate) fn unstamped_project(temp: &Path) -> PathBuf {
     let project = built_project(temp);
     fs::remove_file(stamp(&project)).unwrap();
     project
@@ -230,7 +230,7 @@ fn check_exits_two_when_a_migration_would_run_and_writes_nothing() {
 
 /// The format a store without its stamp would be assumed to be: the one this
 /// comline writes, which `status` reports as the target.
-fn current_format_of_unstamped(project: &Path) -> String {
+pub(crate) fn current_format_of_unstamped(project: &Path) -> String {
     let output = comline_cmd()
         .current_dir(project)
         .args(["--plain", "store", "status"])
@@ -330,7 +330,7 @@ fn migrate_stamps_an_unstamped_store_keeps_the_old_one_and_maps_the_hashes() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["store", "prune"])
+        .args(["store", "prune", "--force"])
         .assert()
         .success()
         .stderr(predicate::str::contains("Removed 1 backup(s)"));
@@ -422,6 +422,32 @@ fn prune_with_nothing_to_remove_says_so() {
 }
 
 #[test]
+fn prune_without_a_terminal_needs_force_and_removes_nothing() {
+    let temp = tempfile::tempdir().unwrap();
+    let project = unstamped_project(temp.path());
+    let current = current_format_of_unstamped(&project);
+    comline_cmd()
+        .current_dir(&project)
+        .args(["store", "migrate", "--assume-format", &current])
+        .assert()
+        .success();
+    let kept = backup(&project);
+    let before = snapshot(&project);
+
+    comline_cmd()
+        .current_dir(&project)
+        .args(["store", "prune"])
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains("without confirmation"))
+        .stderr(predicate::str::contains("--force"));
+
+    assert!(kept.is_dir());
+    assert_eq!(snapshot(&project), before);
+}
+
+#[test]
 fn reset_without_a_terminal_needs_force_and_changes_nothing() {
     let temp = tempfile::tempdir().unwrap();
     let project = built_project(temp.path());
@@ -490,7 +516,7 @@ fn reset_force_moves_the_store_aside_deletes_nothing_and_keeps_the_cache() {
     }
     comline_cmd()
         .current_dir(&project)
-        .args(["store", "prune"])
+        .args(["store", "prune", "--force"])
         .assert()
         .success();
     assert!(!kept.exists());
@@ -509,7 +535,7 @@ fn prune_refuses_while_nothing_has_replaced_the_backup() {
 
     comline_cmd()
         .current_dir(&project)
-        .args(["store", "prune"])
+        .args(["store", "prune", "--force"])
         .assert()
         .failure()
         .code(2)

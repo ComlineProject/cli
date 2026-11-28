@@ -743,8 +743,15 @@ which file, and what to do. Reads only. The exit code is 1 when the store fails.
 Remove the `.comline.format-N.bak/` backups beside `.comline/`. A backup is \
 removed only when the store that replaced it passes `comline store verify`; \
 until you run this nothing removes one, however long it has been there. \
-This cannot be undone.")]
-    Prune,
+This cannot be undone.
+
+On a terminal you are shown which backups would go and asked to confirm; \
+without one, pass `--force`. With no backups it says so and asks nothing.")]
+    Prune {
+        /// Don't ask: the command is the confirmation (needed without a terminal)
+        #[arg(long)]
+        force: bool,
+    },
 
     /// Move the store aside and start a new version history
     #[command(long_about = "\

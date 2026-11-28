@@ -44,7 +44,7 @@ comline generation         # write generated code for each configured target
 | `comline store status` | Show the store's IR format, its versions, whether it needs migrating, and the backups beside it. Reads only. |
 | `comline store migrate [--check] [--assume-format N] [--map FILE] [--restart]` | Migrate `.comline/` to the format this comline writes. The old store is kept as `.comline.format-N.bak/`. `--check` writes nothing and exits `0` (nothing to do), `2` (would migrate) or `3` (would be refused). |
 | `comline store verify` | Check every object, reference and version of the store. Reads only. |
-| `comline store prune` | Remove the backups a migration or a reset left, once the store that replaced them verifies. |
+| `comline store prune [--force]` | Remove the backups a migration or a reset left, once the store that replaced them verifies. Lists them and asks on a terminal; needs `--force` otherwise. |
 | `comline store reset [--force]` | Move `.comline/` aside to a backup and start a new history at the next build. Deletes nothing. Asks on a terminal; needs `--force` otherwise. |
 | `comline completions <shell>` | Print a shell completion script to stdout. |
 

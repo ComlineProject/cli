@@ -13,7 +13,8 @@
 //! - `status`, `verify` and `migrate --check` only read.
 //! - `migrate` is the migration, and finishes an interrupted one.
 //! - `prune` removes the backups a migration or a reset left, once the store
-//!   that replaced them passes `verify`.
+//!   that replaced them passes `verify`: on a terminal it lists them and asks;
+//!   without one it needs `--force`.
 //! - `reset` moves a store aside (nothing is deleted): on a terminal it shows
 //!   what it will do and asks; without one it needs `--force`.
 //!
@@ -213,20 +214,48 @@ pub fn verify(work_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-/// `comline store prune`: remove the backups, which the command is the
-/// user's say-so for. Core removes them only if the store that replaced them
-/// passes `verify`, and says why when it won't.
-pub fn prune(work_dir: &Path) -> Result<()> {
+/// `comline store prune`: remove the backups. On a terminal the user is
+/// shown exactly which ones and asked; without one `--force` is the way to
+/// say it. Core removes them only if the store that replaced them passes
+/// `verify`, and says why when it won't.
+pub fn prune(work_dir: &Path, force: bool) -> Result<()> {
     ensure_project(work_dir)?;
-    if backups(work_dir)
-        .map_err(|e| error::from_core("couldn't list the backups", e))?
-        .is_empty()
-    {
+    let found = backups(work_dir).map_err(|e| error::from_core("couldn't list the backups", e))?;
+    if found.is_empty() {
         ui::success("No backups to remove");
         return Ok(());
     }
+
+    let consent = if force {
+        Consent::Command
+    } else if interactive() {
+        let mut output = io::stdout();
+        writeln!(output, "These backups would be removed:").into_diagnostic()?;
+        for backup in &found {
+            let format = backup.format.map_or_else(
+                || "unknown IR format".to_string(),
+                |n| format!("IR format {n}"),
+            );
+            writeln!(
+                output,
+                "  {} ({format})",
+                ui::shown_path(work_dir, &backup.dir)
+            )
+            .into_diagnostic()?;
+        }
+        let question = format!("Remove {} backup(s)? This cannot be undone.", found.len());
+        let stdin = io::stdin();
+        if !ask(&mut stdin.lock(), &mut output, &question)? {
+            ui::note("Cancelled: nothing was removed");
+            return Ok(());
+        }
+        Consent::Confirmed
+    } else {
+        return Err(CliError::PruneConfirmationRequired.into());
+    };
+
     let pruned = Engine::current()
-        .prune(work_dir, Consent::Command)
+        .prune(work_dir, consent)
         .map_err(|e| error::from_core("couldn't prune the backups", e))?;
     ui::success(format!("Removed {} backup(s)", pruned.removed.len()));
     for backup in &pruned.removed {
