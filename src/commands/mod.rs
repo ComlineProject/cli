@@ -19,6 +19,7 @@ pub mod pin;
 pub mod release;
 pub mod remove;
 pub mod reset;
+pub mod store;
 pub mod targets;
 
 use std::path::Path;

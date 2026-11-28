@@ -27,6 +27,7 @@ This is the long-form reference. For a two-minute tour see the
   - [`doc`](#comline-doc)
   - [`conformance`](#comline-conformance)
   - [`reset`](#comline-reset)
+  - [`store`](#comline-store)
   - [`completions`](#comline-completions)
 - [Global flags](#global-flags)
 - [Output and exit codes](#output-and-exit-codes)
@@ -123,7 +124,9 @@ comparison between any two stored versions on demand.
 The chain in `.comline/` is the only copy of this history — there is no publish
 step yet. [`comline generation clean`](#comline-generation-clean) does **not** touch it; only
 [`comline reset`](#comline-reset) discards it, after which the next build starts
-over at `0.1.0-dev.1`.
+over at `0.1.0-dev.1`. When the format it is stored in changes,
+[`comline store migrate`](#comline-store) migrates it, and
+`comline store reset` moves it aside; neither deletes anything.
 
 ## Commands
 
@@ -833,6 +836,63 @@ comline reset            # asks for confirmation
 comline reset --force    # scripted
 ```
 
+### `comline store`
+
+```
+comline store status
+comline store migrate [--check] [--assume-format <N>] [--map <FILE>] [--restart]
+comline store verify
+comline store prune
+comline store reset [--force]
+```
+
+Look after `.comline/` when the IR format it is stored in changes. **Nothing is
+deleted or changed unless you run the command that does it.** `build` and
+`release` stop on a store they can't use as it is, say so, and name the command
+that fixes it (exit `2`). On a terminal they ask whether to run
+`comline store migrate` and go on if you say yes; without a terminal (CI) they
+fail with that message. They never reset, and never offer to. No flag or
+environment variable makes a command migrate or reset by itself.
+
+- `status` shows the format the store is stamped with and the one this comline
+  writes, whether it can be used as it is, each version with the unknowns it
+  records, and the backups there are. Reads only.
+- `migrate` migrates the store a step at a time. The new store is written beside
+  the old one (`.comline.migrating/`), verified, and swapped in; the old one is
+  kept as `.comline.format-N.bak/`, and `deps-cache/` moves with the new store.
+  An interrupted migration is finished by running it again; on a migrated store
+  it does nothing.
+  - `--check` plans the migration and stops. It writes nothing, and prints what
+    would happen. Exit `0`: nothing to do. `2`: it would migrate. `3`: it would
+    be refused (the reason is printed). It runs in CI as a guard ("the
+    checked-in store is current") and by hand before an upgrade.
+  - `--assume-format <N>` names the format of a store that has lost its
+    `FORMAT_VERSION` stamp. Every object must decode under it.
+  - `--map <FILE>` writes the old and new hash of every commit, one
+    `<old> <new>` line each, oldest first, for anything outside the store that
+    recorded a hash.
+  - `--restart` removes a partial `.comline.migrating/` (one that failed
+    verification, or that the store has moved on from) and migrates again.
+- `verify` checks that every object matches its hash, every reference resolves
+  and every version decodes. A damaged store names the file (exit `1`). Reads
+  only.
+- `prune` removes the `.comline.format-N.bak/` backups, only if the store that
+  replaced them passes `verify`. Nothing else removes one, however old.
+- `reset` moves `.comline/` to `.comline.format-N.bak/` and starts a new store
+  at the next build. It is for a store with no path to the current format. It
+  deletes nothing, `deps-cache/` stays, and a store written by a newer comline
+  is never reset. On a terminal it shows what it will do and asks; without one
+  it refuses with exit `2` unless `--force` is given.
+
+`comline new` adds `.comline.*.bak/` to the `.gitignore` it writes, so a backup
+shows up as ignored, not as something to commit.
+
+```bash
+comline store migrate --check   # exit 0, 2 or 3
+comline store migrate
+comline store prune
+```
+
 ### `comline completions`
 
 ```
@@ -880,7 +940,7 @@ Exit codes are stable for scripting and CI:
 |---|---|
 | `0` | success |
 | `1` | the command ran but failed — invalid schema, unresolved `diff` argument, a generator or filesystem error |
-| `2` | a precondition was not met — the directory is not a Comline project, nothing has been built yet, or a destructive command (`reset`) was not confirmed. `clap` also exits `2` for usage errors. |
+| `2` | a precondition was not met — the directory is not a Comline project, nothing has been built yet, a destructive command (`reset`) was not confirmed, or the store in `.comline/` can't be used as it is (see [`comline store`](#comline-store)). `clap` also exits `2` for usage errors. `comline store migrate --check` uses `2` for "would migrate" and `3` for "would be refused". |
 
 ```bash
 if ! comline check --quiet; then

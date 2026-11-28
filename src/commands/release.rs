@@ -18,7 +18,7 @@ use miette::{IntoDiagnostic, Result};
 
 use crate::changes;
 use crate::cli::ReleaseLevel as Level;
-use crate::commands::ensure_project;
+use crate::commands::{ensure_project, store};
 use crate::error::{self, CliError};
 use crate::history;
 use crate::ui;
@@ -42,7 +42,13 @@ pub fn run(
     // A store this comline can't read is refused here, before anything is
     // built: `build` below refuses it too (core never rewrites a mismatched
     // store), but a release is made on top of the history, so say so first.
-    history::ensure_readable(work_dir)?;
+    // On a terminal the user is asked whether to migrate it, and nothing is
+    // changed unless they say yes.
+    if let Err(report) = history::ensure_readable(work_dir) {
+        if !store::offer_migration(work_dir, &report)? {
+            return Err(report);
+        }
+    }
     let stable = match version {
         None => false,
         Some("1.0" | "1.0.0") => true,

@@ -25,4 +25,5 @@ mod pin;
 mod release;
 mod remove;
 mod reset;
+mod store;
 mod store_stamp;

@@ -19,7 +19,7 @@ use miette::Result;
 use crate::bounds_migration;
 use crate::changes;
 use crate::commands::generation::generator_registry;
-use crate::commands::{core_err, ensure_project};
+use crate::commands::{core_err, ensure_project, store};
 use crate::error;
 use crate::lang_targets;
 use crate::ui;
@@ -34,7 +34,17 @@ pub fn run(work_dir: &Path, watching: bool, reconcile: Option<&str>) -> Result<(
     if watching {
         watch::run(work_dir, "build", || build_once(work_dir, false))
     } else {
-        build_once(work_dir, true)
+        build_asking(work_dir)
+    }
+}
+
+/// A build that, on a terminal, asks whether to run `comline store migrate`
+/// when the store is one it can't use as it is, and builds again if the user
+/// says yes. Without a terminal, or on a no, it fails as it always did.
+fn build_asking(work_dir: &Path) -> Result<()> {
+    match build_once(work_dir, true) {
+        Err(report) if store::offer_migration(work_dir, &report)? => build_once(work_dir, true),
+        built => built,
     }
 }
 
