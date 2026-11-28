@@ -83,7 +83,9 @@ fn the_store_error_shows_its_help_after_the_message() {
         message.starts_with("error: the version history"),
         "{stderr}"
     );
-    assert!(help.contains("`comline reset` deletes it"), "{stderr}");
+    assert!(help.contains("`comline store migrate`"), "{stderr}");
+    assert!(help.contains("`comline store reset`"), "{stderr}");
+    assert!(!help.contains("deletes"), "{stderr}");
 }
 
 #[test]

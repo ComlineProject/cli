@@ -34,6 +34,13 @@ fn scaffolds_a_buildable_project() {
         "{gitignore}"
     );
     assert!(!gitignore.lines().any(|l| l == ".comline/"), "{gitignore}");
+    // What a migration or a reset sets aside is not the history: it shows in
+    // `git status` until `comline store prune`, but is never committed by
+    // accident.
+    assert!(
+        gitignore.lines().any(|l| l == ".comline.*.bak/"),
+        "{gitignore}"
+    );
     assert!(
         gitignore.lines().any(|l| l == "docs/api/html/"),
         "{gitignore}"

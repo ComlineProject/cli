@@ -27,6 +27,8 @@ const GITIGNORE: &str = "\
 # `.comline/` holds the package's version history: commit it.
 # Fetched git dependencies are a local cache.
 .comline/deps-cache/
+# What `comline store migrate` and `reset` set aside, until `comline store prune`.
+.comline.*.bak/
 # `comline doc --format html`: a generated site, rebuilt from `.comline/`.
 docs/api/html/
 ";

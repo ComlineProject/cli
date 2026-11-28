@@ -339,7 +339,8 @@ Examples:
 Delete the project's `.comline/` content-addressable store — every frozen \
 version and the commit chain. Generated code is removed too. This cannot be \
 undone and nothing else holds the history, so the next `build` starts over at \
-0.1.0-dev.1.
+0.1.0-dev.1. To keep the history and start a new one, `comline store reset` \
+moves `.comline/` aside instead of deleting it.
 
 Requires confirmation: on a terminal you are asked to type `reset`; otherwise \
 pass `--force`.")]
@@ -351,6 +352,31 @@ pass `--force`.")]
         /// List what would be removed without deleting anything
         #[arg(long)]
         dry_run: bool,
+    },
+
+    /// Look after the version history: its format, migrations, backups
+    #[command(long_about = "\
+Look after `.comline/`, the project's version history, when the IR format it is \
+stored in changes. A store is migrated from the format it is stamped with to \
+the one this comline writes, in memory first and then beside the old store, \
+which is kept as `.comline.format-N.bak/` until `comline store prune`.
+
+Nothing is deleted or changed unless you run the command that does it: `build` \
+and `release` stop on a store they can't use as it is and name the command \
+that fixes it. On a terminal they ask whether to run `comline store migrate`, \
+and do nothing without a yes. There is no flag or variable that makes any \
+command migrate or reset by itself.
+
+Examples:
+  comline store status
+  comline store migrate --check
+  comline store migrate
+  comline store verify
+  comline store prune
+  comline store reset")]
+    Store {
+        #[command(subcommand)]
+        command: StoreCommand,
     },
 
     /// Create a new Comline project in a new directory
@@ -654,6 +680,93 @@ Examples:
         /// Show what would be removed without writing anything
         #[arg(long)]
         dry_run: bool,
+    },
+}
+
+/// `comline store <subcommand>`.
+#[derive(Debug, clap::Subcommand)]
+pub enum StoreCommand {
+    /// Show the store's format, its versions, and whether it needs migrating
+    #[command(long_about = "\
+Show the IR format `.comline/` is stamped with and the one this comline writes, \
+whether the store can be used as it is or needs `comline store migrate` (or \
+`reset`), the versions in it with the unknowns each records, and the backups \
+left beside it. Reads only.")]
+    Status,
+
+    /// Migrate the store to the format this comline writes
+    #[command(long_about = "\
+Migrate `.comline/` from the format it is stamped with to the one this comline \
+writes, a step at a time. The migrated store is written beside the old one, \
+verified, and swapped in; the old one is kept as `.comline.format-N.bak/` until \
+`comline store prune`, and `deps-cache/` moves with the new store. An \
+interrupted migration is finished by running this again. On a migrated store it \
+does nothing.
+
+`--check` plans the migration and stops: it writes nothing (no lock, no \
+directory) and prints what would happen. Its exit code is 0 for nothing to do, \
+2 for would migrate, 3 for would be refused, so it works as a CI guard (\"the \
+checked-in store is current\") and before an upgrade.
+
+Examples:
+  comline store migrate --check
+  comline store migrate
+  comline store migrate --assume-format 3
+  comline store migrate --map hashes.txt")]
+    Migrate {
+        /// Plan the migration and print it; write nothing. Exits 0 (nothing to do), 2 (would migrate), 3 (would be refused)
+        #[arg(long, conflicts_with_all = ["map", "restart"])]
+        check: bool,
+
+        /// The format of a store that has lost its `FORMAT_VERSION` stamp; every object must decode under it
+        #[arg(long, value_name = "N")]
+        assume_format: Option<u32>,
+
+        /// Write the old and new hash of every commit to FILE, one `<old> <new>` line each, oldest first
+        #[arg(long, value_name = "FILE")]
+        map: Option<PathBuf>,
+
+        /// Remove a partial `.comline.migrating/` (one that failed verification, or that the store has moved on from) and migrate again
+        #[arg(long)]
+        restart: bool,
+    },
+
+    /// Check the store: every object, reference and version
+    #[command(long_about = "\
+Run the checks on the store as it is: every object decompresses and matches its \
+hash, every reference resolves, and every version decodes. A damaged store says \
+which file, and what to do. Reads only. The exit code is 1 when the store fails.")]
+    Verify,
+
+    /// Remove the backups a migration or a reset left
+    #[command(long_about = "\
+Remove the `.comline.format-N.bak/` backups beside `.comline/`. A backup is \
+removed only when the store that replaced it passes `comline store verify`; \
+until you run this nothing removes one, however long it has been there. \
+This cannot be undone.
+
+On a terminal you are shown which backups would go and asked to confirm; \
+without one, pass `--force`. With no backups it says so and asks nothing.")]
+    Prune {
+        /// Don't ask: the command is the confirmation (needed without a terminal)
+        #[arg(long)]
+        force: bool,
+    },
+
+    /// Move the store aside and start a new version history
+    #[command(long_about = "\
+Move `.comline/` to `.comline.format-N.bak/` and start a new store at the next \
+build. This is the way on for a store with no path to the current format (an \
+older one nothing migrates, one with no stamp). Nothing is deleted: the backup \
+keeps every version until `comline store prune`, and `deps-cache/` stays. A \
+store written by a newer comline is never reset.
+
+On a terminal you are shown exactly what it will do and asked to confirm it; \
+without one, pass `--force`. No other command resets a store or offers to.")]
+    Reset {
+        /// Don't ask: the command is the confirmation (needed without a terminal)
+        #[arg(long)]
+        force: bool,
     },
 }
 

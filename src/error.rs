@@ -9,9 +9,14 @@
 //! | 1    | the command ran but failed (build error, bad diff…) |
 //! | 2    | preconditions not met (not a Comline project, …)    |
 //! |      | (clap also exits 2 for usage errors)                |
+//!
+//! `comline store migrate --check` has codes of its own, since it reports
+//! rather than fails (see [`CliError::Exit`]): 0 nothing to migrate, 2 a
+//! migration would run, 3 it would be refused.
 
 use std::path::PathBuf;
 
+use comline_core::package::build::cas::migrate::MigrateError;
 use comline_core::package::build::cas::object_store::StoreError;
 use miette::Diagnostic;
 use thiserror::Error;
@@ -34,15 +39,45 @@ pub enum CliError {
     NothingBuilt(PathBuf),
 
     /// The store in `.comline/` can't be used by this comline: another IR
-    /// format, no stamp, or a stamp that isn't one. Core's own message,
-    /// which says nothing was changed. No command changes the store to
-    /// resolve it; only an explicit `comline reset` deletes it.
+    /// format, no stamp, a stamp that isn't one, or a migration or reset
+    /// that was interrupted. Core's own message, which says nothing was
+    /// changed, and names the command that fixes it where there is one.
+    /// No command changes the store to get past this: only the user's
+    /// `comline store migrate` and `comline store reset` do.
     #[error("{0}")]
     #[diagnostic(help(
-        "no command changes `.comline/` to get past this. If you don't need the history, \
-         `comline reset` deletes it (after asking, and keeping `.comline/deps-cache/`)"
+        "no command changes `.comline/` to get past this. `comline store status` says what \
+         there is; `comline store migrate` (`--check` shows what it would do first) migrates \
+         it, and `comline store reset` moves it aside to start a new history, keeping \
+         `.comline/deps-cache/` and deleting nothing"
     ))]
     Store(StoreError),
+
+    /// The engine refused a `comline store` command, and said why in its own
+    /// words: nothing to reset, a store that is never reset, a prune with
+    /// nothing verified to replace the backups, an option that doesn't apply,
+    /// an earlier attempt still on disk. Nothing was changed.
+    #[error("{0}")]
+    StoreRefused(MigrateError),
+
+    /// Not a failure to print: the exit code `comline store migrate --check`
+    /// reports (what it found was already printed).
+    #[error("exit {0}")]
+    Exit(i32),
+
+    #[error("refusing to remove the backups without confirmation")]
+    #[diagnostic(help(
+        "re-run in a terminal to be asked, or pass `--force`. Only the backups a migration or a \
+         reset left are removed, and only if the store that replaced them verifies"
+    ))]
+    PruneConfirmationRequired,
+
+    #[error("refusing to reset the version history without confirmation")]
+    #[diagnostic(help(
+        "re-run in a terminal to be asked, or pass `--force`. Nothing is deleted either way: \
+         the store is moved aside until `comline store prune`"
+    ))]
+    ResetConfirmationRequired,
 
     #[error("refusing to delete the version history without confirmation")]
     #[diagnostic(help("re-run in a terminal to confirm, or pass `--force`"))]
@@ -63,13 +98,24 @@ pub enum CliError {
 
 /// A `comline-core` error as the CLI reports it: a store core refused
 /// ([`StoreError`], which core carries in the `eyre` report) becomes
-/// [`CliError::Store`], a precondition (exit 2) with core's message
-/// as it is; anything else is `context` plus the detail, as
+/// [`CliError::Store`], and an engine refusal that is a precondition
+/// ([`MigrateError`]: nothing to reset, a store that is never reset, a prune
+/// refused) becomes [`CliError::StoreRefused`], both exit 2 with core's
+/// message as it is; anything else is `context` plus the detail, as
 /// [`crate::commands::core_err`] has it.
 pub fn from_core(context: &str, e: eyre::Report) -> miette::Report {
-    match e.downcast_ref::<StoreError>() {
-        Some(store) => CliError::Store(store.clone()).into(),
-        None => crate::commands::core_err(context, e),
+    if let Some(store) = e.downcast_ref::<StoreError>() {
+        return CliError::Store(store.clone()).into();
+    }
+    match e.downcast_ref::<MigrateError>() {
+        Some(
+            refused @ (MigrateError::NothingToReset
+            | MigrateError::ResetRefused { .. }
+            | MigrateError::PruneRefused { .. }
+            | MigrateError::Assume { .. }
+            | MigrateError::Leftover { .. }),
+        ) => CliError::StoreRefused(refused.clone()).into(),
+        _ => crate::commands::core_err(context, e),
     }
 }
 
@@ -79,6 +125,10 @@ pub fn exit_code_for(report: &miette::Report) -> i32 {
         Some(CliError::NotAProject(_)) => EXIT_PRECONDITION,
         Some(CliError::NothingBuilt(_)) => EXIT_PRECONDITION,
         Some(CliError::Store(_)) => EXIT_PRECONDITION,
+        Some(CliError::StoreRefused(_)) => EXIT_PRECONDITION,
+        Some(CliError::Exit(code)) => *code,
+        Some(CliError::ResetConfirmationRequired) => EXIT_PRECONDITION,
+        Some(CliError::PruneConfirmationRequired) => EXIT_PRECONDITION,
         Some(CliError::ConfirmationRequired) => EXIT_PRECONDITION,
         Some(CliError::AcceptanceRequired { .. }) => EXIT_PRECONDITION,
         Some(CliError::ReleaseConfirmationRequired { .. }) => EXIT_PRECONDITION,

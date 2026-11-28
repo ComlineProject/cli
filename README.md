@@ -41,6 +41,11 @@ comline generation         # write generated code for each configured target
 | `comline conformance --impl <cmd> [--encoding <name>] [--corpus <dir>]` | Run an encoding's implementation (a process speaking the conformance ops protocol) against the vectors its package ships beside each profile (`profiles/x.json` → `profiles/x.vectors.json`). Reports proven facts and failed cases with byte diffs; exits `1` on any failure. |
 | `comline generation clean [--dry-run] [--target <lang>]` | Remove the `generation` output (the output root, or the individual files), or just one language's with `--target`. Leaves `.comline/` alone. |
 | `comline reset [--force] [--dry-run]` | Discard the version history: delete `.comline/` and generated code. Asks for confirmation on a terminal; needs `--force` otherwise. No undo — the next build restarts at `0.1.0-dev.1`. |
+| `comline store status` | Show the store's IR format, its versions, whether it needs migrating, and the backups beside it. Reads only. |
+| `comline store migrate [--check] [--assume-format N] [--map FILE] [--restart]` | Migrate `.comline/` to the format this comline writes. The old store is kept as `.comline.format-N.bak/`. `--check` writes nothing and exits `0` (nothing to do), `2` (would migrate) or `3` (would be refused). |
+| `comline store verify` | Check every object, reference and version of the store. Reads only. |
+| `comline store prune [--force]` | Remove the backups a migration or a reset left, once the store that replaced them verifies. Lists them and asks on a terminal; needs `--force` otherwise. |
+| `comline store reset [--force]` | Move `.comline/` aside to a backup and start a new history at the next build. Deletes nothing. Asks on a terminal; needs `--force` otherwise. |
 | `comline completions <shell>` | Print a shell completion script to stdout. |
 
 Global flags: `--path <dir>` to run outside the current directory, `-v`/`-vv` for
@@ -68,7 +73,7 @@ demand.
 |---|---|
 | `0` | success |
 | `1` | the command ran but failed |
-| `2` | a precondition was not met (not a Comline project, nothing built yet, `reset` not confirmed) or a usage error |
+| `2` | a precondition was not met (not a Comline project, nothing built yet, `reset` not confirmed, a store `build` can't use as it is) or a usage error. `comline store migrate --check` also exits `2` for "would migrate" and `3` for "would be refused" |
 
 ## Development
 

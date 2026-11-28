@@ -17,7 +17,7 @@ use clap::{CommandFactory, FromArgMatches};
 use miette::Result;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use cli::{Cli, Commands, DepsCommand, GenerationCommand};
+use cli::{Cli, Commands, DepsCommand, GenerationCommand, StoreCommand};
 
 fn main() -> ExitCode {
     reset_sigpipe();
@@ -33,6 +33,14 @@ fn main() -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(report) => {
             let code = error::exit_code_for(&report);
+            // `store migrate --check` reports through its exit code; what it
+            // found is already printed.
+            if matches!(
+                report.downcast_ref::<error::CliError>(),
+                Some(error::CliError::Exit(_))
+            ) {
+                return ExitCode::from(code as u8);
+            }
             ui::error(format!("{report}"));
             for cause in report.chain().skip(1) {
                 ui::error(format!("  caused by: {cause}"));
@@ -184,6 +192,26 @@ fn run(cli: Cli) -> Result<()> {
         }
         Commands::Diff { old, new } => commands::diff::run(&work_dir, &old, &new),
         Commands::Reset { force, dry_run } => commands::reset::run(&work_dir, force, dry_run),
+        Commands::Store { command } => match command {
+            StoreCommand::Status => commands::store::status(&work_dir),
+            StoreCommand::Migrate {
+                check,
+                assume_format,
+                map,
+                restart,
+            } => commands::store::migrate(
+                &work_dir,
+                commands::store::MigrateFlags {
+                    check,
+                    assume_format,
+                    map,
+                    restart,
+                },
+            ),
+            StoreCommand::Verify => commands::store::verify(&work_dir),
+            StoreCommand::Prune { force } => commands::store::prune(&work_dir, force),
+            StoreCommand::Reset { force } => commands::store::reset(&work_dir, force),
+        },
         Commands::New { name, git } => commands::new::run(&work_dir, &name, git),
         Commands::Deps { command } => match command {
             DepsCommand::Add {
